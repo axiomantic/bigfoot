@@ -33,14 +33,14 @@ def test_mock_plugin_records_and_asserts_collaborator_interaction() -> None:
 
     with verifier.sandbox() as v:
         result = service_proxy.charge("order_99", amount=500)
-        v.assert_interaction(
-            service_proxy.charge,
-            method_name="charge",
-            args="('order_99',)",
-            kwargs="{'amount': 500}",
-        )
 
     assert result == {"status": "ok", "id": "ch_001"}
+    v.assert_interaction(
+        service_proxy.charge,
+        method_name="charge",
+        args="('order_99',)",
+        kwargs="{'amount': 500}",
+    )
     verifier.verify_all()
 
 
@@ -61,28 +61,27 @@ def test_multiple_calls_asserted_in_fifo_order() -> None:
         second = counter_proxy.tick()
         third = counter_proxy.tick()
 
-        v.assert_interaction(
-            counter_proxy.tick,
-            method_name="tick",
-            args="()",
-            kwargs="{}",
-        )
-        v.assert_interaction(
-            counter_proxy.tick,
-            method_name="tick",
-            args="()",
-            kwargs="{}",
-        )
-        v.assert_interaction(
-            counter_proxy.tick,
-            method_name="tick",
-            args="()",
-            kwargs="{}",
-        )
-
     assert first == 1
     assert second == 2
     assert third == 3
+    v.assert_interaction(
+        counter_proxy.tick,
+        method_name="tick",
+        args="()",
+        kwargs="{}",
+    )
+    v.assert_interaction(
+        counter_proxy.tick,
+        method_name="tick",
+        args="()",
+        kwargs="{}",
+    )
+    v.assert_interaction(
+        counter_proxy.tick,
+        method_name="tick",
+        args="()",
+        kwargs="{}",
+    )
     verifier.verify_all()
 
 
@@ -231,13 +230,13 @@ def test_raises_side_effect_is_recorded_and_assertable() -> None:
     with verifier.sandbox() as v:
         with pytest.raises(ConnectionError, match="db down"):
             proxy.connect()
-        v.assert_interaction(
-            proxy.connect,
-            method_name="connect",
-            args="()",
-            kwargs="{}",
-        )
 
+    v.assert_interaction(
+        proxy.connect,
+        method_name="connect",
+        args="()",
+        kwargs="{}",
+    )
     verifier.verify_all()
 
 
@@ -255,14 +254,14 @@ def test_calls_side_effect_delegates_to_fn() -> None:
 
     with verifier.sandbox() as v:
         result = proxy.add(3, 4)
-        v.assert_interaction(
-            proxy.add,
-            method_name="add",
-            args="(3, 4)",
-            kwargs="{}",
-        )
 
     assert result == 7
+    v.assert_interaction(
+        proxy.add,
+        method_name="add",
+        args="(3, 4)",
+        kwargs="{}",
+    )
     verifier.verify_all()
 
 
@@ -352,14 +351,14 @@ async def test_mock_plugin_works_in_async_context() -> None:
 
     async with verifier.sandbox() as v:
         result = proxy.fetch_data("key")
-        v.assert_interaction(
-            proxy.fetch_data,
-            method_name="fetch_data",
-            args="('key',)",
-            kwargs="{}",
-        )
 
     assert result == {"value": 42}
+    v.assert_interaction(
+        proxy.fetch_data,
+        method_name="fetch_data",
+        args="('key',)",
+        kwargs="{}",
+    )
     verifier.verify_all()
 
 
@@ -383,15 +382,15 @@ def test_http_plugin_full_cycle_httpx(bigfoot_verifier: StrictVerifier) -> None:
 
     with bigfoot_verifier.sandbox():
         response = httpx.get("https://api.stripe.com/v1/charges")
-        bigfoot_verifier.assert_interaction(
-            http.request,
-            method="GET",
-            url="https://api.stripe.com/v1/charges",
-            status=200,
-        )
 
     assert response.status_code == 200
     assert response.json() == {"id": "ch_123", "amount": 5000}
+    bigfoot_verifier.assert_interaction(
+        http.request,
+        method="GET",
+        url="https://api.stripe.com/v1/charges",
+        status=200,
+    )
     # bigfoot_verifier fixture calls verify_all() at teardown
 
 
@@ -425,19 +424,18 @@ def test_mock_and_http_plugins_tracked_in_global_fifo_order(
         auth_result = service_proxy.authenticate("user_x")
         http_response = httpx.post("https://api.example.com/data", json={})
 
-        # Assert in the same FIFO order they were called
-        bigfoot_verifier.assert_interaction(
-            service_proxy.authenticate,
-            method_name="authenticate",
-            args="('user_x',)",
-            kwargs="{}",
-        )
-        bigfoot_verifier.assert_interaction(
-            http.request,
-            method="POST",
-            url="https://api.example.com/data",
-            status=201,
-        )
-
     assert auth_result == {"token": "tok_abc"}
     assert http_response.status_code == 201
+    # Assert in the same FIFO order they were called
+    bigfoot_verifier.assert_interaction(
+        service_proxy.authenticate,
+        method_name="authenticate",
+        args="('user_x',)",
+        kwargs="{}",
+    )
+    bigfoot_verifier.assert_interaction(
+        http.request,
+        method="POST",
+        url="https://api.example.com/data",
+        status=201,
+    )

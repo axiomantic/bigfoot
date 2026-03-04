@@ -1,6 +1,7 @@
 """bigfoot: a pluggable interaction auditor for Python tests."""
 
 from bigfoot._errors import (
+    AssertionInsideSandboxError,
     BigfootError,
     ConflictError,
     InteractionMismatchError,
@@ -24,6 +25,7 @@ __all__ = [
     "InAnyOrderContext",
     "MockPlugin",
     "BigfootError",
+    "AssertionInsideSandboxError",
     "UnmockedInteractionError",
     "UnassertedInteractionsError",
     "UnusedMocksError",

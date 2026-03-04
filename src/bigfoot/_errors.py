@@ -135,6 +135,21 @@ class SandboxNotActiveError(BigfootError):
         )
 
 
+class AssertionInsideSandboxError(BigfootError):
+    """Raised when assert_interaction(), in_any_order(), or verify_all() is called
+    while a sandbox is active on that verifier instance.
+
+    Assertions must be made after the sandbox exits, not during it.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            "AssertionInsideSandboxError: assert_interaction(), in_any_order(), and verify_all() "
+            "must be called after the sandbox has exited, not while it is active. "
+            "Exit the sandbox first, then make assertions."
+        )
+
+
 class ConflictError(BigfootError):
     """Raised at activate() time if target method is already patched by another library.
 

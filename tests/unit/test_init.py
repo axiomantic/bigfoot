@@ -20,6 +20,7 @@ def test_all_contains_expected_names() -> None:
         "InAnyOrderContext",
         "MockPlugin",
         "BigfootError",
+        "AssertionInsideSandboxError",
         "UnmockedInteractionError",
         "UnassertedInteractionsError",
         "UnusedMocksError",
@@ -29,6 +30,14 @@ def test_all_contains_expected_names() -> None:
         "ConflictError",
     }
     assert set(bigfoot.__all__) == expected_all
+
+
+def test_assertion_inside_sandbox_error_importable() -> None:
+    """AssertionInsideSandboxError must be importable from the top-level package."""
+    from bigfoot import AssertionInsideSandboxError
+    from bigfoot._errors import AssertionInsideSandboxError as _AssertionInsideSandboxError
+
+    assert AssertionInsideSandboxError is _AssertionInsideSandboxError
 
 
 def test_strict_verifier_importable() -> None:

@@ -6,6 +6,7 @@ import pytest
 
 from bigfoot._context import _active_verifier, _any_order_depth
 from bigfoot._errors import (
+    AssertionInsideSandboxError,
     InteractionMismatchError,
     UnassertedInteractionsError,
     UnusedMocksError,
@@ -400,3 +401,32 @@ def test_format_mismatch_error_includes_remaining_when_present() -> None:
     assert "Remaining timeline" in exc_info.value.hint
     # Both interactions appear in the remaining section (formatted via format_interaction)
     assert exc_info.value.hint.count("[Mock] test") >= 2
+
+
+# --- Sandbox-active guard tests ---
+
+
+def test_assert_interaction_raises_if_sandbox_active() -> None:
+    """assert_interaction() raises AssertionInsideSandboxError when the verifier's sandbox is active."""
+    v = StrictVerifier()
+    source = MagicMock()
+    source.source_id = "mock:Svc.method"
+    with v.sandbox():
+        with pytest.raises(AssertionInsideSandboxError):
+            v.assert_interaction(source)
+
+
+def test_in_any_order_raises_if_sandbox_active() -> None:
+    """in_any_order() raises AssertionInsideSandboxError when the verifier's sandbox is active."""
+    v = StrictVerifier()
+    with v.sandbox():
+        with pytest.raises(AssertionInsideSandboxError):
+            v.in_any_order()
+
+
+def test_verify_all_raises_if_sandbox_active() -> None:
+    """verify_all() raises AssertionInsideSandboxError when the verifier's sandbox is active."""
+    v = StrictVerifier()
+    with v.sandbox():
+        with pytest.raises(AssertionInsideSandboxError):
+            v.verify_all()

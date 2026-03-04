@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 from bigfoot._context import _active_verifier, _any_order_depth
 from bigfoot._errors import (
+    AssertionInsideSandboxError,
     InteractionMismatchError,
     UnassertedInteractionsError,
     UnusedMocksError,
@@ -56,12 +57,18 @@ class StrictVerifier:
 
         return mock_plugin.get_or_create_proxy(name)
 
+    def _assert_no_active_sandbox(self) -> None:
+        """Raise AssertionInsideSandboxError if this verifier's sandbox is currently active."""
+        if _active_verifier.get() is self:
+            raise AssertionInsideSandboxError()
+
     def assert_interaction(
         self,
         source: _HasSourceId,
         **expected: object,
     ) -> None:
         """Assert the next interaction matches source and expected fields."""
+        self._assert_no_active_sandbox()
         source_id: str = source.source_id
 
         if _any_order_depth.get() > 0:
@@ -111,10 +118,12 @@ class StrictVerifier:
         assert_interaction() call within this block will match any unasserted
         interaction regardless of which plugin (mock or HTTP) recorded it.
         """
+        self._assert_no_active_sandbox()
         return InAnyOrderContext()
 
     def verify_all(self) -> None:
         """Run Enforcement 2 and 3. Called at teardown."""
+        self._assert_no_active_sandbox()
         unasserted = self._timeline.all_unasserted()
         unused: list[tuple[BasePlugin, Any]] = []
 

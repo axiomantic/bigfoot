@@ -7,6 +7,7 @@ each test must fail before implementation exists.
 import pytest
 
 from bigfoot._errors import (
+    AssertionInsideSandboxError,
     BigfootError,
     ConflictError,
     InteractionMismatchError,
@@ -36,6 +37,7 @@ def test_all_errors_subclass_bigfoot_error() -> None:
     assert issubclass(InteractionMismatchError, BigfootError)
     assert issubclass(SandboxNotActiveError, BigfootError)
     assert issubclass(ConflictError, BigfootError)
+    assert issubclass(AssertionInsideSandboxError, BigfootError)
 
 
 def test_all_errors_subclass_exception() -> None:
@@ -47,6 +49,7 @@ def test_all_errors_subclass_exception() -> None:
     assert issubclass(InteractionMismatchError, Exception)
     assert issubclass(SandboxNotActiveError, Exception)
     assert issubclass(ConflictError, Exception)
+    assert issubclass(AssertionInsideSandboxError, Exception)
 
 
 # ---------------------------------------------------------------------------
@@ -411,3 +414,31 @@ def test_conflict_error_str() -> None:
     assert result == (
         "ConflictError: target='urllib.request.urlopen', patcher='responses'"
     )
+
+
+# ---------------------------------------------------------------------------
+# AssertionInsideSandboxError
+# ---------------------------------------------------------------------------
+
+
+def test_assertion_inside_sandbox_error_takes_no_arguments() -> None:
+    """AssertionInsideSandboxError must be constructable with no arguments."""
+    err = AssertionInsideSandboxError()
+    assert isinstance(err, AssertionInsideSandboxError)
+
+
+def test_assertion_inside_sandbox_error_is_catchable_as_bigfoot_error() -> None:
+    """Must be raiseable and catchable via the base class."""
+    with pytest.raises(BigfootError):
+        raise AssertionInsideSandboxError()
+
+
+def test_assertion_inside_sandbox_error_str() -> None:
+    """__str__ mentions all three guarded methods and explains the constraint."""
+    err = AssertionInsideSandboxError()
+    result = str(err)
+    assert "AssertionInsideSandboxError" in result
+    assert "assert_interaction()" in result
+    assert "in_any_order()" in result
+    assert "verify_all()" in result
+    assert "sandbox" in result
