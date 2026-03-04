@@ -1,0 +1,3 @@
+# MockPlugin
+
+::: bigfoot.MockPlugin

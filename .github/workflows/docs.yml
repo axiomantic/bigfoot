@@ -1,0 +1,57 @@
+name: Docs
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to deploy (e.g. 0.1)"
+        required: true
+      set_latest:
+        description: "Set as latest"
+        type: boolean
+        default: true
+
+jobs:
+  deploy:
+    name: Deploy docs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e ".[docs]"
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Deploy versioned docs (tag push)
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"
+          MINOR="${VERSION%.*}"
+          mike deploy --push --update-aliases "$MINOR" latest
+
+      - name: Deploy docs (manual)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          ALIAS_FLAG=""
+          if [ "${{ inputs.set_latest }}" = "true" ]; then
+            ALIAS_FLAG="--update-aliases latest"
+          fi
+          mike deploy --push $ALIAS_FLAG "${{ inputs.version }}"
