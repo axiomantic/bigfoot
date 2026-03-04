@@ -150,6 +150,18 @@ class AssertionInsideSandboxError(BigfootError):
         )
 
 
+class NoActiveVerifierError(BigfootError):
+    """Raised when a module-level bigfoot function is called outside a test context."""
+
+    def __str__(self) -> str:
+        return (
+            "NoActiveVerifierError: no active bigfoot verifier. "
+            "Module-level bigfoot functions (mock, sandbox, assert_interaction, etc.) "
+            "require an active test context. Ensure bigfoot is installed as a pytest "
+            "plugin (it registers automatically) and you are running inside a pytest test."
+        )
+
+
 class ConflictError(BigfootError):
     """Raised at activate() time if target method is already patched by another library.
 

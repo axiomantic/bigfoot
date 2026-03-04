@@ -11,6 +11,7 @@ from bigfoot._errors import (
     BigfootError,
     ConflictError,
     InteractionMismatchError,
+    NoActiveVerifierError,
     SandboxNotActiveError,
     UnassertedInteractionsError,
     UnmockedInteractionError,
@@ -38,6 +39,7 @@ def test_all_errors_subclass_bigfoot_error() -> None:
     assert issubclass(SandboxNotActiveError, BigfootError)
     assert issubclass(ConflictError, BigfootError)
     assert issubclass(AssertionInsideSandboxError, BigfootError)
+    assert issubclass(NoActiveVerifierError, BigfootError)
 
 
 def test_all_errors_subclass_exception() -> None:
@@ -50,6 +52,7 @@ def test_all_errors_subclass_exception() -> None:
     assert issubclass(SandboxNotActiveError, Exception)
     assert issubclass(ConflictError, Exception)
     assert issubclass(AssertionInsideSandboxError, Exception)
+    assert issubclass(NoActiveVerifierError, Exception)
 
 
 # ---------------------------------------------------------------------------
@@ -442,3 +445,29 @@ def test_assertion_inside_sandbox_error_str() -> None:
     assert "in_any_order()" in result
     assert "verify_all()" in result
     assert "sandbox" in result
+
+
+# ---------------------------------------------------------------------------
+# NoActiveVerifierError
+# ---------------------------------------------------------------------------
+
+
+def test_no_active_verifier_error_takes_no_arguments() -> None:
+    """NoActiveVerifierError must be constructable with no arguments."""
+    err = NoActiveVerifierError()
+    assert isinstance(err, NoActiveVerifierError)
+
+
+def test_no_active_verifier_error_is_catchable_as_bigfoot_error() -> None:
+    """Must be raiseable and catchable via the base class."""
+    with pytest.raises(BigfootError):
+        raise NoActiveVerifierError()
+
+
+def test_no_active_verifier_error_str() -> None:
+    """__str__ explains the missing verifier context and how to fix it."""
+    err = NoActiveVerifierError()
+    result = str(err)
+    assert "NoActiveVerifierError" in result
+    assert "no active bigfoot verifier" in result
+    assert "pytest" in result

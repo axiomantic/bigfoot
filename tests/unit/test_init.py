@@ -15,12 +15,15 @@ def test_all_contains_expected_names() -> None:
     import bigfoot
 
     expected_all = {
+        # Classes
         "StrictVerifier",
         "SandboxContext",
         "InAnyOrderContext",
         "MockPlugin",
+        # Errors
         "BigfootError",
         "AssertionInsideSandboxError",
+        "NoActiveVerifierError",
         "UnmockedInteractionError",
         "UnassertedInteractionsError",
         "UnusedMocksError",
@@ -28,6 +31,14 @@ def test_all_contains_expected_names() -> None:
         "InteractionMismatchError",
         "SandboxNotActiveError",
         "ConflictError",
+        # Module-level API
+        "mock",
+        "sandbox",
+        "assert_interaction",
+        "in_any_order",
+        "verify_all",
+        "current_verifier",
+        "http",
     }
     assert set(bigfoot.__all__) == expected_all
 
@@ -159,3 +170,75 @@ def test_http_plugin_importable_if_http_extra_installed() -> None:
     from bigfoot.plugins.http import HttpPlugin as _HttpPlugin
 
     assert HttpPlugin is _HttpPlugin
+
+
+def test_no_active_verifier_error_importable() -> None:
+    """NoActiveVerifierError must be importable from the top-level package."""
+    from bigfoot import NoActiveVerifierError
+    from bigfoot._errors import NoActiveVerifierError as _NoActiveVerifierError
+
+    assert NoActiveVerifierError is _NoActiveVerifierError
+
+
+def test_module_level_mock_importable() -> None:
+    """bigfoot.mock must be importable as a callable."""
+    import bigfoot
+
+    assert callable(bigfoot.mock)
+
+
+def test_module_level_sandbox_importable() -> None:
+    """bigfoot.sandbox must be importable as a callable."""
+    import bigfoot
+
+    assert callable(bigfoot.sandbox)
+
+
+def test_module_level_assert_interaction_importable() -> None:
+    """bigfoot.assert_interaction must be importable as a callable."""
+    import bigfoot
+
+    assert callable(bigfoot.assert_interaction)
+
+
+def test_module_level_in_any_order_importable() -> None:
+    """bigfoot.in_any_order must be importable as a callable."""
+    import bigfoot
+
+    assert callable(bigfoot.in_any_order)
+
+
+def test_module_level_verify_all_importable() -> None:
+    """bigfoot.verify_all must be importable as a callable."""
+    import bigfoot
+
+    assert callable(bigfoot.verify_all)
+
+
+def test_module_level_current_verifier_importable() -> None:
+    """bigfoot.current_verifier must be importable as a callable."""
+    import bigfoot
+
+    assert callable(bigfoot.current_verifier)
+
+
+def test_module_level_http_importable() -> None:
+    """bigfoot.http must be importable as an object."""
+    import bigfoot
+
+    assert bigfoot.http is not None
+
+
+def test_module_level_mock_raises_no_active_verifier_error_outside_test() -> None:
+    """bigfoot.mock() raises NoActiveVerifierError when called outside a test context."""
+    import bigfoot
+    from bigfoot._context import _current_test_verifier
+    from bigfoot._errors import NoActiveVerifierError
+
+    # Temporarily clear the test verifier to simulate being outside a test
+    token = _current_test_verifier.set(None)
+    try:
+        with pytest.raises(NoActiveVerifierError):
+            bigfoot.mock("SomeService")
+    finally:
+        _current_test_verifier.reset(token)

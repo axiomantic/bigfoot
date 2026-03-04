@@ -23,6 +23,10 @@ _any_order_depth: contextvars.ContextVar[int] = contextvars.ContextVar(
     "bigfoot_any_order_depth", default=0
 )
 
+_current_test_verifier: contextvars.ContextVar[StrictVerifier | None] = contextvars.ContextVar(
+    "bigfoot_current_test_verifier", default=None
+)
+
 
 # ---------------------------------------------------------------------------
 # Public accessors
@@ -46,6 +50,20 @@ def _get_verifier_or_raise(source_id: str) -> StrictVerifier:
     verifier = _active_verifier.get()
     if verifier is None:
         raise SandboxNotActiveError(source_id=source_id)
+    return verifier
+
+
+def _get_test_verifier_or_raise() -> StrictVerifier:
+    """Return the current test verifier, or raise NoActiveVerifierError.
+
+    Called by module-level API functions (mock, sandbox, assert_interaction, etc.)
+    when no test verifier is active.
+    """
+    from bigfoot._errors import NoActiveVerifierError
+
+    verifier = _current_test_verifier.get()
+    if verifier is None:
+        raise NoActiveVerifierError()
     return verifier
 
 

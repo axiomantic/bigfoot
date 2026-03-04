@@ -1,80 +1,112 @@
 # tests/unit/test_pytest_plugin.py
-"""Unit tests for bigfoot_verifier pytest fixture.
+"""Unit tests for bigfoot pytest fixtures.
 
-Tests verify the fixture's structural contract directly:
-- returns a StrictVerifier instance
-- registers verify_all() as a finalizer via request.addfinalizer
-- finalizer propagates exceptions raised by verify_all()
+Tests verify the structural contracts of both fixtures:
+- _bigfoot_auto_verifier: autouse generator, sets ContextVar, calls verify_all() at teardown
+- bigfoot_verifier: explicit fixture that returns the auto-verifier
 """
 from unittest.mock import MagicMock
 
 import pytest
 
+from bigfoot._context import _current_test_verifier
 from bigfoot._errors import UnassertedInteractionsError
 from bigfoot._verifier import StrictVerifier
-from bigfoot.pytest_plugin import bigfoot_verifier
+from bigfoot.pytest_plugin import _bigfoot_auto_verifier, bigfoot_verifier
+
+# ---------------------------------------------------------------------------
+# _bigfoot_auto_verifier fixture contract
+# ---------------------------------------------------------------------------
 
 
-def _make_mock_request() -> MagicMock:
-    """Return a mock pytest FixtureRequest with addfinalizer tracking."""
-    req = MagicMock(spec=["addfinalizer"])
-    req.addfinalizer = MagicMock()
-    return req
+def test_bigfoot_auto_verifier_yields_strict_verifier() -> None:
+    """_bigfoot_auto_verifier must yield a StrictVerifier instance."""
+    gen = _bigfoot_auto_verifier.__wrapped__()  # type: ignore[attr-defined]
+    verifier = next(gen)
+    try:
+        assert isinstance(verifier, StrictVerifier)
+    finally:
+        # Exhaust the generator to run teardown (verify_all on empty verifier is a no-op)
+        try:
+            next(gen)
+        except StopIteration:
+            pass
 
 
-def test_bigfoot_verifier_returns_strict_verifier() -> None:
-    """The fixture must return a StrictVerifier instance."""
-    # ESCAPE: if the fixture returned a subclass or unrelated object this would fail
-    req = _make_mock_request()
-
-    result = bigfoot_verifier.__wrapped__(req)  # type: ignore[attr-defined]
-
-    assert isinstance(result, StrictVerifier)
-
-
-def test_bigfoot_verifier_calls_addfinalizer_once() -> None:
-    """addfinalizer must be called exactly once during fixture setup."""
-    # ESCAPE: if addfinalizer was never called teardown would silently not run
-    req = _make_mock_request()
-
-    bigfoot_verifier.__wrapped__(req)  # type: ignore[attr-defined]
-
-    assert req.addfinalizer.call_count == 1
+def test_bigfoot_auto_verifier_sets_context_var_during_yield() -> None:
+    """_bigfoot_auto_verifier must set _current_test_verifier while yielded."""
+    gen = _bigfoot_auto_verifier.__wrapped__()  # type: ignore[attr-defined]
+    verifier = next(gen)
+    try:
+        assert _current_test_verifier.get() is verifier
+    finally:
+        try:
+            next(gen)
+        except StopIteration:
+            pass
 
 
-def test_bigfoot_verifier_finalizer_calls_verify_all() -> None:
-    """The registered finalizer must call verifier.verify_all()."""
-    # ESCAPE: if finalizer called a different method verify_all wouldn't run at teardown
-    req = _make_mock_request()
-
-    result = bigfoot_verifier.__wrapped__(req)  # type: ignore[attr-defined]
-
-    # Extract the finalizer that was registered
-    (finalizer,), _ = req.addfinalizer.call_args
-
-    # Patch verify_all on the returned verifier to track calls
-    result.verify_all = MagicMock()
-    finalizer()
-
-    result.verify_all.assert_called_once_with()
+def test_bigfoot_auto_verifier_resets_context_var_after_teardown() -> None:
+    """_bigfoot_auto_verifier must reset _current_test_verifier after yield."""
+    original = _current_test_verifier.get()
+    gen = _bigfoot_auto_verifier.__wrapped__()  # type: ignore[attr-defined]
+    next(gen)
+    try:
+        next(gen)
+    except StopIteration:
+        pass
+    assert _current_test_verifier.get() is original
 
 
-def test_bigfoot_verifier_finalizer_propagates_verify_all_exception() -> None:
-    """If verify_all() raises, the exception must propagate from the finalizer."""
-    # ESCAPE: if the finalizer swallowed exceptions test failures would be silenced
-    req = _make_mock_request()
+def test_bigfoot_auto_verifier_calls_verify_all_at_teardown() -> None:
+    """_bigfoot_auto_verifier must call verifier.verify_all() at teardown."""
+    gen = _bigfoot_auto_verifier.__wrapped__()  # type: ignore[attr-defined]
+    verifier = next(gen)
+    verifier.verify_all = MagicMock()
+    try:
+        next(gen)
+    except StopIteration:
+        pass
+    verifier.verify_all.assert_called_once_with()
 
-    result = bigfoot_verifier.__wrapped__(req)  # type: ignore[attr-defined]
 
-    (finalizer,), _ = req.addfinalizer.call_args
-
+def test_bigfoot_auto_verifier_teardown_propagates_verify_all_exception() -> None:
+    """If verify_all() raises, the exception must propagate from the generator teardown."""
+    gen = _bigfoot_auto_verifier.__wrapped__()  # type: ignore[attr-defined]
+    verifier = next(gen)
     expected_error = UnassertedInteractionsError(
         interactions=[object()],
         hint="1 unasserted interaction",
     )
-    result.verify_all = MagicMock(side_effect=expected_error)
+    verifier.verify_all = MagicMock(side_effect=expected_error)
 
     with pytest.raises(UnassertedInteractionsError) as exc_info:
-        finalizer()
+        try:
+            next(gen)
+        except StopIteration:
+            pass
 
     assert exc_info.value is expected_error
+
+
+# ---------------------------------------------------------------------------
+# bigfoot_verifier explicit fixture contract
+# ---------------------------------------------------------------------------
+
+
+def test_bigfoot_verifier_returns_auto_verifier() -> None:
+    """bigfoot_verifier must return the same StrictVerifier as the auto-verifier."""
+    # Simulate: _bigfoot_auto_verifier yielded a verifier, bigfoot_verifier passes it through
+    mock_auto_verifier = MagicMock(spec=StrictVerifier)
+
+    result = bigfoot_verifier.__wrapped__(mock_auto_verifier)  # type: ignore[attr-defined]
+
+    assert result is mock_auto_verifier
+
+
+def test_bigfoot_verifier_returns_strict_verifier_instance() -> None:
+    """The explicit fixture must return a StrictVerifier."""
+    real_verifier = StrictVerifier()
+    result = bigfoot_verifier.__wrapped__(real_verifier)  # type: ignore[attr-defined]
+    assert isinstance(result, StrictVerifier)
+    assert result is real_verifier

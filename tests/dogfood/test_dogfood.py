@@ -6,9 +6,9 @@ HttpPlugin, validating production-style usage rather than isolated unit behavior
 
 import pytest
 
+import bigfoot
 from bigfoot import (
     MockPlugin,
-    StrictVerifier,
     UnassertedInteractionsError,
     UnmockedInteractionError,
     UnusedMocksError,
@@ -24,24 +24,21 @@ pytestmark = pytest.mark.integration
 
 
 def test_mock_plugin_records_and_asserts_collaborator_interaction() -> None:
-    """Use MockPlugin to mock a collaborator, verify interaction recorded and asserted."""
-    verifier = StrictVerifier()
-    mock_plugin = MockPlugin(verifier)
-
-    service_proxy = mock_plugin.get_or_create_proxy("PaymentService")
+    """Use bigfoot.mock() to mock a collaborator, verify interaction recorded and asserted."""
+    service_proxy = bigfoot.mock("PaymentService")
     service_proxy.charge.returns({"status": "ok", "id": "ch_001"})
 
-    with verifier.sandbox() as v:
+    with bigfoot.sandbox() as v:
         result = service_proxy.charge("order_99", amount=500)
 
     assert result == {"status": "ok", "id": "ch_001"}
-    v.assert_interaction(
+    bigfoot.assert_interaction(
         service_proxy.charge,
         method_name="charge",
         args="('order_99',)",
         kwargs="{'amount': 500}",
     )
-    verifier.verify_all()
+    # verify_all() is called automatically at teardown by _bigfoot_auto_verifier
 
 
 # ---------------------------------------------------------------------------
@@ -51,12 +48,10 @@ def test_mock_plugin_records_and_asserts_collaborator_interaction() -> None:
 
 def test_multiple_calls_asserted_in_fifo_order() -> None:
     """Multiple side effects consumed in FIFO order, each interaction asserted."""
-    verifier = StrictVerifier()
-    mock_plugin = MockPlugin(verifier)
-    counter_proxy = mock_plugin.get_or_create_proxy("Counter")
+    counter_proxy = bigfoot.mock("Counter")
     counter_proxy.tick.returns(1).returns(2).returns(3)
 
-    with verifier.sandbox() as v:
+    with bigfoot.sandbox():
         first = counter_proxy.tick()
         second = counter_proxy.tick()
         third = counter_proxy.tick()
@@ -64,25 +59,24 @@ def test_multiple_calls_asserted_in_fifo_order() -> None:
     assert first == 1
     assert second == 2
     assert third == 3
-    v.assert_interaction(
+    bigfoot.assert_interaction(
         counter_proxy.tick,
         method_name="tick",
         args="()",
         kwargs="{}",
     )
-    v.assert_interaction(
+    bigfoot.assert_interaction(
         counter_proxy.tick,
         method_name="tick",
         args="()",
         kwargs="{}",
     )
-    v.assert_interaction(
+    bigfoot.assert_interaction(
         counter_proxy.tick,
         method_name="tick",
         args="()",
         kwargs="{}",
     )
-    verifier.verify_all()
 
 
 # ---------------------------------------------------------------------------
@@ -92,11 +86,9 @@ def test_multiple_calls_asserted_in_fifo_order() -> None:
 
 def test_unmocked_interaction_error_exact_message() -> None:
     """UnmockedInteractionError.__str__() includes source_id, args, kwargs, hint."""
-    verifier = StrictVerifier()
-    mock_plugin = MockPlugin(verifier)
-    proxy = mock_plugin.get_or_create_proxy("DataStore")
+    proxy = bigfoot.mock("DataStore")
 
-    with verifier.sandbox():
+    with bigfoot.sandbox():
         with pytest.raises(UnmockedInteractionError) as exc_info:
             proxy.fetch("user_id_123")
 
@@ -130,17 +122,15 @@ def test_unmocked_interaction_error_exact_message() -> None:
 
 def test_unasserted_interactions_error_at_teardown() -> None:
     """verify_all() raises UnassertedInteractionsError when interaction is not asserted."""
-    verifier = StrictVerifier()
-    mock_plugin = MockPlugin(verifier)
-    proxy = mock_plugin.get_or_create_proxy("Logger")
+    proxy = bigfoot.mock("Logger")
     proxy.log.returns(None)
 
-    with verifier.sandbox():
+    with bigfoot.sandbox():
         proxy.log("event_happened")
         # Deliberately skip assert_interaction
 
     with pytest.raises(UnassertedInteractionsError) as exc_info:
-        verifier.verify_all()
+        bigfoot.verify_all()
 
     err = exc_info.value
     assert len(err.interactions) == 1
@@ -162,6 +152,9 @@ def test_unasserted_interactions_error_at_teardown() -> None:
     )
     assert str(err) == expected_str
 
+    # Assert the interaction so the auto-verifier teardown does not raise again
+    bigfoot.assert_interaction(proxy.log, method_name="log", args="('event_happened',)", kwargs="{}")
+
 
 # ---------------------------------------------------------------------------
 # 5. UnusedMocksError at teardown
@@ -170,16 +163,14 @@ def test_unasserted_interactions_error_at_teardown() -> None:
 
 def test_unused_mocks_error_at_teardown() -> None:
     """verify_all() raises UnusedMocksError when a required mock is never called."""
-    verifier = StrictVerifier()
-    mock_plugin = MockPlugin(verifier)
-    proxy = mock_plugin.get_or_create_proxy("Emailer")
+    proxy = bigfoot.mock("Emailer")
     proxy.send_email.returns(True)
 
-    with verifier.sandbox():
+    with bigfoot.sandbox():
         pass  # Never call send_email
 
     with pytest.raises(UnusedMocksError) as exc_info:
-        verifier.verify_all()
+        bigfoot.verify_all()
 
     err = exc_info.value
     assert len(err.mocks) == 1
@@ -196,6 +187,22 @@ def test_unused_mocks_error_at_teardown() -> None:
     assert str(err).startswith(expected_str_prefix)
     assert str(err) == f"UnusedMocksError: 1 unused mock(s), hint={err.hint!r}"
 
+    # Mark the mock as not required so the auto-verifier teardown does not raise
+    # The mock_config is already in err.mocks; we need to drain the queue.
+    # The simplest approach: call the method inside a sandbox to consume the config.
+    # But the config was already popped from err via verify_all(). Since verify_all()
+    # raises before modifying state, the config is still in the queue. We must mark
+    # required=False on the MethodProxy to suppress the second verify_all() at teardown.
+    # Access the method proxy directly via the verifier's plugin.
+    verifier = bigfoot.current_verifier()
+    for plugin in verifier._plugins:
+        if isinstance(plugin, MockPlugin):
+            for prx in plugin._proxies.values():
+                methods = object.__getattribute__(prx, "_methods")
+                for method_proxy in methods.values():
+                    for config in method_proxy._config_queue:
+                        config.required = False
+
 
 # ---------------------------------------------------------------------------
 # 6. required(False) suppresses UnusedMocksError
@@ -204,15 +211,13 @@ def test_unused_mocks_error_at_teardown() -> None:
 
 def test_required_false_suppresses_unused_mocks_error() -> None:
     """Mocks registered with required=False do not cause UnusedMocksError."""
-    verifier = StrictVerifier()
-    mock_plugin = MockPlugin(verifier)
-    proxy = mock_plugin.get_or_create_proxy("Cache")
+    proxy = bigfoot.mock("Cache")
     proxy.get.required(False).returns(None)
 
-    with verifier.sandbox():
+    with bigfoot.sandbox():
         pass  # Never call get
 
-    verifier.verify_all()  # Must not raise
+    # verify_all() is called automatically at teardown by _bigfoot_auto_verifier -- must not raise
 
 
 # ---------------------------------------------------------------------------
@@ -222,22 +227,19 @@ def test_required_false_suppresses_unused_mocks_error() -> None:
 
 def test_raises_side_effect_is_recorded_and_assertable() -> None:
     """Interaction from .raises() is recorded in the timeline and must be asserted."""
-    verifier = StrictVerifier()
-    mock_plugin = MockPlugin(verifier)
-    proxy = mock_plugin.get_or_create_proxy("Database")
+    proxy = bigfoot.mock("Database")
     proxy.connect.raises(ConnectionError("db down"))
 
-    with verifier.sandbox() as v:
+    with bigfoot.sandbox():
         with pytest.raises(ConnectionError, match="db down"):
             proxy.connect()
 
-    v.assert_interaction(
+    bigfoot.assert_interaction(
         proxy.connect,
         method_name="connect",
         args="()",
         kwargs="{}",
     )
-    verifier.verify_all()
 
 
 # ---------------------------------------------------------------------------
@@ -247,22 +249,19 @@ def test_raises_side_effect_is_recorded_and_assertable() -> None:
 
 def test_calls_side_effect_delegates_to_fn() -> None:
     """Interaction from .calls() invokes the function with forwarded args."""
-    verifier = StrictVerifier()
-    mock_plugin = MockPlugin(verifier)
-    proxy = mock_plugin.get_or_create_proxy("Calculator")
+    proxy = bigfoot.mock("Calculator")
     proxy.add.calls(lambda x, y: x + y)
 
-    with verifier.sandbox() as v:
+    with bigfoot.sandbox():
         result = proxy.add(3, 4)
 
     assert result == 7
-    v.assert_interaction(
+    bigfoot.assert_interaction(
         proxy.add,
         method_name="add",
         args="(3, 4)",
         kwargs="{}",
     )
-    verifier.verify_all()
 
 
 # ---------------------------------------------------------------------------
@@ -272,48 +271,44 @@ def test_calls_side_effect_delegates_to_fn() -> None:
 
 def test_in_any_order_allows_out_of_order_assertions() -> None:
     """in_any_order() allows assertions in any sequence across two mock proxies."""
-    verifier = StrictVerifier()
-    mock_plugin = MockPlugin(verifier)
-    email_proxy = mock_plugin.get_or_create_proxy("Email")
-    sms_proxy = mock_plugin.get_or_create_proxy("SMS")
+    email_proxy = bigfoot.mock("Email")
+    sms_proxy = bigfoot.mock("SMS")
     email_proxy.send.returns(True)
     sms_proxy.send.returns(True)
 
-    with verifier.sandbox():
+    with bigfoot.sandbox():
         sms_proxy.send("hello")
         email_proxy.send("world")
 
     # Assert out-of-order: email first, then sms -- both occurred in reverse order
-    with verifier.in_any_order():
-        verifier.assert_interaction(
+    with bigfoot.in_any_order():
+        bigfoot.assert_interaction(
             email_proxy.send,
             method_name="send",
             args="('world',)",
             kwargs="{}",
         )
-        verifier.assert_interaction(
+        bigfoot.assert_interaction(
             sms_proxy.send,
             method_name="send",
             args="('hello',)",
             kwargs="{}",
         )
 
-    verifier.verify_all()
-
 
 # ---------------------------------------------------------------------------
-# 10. verifier.mock() lazily creates MockPlugin
+# 10. bigfoot.mock() lazily creates MockPlugin
 # ---------------------------------------------------------------------------
 
 
 def test_verifier_mock_lazily_creates_mock_plugin() -> None:
-    """verifier.mock() creates MockPlugin on first call without explicit instantiation."""
-    verifier = StrictVerifier()
+    """bigfoot.mock() creates MockPlugin on first call without explicit instantiation."""
+    verifier = bigfoot.current_verifier()
 
     # Before any mock() call, no MockPlugin registered
     assert len(verifier._plugins) == 0
 
-    proxy = verifier.mock("Service")
+    proxy = bigfoot.mock("Service")
 
     # After mock(), MockPlugin is registered
     assert len(verifier._plugins) == 1
@@ -322,17 +317,14 @@ def test_verifier_mock_lazily_creates_mock_plugin() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 11. get_or_create_proxy returns same proxy on repeated calls
+# 11. mock() returns same proxy on repeated calls
 # ---------------------------------------------------------------------------
 
 
 def test_get_or_create_proxy_returns_same_instance() -> None:
-    """get_or_create_proxy with the same name always returns the identical object."""
-    verifier = StrictVerifier()
-    mock_plugin = MockPlugin(verifier)
-
-    proxy_a = mock_plugin.get_or_create_proxy("Widget")
-    proxy_b = mock_plugin.get_or_create_proxy("Widget")
+    """bigfoot.mock() with the same name always returns the identical object."""
+    proxy_a = bigfoot.mock("Widget")
+    proxy_b = bigfoot.mock("Widget")
 
     assert proxy_a is proxy_b
 
@@ -344,22 +336,19 @@ def test_get_or_create_proxy_returns_same_instance() -> None:
 
 async def test_mock_plugin_works_in_async_context() -> None:
     """bigfoot MockPlugin correctly records interactions inside an async test."""
-    verifier = StrictVerifier()
-    mock_plugin = MockPlugin(verifier)
-    proxy = mock_plugin.get_or_create_proxy("AsyncService")
+    proxy = bigfoot.mock("AsyncService")
     proxy.fetch_data.returns({"value": 42})
 
-    async with verifier.sandbox() as v:
+    async with bigfoot.sandbox():
         result = proxy.fetch_data("key")
 
     assert result == {"value": 42}
-    v.assert_interaction(
+    bigfoot.assert_interaction(
         proxy.fetch_data,
         method_name="fetch_data",
         args="('key',)",
         kwargs="{}",
     )
-    verifier.verify_all()
 
 
 # ---------------------------------------------------------------------------
@@ -367,31 +356,29 @@ async def test_mock_plugin_works_in_async_context() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_http_plugin_full_cycle_httpx(bigfoot_verifier: StrictVerifier) -> None:
+def test_http_plugin_full_cycle_httpx() -> None:
     """Full mock + assert + verify cycle using httpx GET."""
     httpx = pytest.importorskip("httpx")
-    from bigfoot.plugins.http import HttpPlugin
 
-    http = HttpPlugin(bigfoot_verifier)
-    http.mock_response(
+    bigfoot.http.mock_response(
         "GET",
         "https://api.stripe.com/v1/charges",
         json={"id": "ch_123", "amount": 5000},
         status=200,
     )
 
-    with bigfoot_verifier.sandbox():
+    with bigfoot.sandbox():
         response = httpx.get("https://api.stripe.com/v1/charges")
 
     assert response.status_code == 200
     assert response.json() == {"id": "ch_123", "amount": 5000}
-    bigfoot_verifier.assert_interaction(
-        http.request,
+    bigfoot.assert_interaction(
+        bigfoot.http.request,
         method="GET",
         url="https://api.stripe.com/v1/charges",
         status=200,
     )
-    # bigfoot_verifier fixture calls verify_all() at teardown
+    # _bigfoot_auto_verifier fixture calls verify_all() at teardown
 
 
 # ---------------------------------------------------------------------------
@@ -399,27 +386,21 @@ def test_http_plugin_full_cycle_httpx(bigfoot_verifier: StrictVerifier) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_mock_and_http_plugins_tracked_in_global_fifo_order(
-    bigfoot_verifier: StrictVerifier,
-) -> None:
+def test_mock_and_http_plugins_tracked_in_global_fifo_order() -> None:
     """MockPlugin and HttpPlugin interactions share a global FIFO timeline."""
     httpx = pytest.importorskip("httpx")
-    from bigfoot.plugins.http import HttpPlugin
 
-    mock_plugin = MockPlugin(bigfoot_verifier)
-    http = HttpPlugin(bigfoot_verifier)
-
-    service_proxy = mock_plugin.get_or_create_proxy("AuthService")
+    service_proxy = bigfoot.mock("AuthService")
     service_proxy.authenticate.returns({"token": "tok_abc"})
 
-    http.mock_response(
+    bigfoot.http.mock_response(
         "POST",
         "https://api.example.com/data",
         json={"created": True},
         status=201,
     )
 
-    with bigfoot_verifier.sandbox():
+    with bigfoot.sandbox():
         # Call mock first, then HTTP
         auth_result = service_proxy.authenticate("user_x")
         http_response = httpx.post("https://api.example.com/data", json={})
@@ -427,14 +408,14 @@ def test_mock_and_http_plugins_tracked_in_global_fifo_order(
     assert auth_result == {"token": "tok_abc"}
     assert http_response.status_code == 201
     # Assert in the same FIFO order they were called
-    bigfoot_verifier.assert_interaction(
+    bigfoot.assert_interaction(
         service_proxy.authenticate,
         method_name="authenticate",
         args="('user_x',)",
         kwargs="{}",
     )
-    bigfoot_verifier.assert_interaction(
-        http.request,
+    bigfoot.assert_interaction(
+        bigfoot.http.request,
         method="POST",
         url="https://api.example.com/data",
         status=201,
