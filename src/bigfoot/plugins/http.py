@@ -327,7 +327,7 @@ class HttpPlugin(BasePlugin):
     def _install_urllib(self) -> None:
         HttpPlugin._original_urllib_opener = urllib.request._opener  # type: ignore[attr-defined]
 
-        class _bigfootHandler(urllib.request.BaseHandler):
+        class _BigfootHandler(urllib.request.BaseHandler):
             handler_order = 100
 
             def http_open(self, req: urllib.request.Request) -> urllib.response.addinfourl:
@@ -343,7 +343,7 @@ class HttpPlugin(BasePlugin):
             plugin = _find_http_plugin(verifier)
             return plugin._handle_urllib_request(req)
 
-        opener = urllib.request.build_opener(_bigfootHandler)
+        opener = urllib.request.build_opener(_BigfootHandler)
         urllib.request.install_opener(opener)
 
     def _patch_run_in_executor(self) -> None:
@@ -513,7 +513,9 @@ class HttpPlugin(BasePlugin):
         body_str = ""
         if data:
             body_str = (
-                data.decode("utf-8", errors="replace") if isinstance(data, bytes) else str(data)  # pragma: no cover
+                data.decode("utf-8", errors="replace")  # pragma: no cover
+                if isinstance(data, bytes)
+                else str(data)  # pragma: no cover
             )
 
         self._record_http_interaction(

@@ -7,9 +7,9 @@ each test must fail before implementation exists.
 import pytest
 
 from bigfoot._errors import (
+    BigfootError,
     ConflictError,
     InteractionMismatchError,
-    BigfootError,
     SandboxNotActiveError,
     UnassertedInteractionsError,
     UnmockedInteractionError,

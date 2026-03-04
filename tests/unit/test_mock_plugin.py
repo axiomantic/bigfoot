@@ -1143,7 +1143,7 @@ def test_method_proxy_call_raises_runtime_error_on_unknown_side_effect() -> None
     somehow constructed with a side_effect that isn't _ReturnValue, _RaiseException,
     or _CallFn, the error surface is explicit rather than silent.
     """
-    from bigfoot._mock_plugin import MockConfig, _ReturnValue
+    from bigfoot._mock_plugin import MockConfig
 
     v = StrictVerifier()
     p = MockPlugin(v)

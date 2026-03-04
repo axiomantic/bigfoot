@@ -36,7 +36,7 @@ jobs:
         run: |
           TAG_VERSION="${{ github.ref_name }}"
           TAG_VERSION="${TAG_VERSION#v}"
-          PKG_VERSION=$(python -c "import importlib.metadata; print(importlib.metadata.version('bigfoot'))")
+          PKG_VERSION=$(python -c "import re; content=open('pyproject.toml').read(); print(re.search(r'^version\s*=\s*[\"\'](.*?)[\"\']\s*$', content, re.MULTILINE).group(1))")
           if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
             echo "Tag $TAG_VERSION does not match package version $PKG_VERSION"
             exit 1
