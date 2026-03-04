@@ -1,0 +1,95 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "panoptest"
+version = "0.1.0"
+description = "A pluggable interaction auditor for Python tests."
+requires-python = ">=3.11"
+readme = "README.md"
+license = { text = "MIT" }
+keywords = ["testing", "mocking", "http", "verification"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Testing",
+    "Framework :: Pytest",
+]
+
+dependencies = []
+
+[project.optional-dependencies]
+http = [
+    "httpx>=0.25.0",
+    "requests>=2.31.0",
+]
+matchers = [
+    "dirty-equals>=0.7.0",
+]
+dev = [
+    "panoptest[http,matchers]",
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "mypy>=1.7.0",
+    "ruff>=0.1.0",
+]
+
+[project.entry-points."pytest11"]
+panoptest = "panoptest.pytest_plugin"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/panoptest"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "slow: tests that take >5 seconds",
+    "integration: tests requiring real subsystem activation",
+    "network: tests that would make real network calls (should all be intercepted by panoptest)",
+]
+
+[tool.coverage.run]
+source_pkgs = ["panoptest"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 90
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@abstractmethod",
+    "\\.\\.\\.",
+]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_ignores = true
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "ANN"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "ANN401",   # Any is acceptable in test stubs and helpers
+    "E501",     # Long lines are acceptable in ESCAPE/MUTATION analysis comments
+    "F811",     # Intentional redefinition patterns (e.g., ConcretePlugin stub then real)
+    "E402",     # Imports after pytest.importorskip() are intentional
+    "ANN001",   # Missing arg annotations in test-only helpers
+    "ANN201",   # Missing return annotations in test fixtures
+    "ANN202",   # Missing return annotations in private test helpers
+    "F841",     # Local variable assigned but unused (e.g., importorskip result used for skip)
+]
