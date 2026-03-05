@@ -1,4 +1,5 @@
 """bigfoot: a pluggable interaction auditor for Python tests."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -26,7 +27,10 @@ try:
 except ImportError:  # pragma: no cover
     pass  # http extra not installed
 
+from bigfoot.plugins.socket_plugin import SocketPlugin as _SocketPlugin  # noqa: F401
 from bigfoot.plugins.subprocess import SubprocessPlugin as _SubprocessPlugin  # noqa: F401
+
+SocketPlugin = _SocketPlugin
 
 if TYPE_CHECKING:
     from bigfoot._mock_plugin import MethodProxy, MockProxy
@@ -39,6 +43,7 @@ __all__ = [
     "SandboxContext",
     "InAnyOrderContext",
     "MockPlugin",
+    "SocketPlugin",
     # Errors
     "BigfootError",
     "AssertionInsideSandboxError",
@@ -62,6 +67,7 @@ __all__ = [
     "spy",
     "http",
     "subprocess_mock",
+    "socket_mock",
 ]
 
 
@@ -173,3 +179,29 @@ class _SubprocessProxy:
 
 
 subprocess_mock = _SubprocessProxy()
+
+
+# ---------------------------------------------------------------------------
+# Socket proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _SocketProxy:
+    """Proxy to the SocketPlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        verifier = _get_test_verifier_or_raise()
+        plugin: _SocketPlugin | None = None
+        for p in verifier._plugins:
+            if isinstance(p, _SocketPlugin):
+                plugin = p
+                break
+        if plugin is None:
+            plugin = _SocketPlugin(verifier)
+        return getattr(plugin, name)
+
+
+socket_mock = _SocketProxy()
