@@ -437,10 +437,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#step-1-create-a-strictverifier" class="md-nav__link">
+  <a href="#step-1-import-bigfoot" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 1: Create a StrictVerifier
+        Step 1: Import bigfoot
       
     </span>
   </a>
@@ -492,10 +492,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-6-verify-all" class="md-nav__link">
+  <a href="#step-6-verify-all-automatic-in-pytest" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 6: Verify all
+        Step 6: Verify all (automatic in pytest)
       
     </span>
   </a>
@@ -552,6 +552,17 @@
     <span class="md-ellipsis">
       
         VerificationError
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#assertioninsidesandboxerror" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AssertionInsideSandboxError
       
     </span>
   </a>
@@ -1019,10 +1030,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#step-1-create-a-strictverifier" class="md-nav__link">
+  <a href="#step-1-import-bigfoot" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 1: Create a StrictVerifier
+        Step 1: Import bigfoot
       
     </span>
   </a>
@@ -1074,10 +1085,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-6-verify-all" class="md-nav__link">
+  <a href="#step-6-verify-all-automatic-in-pytest" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 6: Verify all
+        Step 6: Verify all (automatic in pytest)
       
     </span>
   </a>
@@ -1140,6 +1151,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#assertioninsidesandboxerror" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AssertionInsideSandboxError
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1178,93 +1200,90 @@
 
 <h1 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h1>
 <p>This guide walks through a complete bigfoot test from setup to teardown and shows what each of the three error types looks like when violated.</p>
-<h2 id="step-1-create-a-strictverifier">Step 1: Create a StrictVerifier<a class="headerlink" href="#step-1-create-a-strictverifier" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">bigfoot</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrictVerifier</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">verifier</span> <span class="o">=</span> <span class="n">StrictVerifier</span><span class="p">()</span>
+<h2 id="step-1-import-bigfoot">Step 1: Import bigfoot<a class="headerlink" href="#step-1-import-bigfoot" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">bigfoot</span>
 </code></pre></div>
-<p><code>StrictVerifier</code> owns the timeline of recorded interactions and the plugin registry. One verifier per test is the standard pattern.</p>
+<p>bigfoot registers an autouse pytest fixture behind the scenes. Every test automatically gets a fresh <code>StrictVerifier</code>. No fixture injection or <code>conftest.py</code> changes are needed.</p>
 <h2 id="step-2-create-a-mock">Step 2: Create a mock<a class="headerlink" href="#step-2-create-a-mock" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">email</span> <span class="o">=</span> <span class="n">verifier</span><span class="o">.</span><span class="n">mock</span><span class="p">(</span><span class="s2">&quot;EmailService&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">email</span> <span class="o">=</span> <span class="n">bigfoot</span><span class="o">.</span><span class="n">mock</span><span class="p">(</span><span class="s2">&quot;EmailService&quot;</span><span class="p">)</span>
 </code></pre></div>
-<p><code>verifier.mock("EmailService")</code> returns a <code>MockProxy</code> named <code>"EmailService"</code>. The name is used in error messages and <code>assert_interaction()</code> calls. Calling <code>verifier.mock()</code> with the same name twice returns the same proxy.</p>
+<p><code>bigfoot.mock("EmailService")</code> returns a <code>MockProxy</code> named <code>"EmailService"</code>. The name is used in error messages and <code>assert_interaction()</code> calls. Calling <code>bigfoot.mock()</code> with the same name twice within a test returns the same proxy.</p>
 <h2 id="step-3-configure-return-values">Step 3: Configure return values<a class="headerlink" href="#step-3-configure-return-values" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">email</span><span class="o">.</span><span class="n">send</span><span class="o">.</span><span class="n">returns</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
 </code></pre></div>
 <p>Attribute access on a <code>MockProxy</code> returns a <code>MethodProxy</code>. <code>.returns(True)</code> appends a return-value entry to the method's FIFO queue. The first call to <code>email.send(...)</code> will return <code>True</code>, the second will use the next entry in the queue (or raise <code>UnmockedInteractionError</code> if the queue is empty).</p>
 <h2 id="step-4-enter-the-sandbox">Step 4: Enter the sandbox<a class="headerlink" href="#step-4-enter-the-sandbox" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">with</span> <span class="n">verifier</span><span class="o">.</span><span class="n">sandbox</span><span class="p">():</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">with</span> <span class="n">bigfoot</span><span class="o">.</span><span class="n">sandbox</span><span class="p">():</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">email</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">to</span><span class="o">=</span><span class="s2">&quot;user@example.com&quot;</span><span class="p">,</span> <span class="n">subject</span><span class="o">=</span><span class="s2">&quot;Welcome&quot;</span><span class="p">)</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="k">assert</span> <span class="n">result</span> <span class="ow">is</span> <span class="kc">True</span>
 </code></pre></div>
-<p><code>verifier.sandbox()</code> returns a <code>SandboxContext</code>. While inside the <code>with</code> block, all plugins are active. Any mock call is intercepted, recorded to the timeline, and dispatched to the configured side effect. Outside the sandbox, calling the mock raises <code>SandboxNotActiveError</code>.</p>
+<p><code>bigfoot.sandbox()</code> activates all plugins for the current test. Any mock call is intercepted, recorded to the timeline, and dispatched to the configured side effect. Outside the sandbox, calling the mock raises <code>SandboxNotActiveError</code>.</p>
 <h2 id="step-5-assert-interactions">Step 5: Assert interactions<a class="headerlink" href="#step-5-assert-interactions" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">verifier</span><span class="o">.</span><span class="n">assert_interaction</span><span class="p">(</span><span class="n">email</span><span class="o">.</span><span class="n">send</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">=</span><span class="s2">&quot;{&#39;to&#39;: &#39;user@example.com&#39;, &#39;subject&#39;: &#39;Welcome&#39;}&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">bigfoot</span><span class="o">.</span><span class="n">assert_interaction</span><span class="p">(</span><span class="n">email</span><span class="o">.</span><span class="n">send</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">=</span><span class="s2">&quot;{&#39;to&#39;: &#39;user@example.com&#39;, &#39;subject&#39;: &#39;Welcome&#39;}&quot;</span><span class="p">)</span>
 </code></pre></div>
-<p><code>assert_interaction()</code> takes a source object (a <code>MethodProxy</code> or the <code>HttpPlugin.request</code> sentinel) and keyword arguments that must match the recorded interaction's <code>details</code> dict. By default it checks the next unasserted interaction in sequence order. Use <code>verifier.in_any_order()</code> to relax ordering.</p>
-<h2 id="step-6-verify-all">Step 6: Verify all<a class="headerlink" href="#step-6-verify-all" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">verifier</span><span class="o">.</span><span class="n">verify_all</span><span class="p">()</span>
-</code></pre></div>
-<p><code>verify_all()</code> checks that:</p>
+<p>Assertions must happen <strong>after</strong> the sandbox exits. <code>assert_interaction()</code> takes a source object (a <code>MethodProxy</code> or <code>bigfoot.http.request</code>) and keyword arguments that must match the recorded interaction's <code>details</code> dict. By default it checks the next unasserted interaction in sequence order. Use <code>bigfoot.in_any_order()</code> to relax ordering.</p>
+<h2 id="step-6-verify-all-automatic-in-pytest">Step 6: Verify all (automatic in pytest)<a class="headerlink" href="#step-6-verify-all-automatic-in-pytest" title="Permanent link">&para;</a></h2>
+<p>In pytest, <code>verify_all()</code> is called automatically at teardown. It checks that:</p>
 <ol>
 <li>Every interaction in the timeline has been asserted (no <code>UnassertedInteractionsError</code>)</li>
 <li>Every required mock is consumed (no <code>UnusedMocksError</code>)</li>
 </ol>
-<p>When using the <code>bigfoot_verifier</code> pytest fixture, <code>verify_all()</code> is called automatically at teardown. When constructing <code>StrictVerifier</code> manually, call <code>verify_all()</code> yourself.</p>
+<p>When constructing <code>StrictVerifier</code> manually (outside pytest), call <code>verify_all()</code> yourself.</p>
 <hr />
 <h2 id="what-each-error-looks-like">What each error looks like<a class="headerlink" href="#what-each-error-looks-like" title="Permanent link">&para;</a></h2>
 <h3 id="unmockedinteractionerror">UnmockedInteractionError<a class="headerlink" href="#unmockedinteractionerror" title="Permanent link">&para;</a></h3>
-<p>Raised immediately when a mock method is called with an empty queue (or when no sandbox is active).</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>UnmockedInteractionError: source_id=&#39;mock:EmailService.send&#39;, args=(), kwargs={&#39;to&#39;: &#39;user@example.com&#39;},
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>hint=&#39;Unexpected call to EmailService.send
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>  Called with: args=(), kwargs={&#39;to&#39;: &#39;user@example.com&#39;}
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>  To mock this interaction, add before your sandbox:
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    verifier.mock(&quot;EmailService&quot;).send.returns(&lt;value&gt;)
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>
-<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>  Or to mark it optional:
-<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    verifier.mock(&quot;EmailService&quot;).send.required(False).returns(&lt;value&gt;)&#39;
+<p>Raised immediately when a mock method is called with an empty queue.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>UnmockedInteractionError: source_id=&#39;mock:EmailService.send&#39;, args=(), kwargs={&#39;to&#39;: &#39;user@example.com&#39;},
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>hint=&#39;Unexpected call to EmailService.send
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>  Called with: args=(), kwargs={&#39;to&#39;: &#39;user@example.com&#39;}
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>  To mock this interaction, add before your sandbox:
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    bigfoot.mock(&quot;EmailService&quot;).send.returns(&lt;value&gt;)
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>  Or to mark it optional:
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>    bigfoot.mock(&quot;EmailService&quot;).send.required(False).returns(&lt;value&gt;)&#39;
 </code></pre></div>
 <h3 id="unassertedinteractionserror">UnassertedInteractionsError<a class="headerlink" href="#unassertedinteractionserror" title="Permanent link">&para;</a></h3>
 <p>Raised at teardown when at least one recorded interaction was never matched by <code>assert_interaction()</code>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>UnassertedInteractionsError: 1 unasserted interaction(s), hint=&#39;1 interaction(s) were not asserted
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>  [sequence=0] [MockPlugin] EmailService.send
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    To assert this interaction:
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>      verifier.assert_interaction(verifier.mock(&quot;EmailService&quot;).send)
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>&#39;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>UnassertedInteractionsError: 1 unasserted interaction(s), hint=&#39;1 interaction(s) were not asserted
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>  [sequence=0] [MockPlugin] EmailService.send
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    To assert this interaction:
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>      bigfoot.assert_interaction(bigfoot.mock(&quot;EmailService&quot;).send)
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>&#39;
 </code></pre></div>
 <h3 id="unusedmockserror">UnusedMocksError<a class="headerlink" href="#unusedmockserror" title="Permanent link">&para;</a></h3>
 <p>Raised at teardown when a <code>required=True</code> mock was registered but never called.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>UnusedMocksError: 1 unused mock(s), hint=&#39;1 mock(s) were registered but never triggered
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>  mock:EmailService.send
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    Mock registered at:
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>      File &quot;test_email.py&quot;, line 5, in test_welcome_email
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>        email.send.returns(True)
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    Options:
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>      - Remove this mock if it&#39;s not needed
-<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>      - Mark it optional: verifier.mock(&quot;EmailService&quot;).send.required(False).returns(...)
-<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>&#39;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>UnusedMocksError: 1 unused mock(s), hint=&#39;1 mock(s) were registered but never triggered
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>  mock:EmailService.send
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    Mock registered at:
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>      File &quot;test_email.py&quot;, line 5, in test_welcome_email
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>        email.send.returns(True)
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    Options:
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>      - Remove this mock if it&#39;s not needed
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>      - Mark it optional: bigfoot.mock(&quot;EmailService&quot;).send.required(False).returns(...)
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>&#39;
 </code></pre></div>
 <h3 id="verificationerror">VerificationError<a class="headerlink" href="#verificationerror" title="Permanent link">&para;</a></h3>
 <p>Raised at teardown when both <code>UnassertedInteractionsError</code> and <code>UnusedMocksError</code> apply simultaneously. The error contains both sub-errors as <code>.unasserted</code> and <code>.unused</code> attributes.</p>
+<h3 id="assertioninsidesandboxerror">AssertionInsideSandboxError<a class="headerlink" href="#assertioninsidesandboxerror" title="Permanent link">&para;</a></h3>
+<p>Raised when <code>assert_interaction()</code>, <code>in_any_order()</code>, or <code>verify_all()</code> is called while a sandbox is still active. Assertions must happen after the sandbox exits.</p>
 <hr />
 <h2 id="complete-example">Complete example<a class="headerlink" href="#complete-example" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">bigfoot</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrictVerifier</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_welcome_email</span><span class="p">():</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="n">verifier</span> <span class="o">=</span> <span class="n">StrictVerifier</span><span class="p">()</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="n">email</span> <span class="o">=</span> <span class="n">verifier</span><span class="o">.</span><span class="n">mock</span><span class="p">(</span><span class="s2">&quot;EmailService&quot;</span><span class="p">)</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    <span class="n">email</span><span class="o">.</span><span class="n">send</span><span class="o">.</span><span class="n">returns</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>
-<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>    <span class="k">with</span> <span class="n">verifier</span><span class="o">.</span><span class="n">sandbox</span><span class="p">():</span>
-<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>        <span class="n">result</span> <span class="o">=</span> <span class="n">email</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">to</span><span class="o">=</span><span class="s2">&quot;user@example.com&quot;</span><span class="p">,</span> <span class="n">subject</span><span class="o">=</span><span class="s2">&quot;Welcome&quot;</span><span class="p">)</span>
-<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>        <span class="k">assert</span> <span class="n">result</span> <span class="ow">is</span> <span class="kc">True</span>
-<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>
-<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>    <span class="n">verifier</span><span class="o">.</span><span class="n">assert_interaction</span><span class="p">(</span><span class="n">email</span><span class="o">.</span><span class="n">send</span><span class="p">)</span>
-<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>    <span class="n">verifier</span><span class="o">.</span><span class="n">verify_all</span><span class="p">()</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">bigfoot</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_welcome_email</span><span class="p">():</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">email</span> <span class="o">=</span> <span class="n">bigfoot</span><span class="o">.</span><span class="n">mock</span><span class="p">(</span><span class="s2">&quot;EmailService&quot;</span><span class="p">)</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    <span class="n">email</span><span class="o">.</span><span class="n">send</span><span class="o">.</span><span class="n">returns</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    <span class="k">with</span> <span class="n">bigfoot</span><span class="o">.</span><span class="n">sandbox</span><span class="p">():</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>        <span class="n">result</span> <span class="o">=</span> <span class="n">email</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">to</span><span class="o">=</span><span class="s2">&quot;user@example.com&quot;</span><span class="p">,</span> <span class="n">subject</span><span class="o">=</span><span class="s2">&quot;Welcome&quot;</span><span class="p">)</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>        <span class="k">assert</span> <span class="n">result</span> <span class="ow">is</span> <span class="kc">True</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>    <span class="n">bigfoot</span><span class="o">.</span><span class="n">assert_interaction</span><span class="p">(</span><span class="n">email</span><span class="o">.</span><span class="n">send</span><span class="p">)</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>    <span class="c1"># verify_all() called automatically at teardown</span>
 </code></pre></div>
 
 
