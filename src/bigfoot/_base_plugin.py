@@ -58,6 +58,16 @@ class BasePlugin(ABC):
         """Copy-pasteable code to assert this interaction (resolves UnassertedInteractionsError)."""
 
     @abstractmethod
+    def assertable_fields(self, interaction: "Interaction") -> frozenset[str]:
+        """Return the set of field names that must appear in **expected when asserting
+        this interaction.
+
+        The verifier calls this after matching by source_id to enforce completeness:
+        any field in the returned set that is absent from **expected causes
+        MissingAssertionFieldsError to be raised.
+        """
+
+    @abstractmethod
     def get_unused_mocks(self) -> list[Any]:
         """Return MockConfig/HttpMockConfig objects never triggered. Exclude required=False."""
 
