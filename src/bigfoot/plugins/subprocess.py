@@ -5,7 +5,7 @@ import threading
 import traceback
 from collections import deque
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from bigfoot._base_plugin import BasePlugin
 from bigfoot._context import _get_verifier_or_raise
@@ -288,18 +288,18 @@ class SubprocessPlugin(BasePlugin):
         _bigfoot_subprocess_run = _run_interceptor
         _bigfoot_shutil_which = _which_interceptor
 
-        subprocess.run = _run_interceptor  # type: ignore[assignment]
+        subprocess.run = _run_interceptor
         shutil.which = _which_interceptor  # type: ignore[assignment]
 
     def _restore_patches(self) -> None:
         global _bigfoot_subprocess_run, _bigfoot_shutil_which
 
         if SubprocessPlugin._original_subprocess_run is not None:
-            subprocess.run = SubprocessPlugin._original_subprocess_run  # type: ignore[assignment]
+            subprocess.run = SubprocessPlugin._original_subprocess_run
             SubprocessPlugin._original_subprocess_run = None
 
         if SubprocessPlugin._original_shutil_which is not None:
-            shutil.which = SubprocessPlugin._original_shutil_which  # type: ignore[assignment]
+            shutil.which = SubprocessPlugin._original_shutil_which
             SubprocessPlugin._original_shutil_which = None
 
         _bigfoot_subprocess_run = None
@@ -309,7 +309,7 @@ class SubprocessPlugin(BasePlugin):
     # Request handlers
     # ------------------------------------------------------------------
 
-    def _handle_run(self, *args: Any, **kwargs: Any) -> "subprocess.CompletedProcess[str]":
+    def _handle_run(self, *args: Any, **kwargs: Any) -> "subprocess.CompletedProcess[str]":  # noqa: ANN401
         """FIFO interceptor for subprocess.run."""
         # Normalize: subprocess.run accepts cmd as first positional arg or via args= keyword
         if args:
@@ -459,12 +459,13 @@ class SubprocessPlugin(BasePlugin):
         return f"Unmocked call to source_id={source_id!r}"
 
     def format_assert_hint(self, interaction: "Interaction") -> str:
+        sm = "bigfoot.subprocess_mock"
         if interaction.source_id == _SOURCE_RUN:
             cmd = interaction.details.get("command", [])
-            return f"    bigfoot.subprocess_mock.assert_interaction(bigfoot.subprocess_mock.run, command={cmd!r})"
+            return f"    {sm}.assert_interaction({sm}.run, command={cmd!r})"
         if interaction.source_id == _SOURCE_WHICH:
             name = interaction.details.get("name", "?")
-            return f"    bigfoot.subprocess_mock.assert_interaction(bigfoot.subprocess_mock.which, name={name!r})"
+            return f"    {sm}.assert_interaction({sm}.which, name={name!r})"
         return f"    # unknown source_id={interaction.source_id!r}"
 
     def assertable_fields(self, interaction: "Interaction") -> frozenset[str]:
@@ -489,20 +490,22 @@ class SubprocessPlugin(BasePlugin):
                 )
 
         # Unused which mocks with required=True that were never called
-        for config in self._which_mocks.values():
-            if config.required and config.name not in self._which_called:
+        for wconfig in self._which_mocks.values():
+            if wconfig.required and wconfig.name not in self._which_called:
                 unused.append(
                     (
                         _SOURCE_WHICH,
-                        {"name": config.name},
-                        config.registration_traceback,
+                        {"name": wconfig.name},
+                        wconfig.registration_traceback,
                     )
                 )
 
         return unused
 
     def format_unused_mock_hint(self, mock_config: object) -> str:
-        source_id, details, registration_traceback = mock_config  # type: ignore[misc]
+        source_id, details, registration_traceback = cast(
+            tuple[str, dict[str, Any], str], mock_config
+        )
         if source_id == _SOURCE_RUN:
             cmd = details.get("command", [])
             return (

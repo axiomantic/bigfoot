@@ -7,10 +7,9 @@ from unittest.mock import MagicMock
 import pytest
 
 import bigfoot
-from bigfoot._context import _active_verifier, _current_test_verifier
+from bigfoot._context import _current_test_verifier
 from bigfoot._errors import (
     ConflictError,
-    SandboxNotActiveError,
     UnassertedInteractionsError,
     UnmockedInteractionError,
     UnusedMocksError,

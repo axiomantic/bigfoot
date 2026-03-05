@@ -92,7 +92,7 @@ def sandbox() -> SandboxContext:
 
 
 def assert_interaction(
-    source: "MethodProxy | HttpRequestSentinel | SubprocessRunSentinel | SubprocessWhichSentinel",
+    source: MethodProxy | HttpRequestSentinel | SubprocessRunSentinel | SubprocessWhichSentinel,
     **expected: object,
 ) -> None:
     """Assert the next unasserted interaction on the current test verifier."""
