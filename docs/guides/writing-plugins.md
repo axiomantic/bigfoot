@@ -4,7 +4,7 @@ bigfoot's plugin system allows you to add interception for any type of interacti
 
 ## BasePlugin contract
 
-All plugins must subclass `BasePlugin` and implement nine abstract methods. The `__init__` method must call `super().__init__(verifier)`, which registers the plugin with the verifier.
+All plugins must subclass `BasePlugin` and implement ten abstract methods. The `__init__` method must call `super().__init__(verifier)`, which registers the plugin with the verifier.
 
 ```python
 from bigfoot._base_plugin import BasePlugin
@@ -285,7 +285,7 @@ Use `StateMachinePlugin` when the protocol your plugin models has a defined sequ
 
 ### Abstract methods
 
-`StateMachinePlugin` requires four abstract methods from `BasePlugin` (`activate`, `deactivate`, and all `format_*` methods) plus three of its own:
+`StateMachinePlugin` requires seven abstract methods from `BasePlugin` (`activate`, `deactivate`, `format_interaction`, `format_mock_hint`, `format_unmocked_hint`, `format_assert_hint`, and `format_unused_mock_hint`) plus three of its own:
 
 #### `_initial_state(self) -> str`
 

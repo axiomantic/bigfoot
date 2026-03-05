@@ -104,7 +104,10 @@ class StateMachinePlugin(BasePlugin):
     Session lifecycle:
     1. Test code calls new_session() to create and queue a SessionHandle.
     2. A connection is established; the concrete plugin calls _bind_connection(conn)
-       to pop a handle from the queue and associate it with the connection object.
+       to pop a handle from the queue and register it with the connection object.
+       (Plugins where the connection object is created AFTER the queue pop -- such
+       as WebSocket plugins -- may instead pop the queue manually and call
+       _register_connection(handle, conn) to complete the binding.)
     3. Each method call on the connection delegates to _execute_step().
     4. When the connection closes, the concrete plugin calls _release_session(conn).
     """

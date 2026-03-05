@@ -1,4 +1,4 @@
-"""WebSocket plugins: AsyncWebSocketPlugin (Task 4.1) and SyncWebSocketPlugin (Task 4.2)."""
+"""WebSocket plugins: AsyncWebSocketPlugin and SyncWebSocketPlugin."""
 
 from __future__ import annotations
 
@@ -58,7 +58,7 @@ def _get_sync_websocket_plugin() -> SyncWebSocketPlugin:
 
 
 # ===========================================================================
-# Task 4.1: AsyncWebSocketPlugin
+# AsyncWebSocketPlugin
 # ===========================================================================
 
 
@@ -249,7 +249,7 @@ class AsyncWebSocketPlugin(StateMachinePlugin):
 
 
 # ===========================================================================
-# Task 4.2: SyncWebSocketPlugin
+# SyncWebSocketPlugin
 # ===========================================================================
 
 

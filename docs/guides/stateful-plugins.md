@@ -561,8 +561,7 @@ def test_redis_error():
 Raised when a method is called from a state it is not valid in. The error carries `source_id`, `method`, `current_state`, and `valid_states`.
 
 ```
-bigfoot.InvalidStateError: method='recv' called from state='disconnected';
-valid from-states: {'connected'}
+bigfoot.InvalidStateError: 'recv' called in state 'disconnected'; valid from: frozenset({'connected'})
 ```
 
 **Fix:** Check the state machine diagram for the plugin. You likely have a missing step in your session script (e.g., no `connect` step before the first `recv`), or the code under test is calling methods out of order.

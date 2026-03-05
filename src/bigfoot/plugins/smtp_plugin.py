@@ -112,6 +112,8 @@ class SmtpPlugin(StateMachinePlugin):
     sandboxes work correctly.
 
     States: disconnected -> connected -> greeted -> (authenticated|sending) -> closed
+    Note: starttls is a self-loop on 'greeted' (optional).
+    login transitions greeted -> authenticated.
     """
 
     # Class-level reference counting -- shared across all instances/verifiers.

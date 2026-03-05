@@ -1,9 +1,4 @@
-"""Unit tests for DatabasePlugin (Task 3.1).
-
-All tests use the red-green-refactor cycle. Tests were written BEFORE
-the implementation. Each test asserts exact equality against complete
-expected output -- no substring checks, no existence-only assertions.
-"""
+"""Unit tests for DatabasePlugin."""
 
 from __future__ import annotations
 
