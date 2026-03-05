@@ -27,9 +27,11 @@ try:
 except ImportError:  # pragma: no cover
     pass  # http extra not installed
 
+from bigfoot.plugins.database_plugin import DatabasePlugin as _DatabasePlugin  # noqa: F401
 from bigfoot.plugins.socket_plugin import SocketPlugin as _SocketPlugin  # noqa: F401
 from bigfoot.plugins.subprocess import SubprocessPlugin as _SubprocessPlugin  # noqa: F401
 
+DatabasePlugin = _DatabasePlugin
 SocketPlugin = _SocketPlugin
 
 if TYPE_CHECKING:
@@ -43,6 +45,7 @@ __all__ = [
     "SandboxContext",
     "InAnyOrderContext",
     "MockPlugin",
+    "DatabasePlugin",
     "SocketPlugin",
     # Errors
     "BigfootError",
@@ -68,6 +71,7 @@ __all__ = [
     "http",
     "subprocess_mock",
     "socket_mock",
+    "db_mock",
 ]
 
 
@@ -205,3 +209,29 @@ class _SocketProxy:
 
 
 socket_mock = _SocketProxy()
+
+
+# ---------------------------------------------------------------------------
+# Database proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _DatabaseProxy:
+    """Proxy to the DatabasePlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        verifier = _get_test_verifier_or_raise()
+        plugin: _DatabasePlugin | None = None
+        for p in verifier._plugins:
+            if isinstance(p, _DatabasePlugin):
+                plugin = p
+                break
+        if plugin is None:
+            plugin = _DatabasePlugin(verifier)
+        return getattr(plugin, name)
+
+
+db_mock = _DatabaseProxy()

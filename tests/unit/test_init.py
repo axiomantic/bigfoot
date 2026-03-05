@@ -20,6 +20,7 @@ def test_all_contains_expected_names() -> None:
         "SandboxContext",
         "InAnyOrderContext",
         "MockPlugin",
+        "DatabasePlugin",
         "SocketPlugin",
         # Errors
         "BigfootError",
@@ -45,6 +46,7 @@ def test_all_contains_expected_names() -> None:
         "http",
         "subprocess_mock",
         "socket_mock",
+        "db_mock",
     }
     assert set(bigfoot.__all__) == expected_all
 
