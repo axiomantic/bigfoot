@@ -321,10 +321,18 @@ db_mock = _DatabaseProxy()
 class _AsyncWebSocketProxy:
     """Proxy to the AsyncWebSocketPlugin registered on the current test verifier.
 
-    Auto-creates the plugin on first access per test.
+    Auto-creates the plugin on first access per test. Raises ImportError if the
+    websockets extra is not installed.
     """
 
     def __getattr__(self, name: str) -> object:
+        from bigfoot.plugins.websocket_plugin import _WEBSOCKETS_AVAILABLE
+
+        if not _WEBSOCKETS_AVAILABLE:
+            raise ImportError(
+                "bigfoot[websockets] is required to use bigfoot.async_websocket_mock. "
+                "Install it with: pip install bigfoot[websockets]"
+            )
         verifier = _get_test_verifier_or_raise()
         plugin: _AsyncWebSocketPlugin | None = None
         for p in verifier._plugins:
@@ -347,10 +355,18 @@ async_websocket_mock = _AsyncWebSocketProxy()
 class _SyncWebSocketProxy:
     """Proxy to the SyncWebSocketPlugin registered on the current test verifier.
 
-    Auto-creates the plugin on first access per test.
+    Auto-creates the plugin on first access per test. Raises ImportError if the
+    websocket-client extra is not installed.
     """
 
     def __getattr__(self, name: str) -> object:
+        from bigfoot.plugins.websocket_plugin import _WEBSOCKET_CLIENT_AVAILABLE
+
+        if not _WEBSOCKET_CLIENT_AVAILABLE:
+            raise ImportError(
+                "bigfoot[websocket-client] is required to use bigfoot.sync_websocket_mock. "
+                "Install it with: pip install bigfoot[websocket-client]"
+            )
         verifier = _get_test_verifier_or_raise()
         plugin: _SyncWebSocketPlugin | None = None
         for p in verifier._plugins:
