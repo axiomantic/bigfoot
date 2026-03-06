@@ -77,16 +77,30 @@ nav:
     - MockPlugin: guides/mock-plugin.md
     - HttpPlugin: guides/http-plugin.md
     - SubprocessPlugin: guides/subprocess-plugin.md
+    - PopenPlugin: guides/popen-plugin.md
+    - DatabasePlugin: guides/database-plugin.md
+    - SmtpPlugin: guides/smtp-plugin.md
+    - SocketPlugin: guides/socket-plugin.md
+    - RedisPlugin: guides/redis-plugin.md
+    - WebSocket Plugins: guides/websocket-plugin.md
+    - Stateful Plugins: guides/stateful-plugins.md
+    - Configuration: guides/configuration.md
     - Async Usage: guides/async.md
     - pytest Integration: guides/pytest-integration.md
     - Writing Plugins: guides/writing-plugins.md
-    - Stateful Plugins: guides/stateful-plugins.md
   - API Reference:
     - Overview: reference/index.md
     - StrictVerifier: reference/verifier.md
     - MockPlugin: reference/mock-plugin.md
     - HttpPlugin: reference/http-plugin.md
     - SubprocessPlugin: reference/subprocess-plugin.md
+    - PopenPlugin: reference/popen-plugin.md
+    - DatabasePlugin: reference/database-plugin.md
+    - SmtpPlugin: reference/smtp-plugin.md
+    - SocketPlugin: reference/socket-plugin.md
+    - RedisPlugin: reference/redis-plugin.md
+    - WebSocket Plugins: reference/websocket-plugin.md
+    - Configuration: reference/configuration.md
     - Errors: reference/errors.md
 
 extra:

@@ -221,6 +221,77 @@ def test_mixed():
 
 Mock responses are checked before pass-through rules. If a mock matches, the pass-through rule is not evaluated for that request. If no mock matches and a pass-through rule matches, the real call is made. If neither matches, `UnmockedInteractionError` is raised.
 
+## Requiring response assertions
+
+By default, `assert_request()` asserts only the four request fields (`method`, `url`, `request_headers`, `request_body`) and returns `None`. The `require_response` feature changes this behavior so that `assert_request()` returns an `HttpAssertionBuilder` that must be completed with a chained `.assert_response()` call. This ensures all seven fields (four request + three response) are always asserted.
+
+### Enabling via configuration
+
+Add to your `pyproject.toml`:
+
+```toml
+[tool.bigfoot.http]
+require_response = true
+```
+
+With this setting, every `assert_request()` call returns an `HttpAssertionBuilder`:
+
+```python
+import bigfoot, httpx
+
+def test_api_with_response():
+    bigfoot.http.mock_response("GET", "https://api.example.com/users", json={"users": []})
+
+    with bigfoot:
+        response = httpx.get("https://api.example.com/users")
+
+    bigfoot.http.assert_request("GET", "https://api.example.com/users") \
+        .assert_response(200, {"content-type": "application/json"}, '{"users": []}')
+```
+
+### Enabling via constructor
+
+Pass `require_response=True` when constructing the plugin manually:
+
+```python
+from bigfoot import StrictVerifier
+from bigfoot.plugins.http import HttpPlugin
+
+verifier = StrictVerifier()
+http = HttpPlugin(verifier, require_response=True)
+```
+
+### Per-call override
+
+The `require_response` parameter on `assert_request()` overrides both the constructor default and the project-level config:
+
+```python
+# Force response assertion for this call, regardless of project config:
+bigfoot.http.assert_request("GET", "https://api.example.com/data", require_response=True) \
+    .assert_response(200, {}, '{"value": 42}')
+
+# Disable response assertion for this call, even if project config enables it:
+bigfoot.http.assert_request("GET", "https://api.example.com/health", require_response=False)
+```
+
+### HttpAssertionBuilder
+
+When `require_response` is active, `assert_request()` returns an `HttpAssertionBuilder`. This builder is lazy: it records the expected request fields but does not touch the timeline until `assert_response()` is called.
+
+`assert_response(status, headers, body)` finalizes the assertion by calling `verifier.assert_interaction()` with all seven fields:
+
+```python
+builder = bigfoot.http.assert_request("POST", "https://api.example.com/items",
+                                       headers={"content-type": "application/json"},
+                                       body='{"name": "widget"}',
+                                       require_response=True)
+builder.assert_response(201, {"content-type": "application/json"}, '{"id": 1}')
+```
+
+### Configuration via pyproject.toml
+
+See the [Configuration Guide](configuration.md) for full details on `[tool.bigfoot.http]`.
+
 ## What HttpPlugin patches
 
 When the sandbox activates, `HttpPlugin` installs class-level patches on:
