@@ -18,8 +18,8 @@ from bigfoot._registry import (
 
 
 def test_plugin_registry_contains_all_plugins() -> None:
-    """PLUGIN_REGISTRY must contain exactly 11 entries (all interceptor plugins)."""
-    assert len(PLUGIN_REGISTRY) == 11
+    """PLUGIN_REGISTRY must contain exactly 13 entries (all interceptor plugins)."""
+    assert len(PLUGIN_REGISTRY) == 13
 
 
 def test_valid_plugin_names_matches_registry() -> None:
@@ -34,6 +34,8 @@ def test_valid_plugin_names_matches_registry() -> None:
         "async_websocket",
         "sync_websocket",
         "redis",
+        "psycopg2",
+        "asyncpg",
         "logging",
         "async_subprocess",
     }

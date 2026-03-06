@@ -28,6 +28,8 @@ def test_all_contains_expected_names() -> None:
         "AsyncWebSocketPlugin",
         "SyncWebSocketPlugin",
         "RedisPlugin",
+        "Psycopg2Plugin",
+        "AsyncpgPlugin",
         "AsyncSubprocessPlugin",
         # Errors
         "BigfootConfigError",
@@ -63,6 +65,8 @@ def test_all_contains_expected_names() -> None:
         "redis_mock",
         "log_mock",
         "async_subprocess_mock",
+        "psycopg2_mock",
+        "asyncpg_mock",
     }
     assert set(bigfoot.__all__) == expected_all
 

@@ -40,6 +40,16 @@ from bigfoot.plugins.logging_plugin import LoggingPlugin as _LoggingPlugin  # no
 from bigfoot.plugins.popen_plugin import PopenPlugin as _PopenPlugin  # noqa: F401
 from bigfoot.plugins.redis_plugin import RedisPlugin as _RedisPlugin  # noqa: F401
 from bigfoot.plugins.smtp_plugin import SmtpPlugin as _SmtpPlugin  # noqa: F401
+
+try:
+    from bigfoot.plugins.psycopg2_plugin import Psycopg2Plugin as _Psycopg2Plugin  # noqa: F401
+except ImportError:  # pragma: no cover
+    pass  # psycopg2 extra not installed
+
+try:
+    from bigfoot.plugins.asyncpg_plugin import AsyncpgPlugin as _AsyncpgPlugin  # noqa: F401
+except ImportError:  # pragma: no cover
+    pass  # asyncpg extra not installed
 from bigfoot.plugins.socket_plugin import SocketPlugin as _SocketPlugin  # noqa: F401
 from bigfoot.plugins.subprocess import SubprocessPlugin as _SubprocessPlugin  # noqa: F401
 from bigfoot.plugins.websocket_plugin import (
@@ -58,6 +68,16 @@ SocketPlugin = _SocketPlugin
 AsyncWebSocketPlugin = _AsyncWebSocketPlugin
 SyncWebSocketPlugin = _SyncWebSocketPlugin
 RedisPlugin = _RedisPlugin
+
+try:
+    Psycopg2Plugin = _Psycopg2Plugin
+except NameError:  # pragma: no cover
+    pass
+
+try:
+    AsyncpgPlugin = _AsyncpgPlugin
+except NameError:  # pragma: no cover
+    pass
 
 if TYPE_CHECKING:
     from bigfoot._mock_plugin import MethodProxy, MockProxy
@@ -79,6 +99,8 @@ __all__ = [
     "AsyncWebSocketPlugin",
     "SyncWebSocketPlugin",
     "RedisPlugin",
+    "Psycopg2Plugin",
+    "AsyncpgPlugin",
     # Errors
     "BigfootConfigError",
     "BigfootError",
@@ -113,6 +135,8 @@ __all__ = [
     "redis_mock",
     "log_mock",
     "async_subprocess_mock",
+    "psycopg2_mock",
+    "asyncpg_mock",
 ]
 
 
@@ -411,6 +435,62 @@ class _LoggingProxy:
 
 
 log_mock = _LoggingProxy()
+
+
+# ---------------------------------------------------------------------------
+# Psycopg2 proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _Psycopg2Proxy:
+    """Proxy to the Psycopg2Plugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test. Raises ImportError if
+    the psycopg2 extra is not installed.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        from bigfoot.plugins.psycopg2_plugin import _PSYCOPG2_AVAILABLE
+
+        if not _PSYCOPG2_AVAILABLE:
+            raise ImportError(
+                "bigfoot[psycopg2] is required to use bigfoot.psycopg2_mock. "
+                "Install it with: pip install bigfoot[psycopg2]"
+            )
+        verifier = _get_test_verifier_or_raise()
+        plugin = _get_or_create_plugin(verifier, _Psycopg2Plugin)
+        return getattr(plugin, name)
+
+
+psycopg2_mock = _Psycopg2Proxy()
+
+
+# ---------------------------------------------------------------------------
+# Asyncpg proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _AsyncpgProxy:
+    """Proxy to the AsyncpgPlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test. Raises ImportError if
+    the asyncpg extra is not installed.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        from bigfoot.plugins.asyncpg_plugin import _ASYNCPG_AVAILABLE
+
+        if not _ASYNCPG_AVAILABLE:
+            raise ImportError(
+                "bigfoot[asyncpg] is required to use bigfoot.asyncpg_mock. "
+                "Install it with: pip install bigfoot[asyncpg]"
+            )
+        verifier = _get_test_verifier_or_raise()
+        plugin = _get_or_create_plugin(verifier, _AsyncpgPlugin)
+        return getattr(plugin, name)
+
+
+asyncpg_mock = _AsyncpgProxy()
 
 
 # ---------------------------------------------------------------------------

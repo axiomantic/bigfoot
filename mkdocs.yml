@@ -81,6 +81,8 @@ nav:
     - PopenPlugin: guides/popen-plugin.md
     - AsyncSubprocessPlugin: guides/async-subprocess-plugin.md
     - DatabasePlugin: guides/database-plugin.md
+    - Psycopg2Plugin: guides/psycopg2-plugin.md
+    - AsyncpgPlugin: guides/asyncpg-plugin.md
     - SmtpPlugin: guides/smtp-plugin.md
     - SocketPlugin: guides/socket-plugin.md
     - RedisPlugin: guides/redis-plugin.md
@@ -100,6 +102,8 @@ nav:
     - PopenPlugin: reference/popen-plugin.md
     - AsyncSubprocessPlugin: reference/async-subprocess-plugin.md
     - DatabasePlugin: reference/database-plugin.md
+    - Psycopg2Plugin: reference/psycopg2-plugin.md
+    - AsyncpgPlugin: reference/asyncpg-plugin.md
     - SmtpPlugin: reference/smtp-plugin.md
     - SocketPlugin: reference/socket-plugin.md
     - RedisPlugin: reference/redis-plugin.md

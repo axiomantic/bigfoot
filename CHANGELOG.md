@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-03-06
+
+### Added
+
+- `Psycopg2Plugin` -- intercepts `psycopg2.connect()` during a sandbox and returns a fake connection with cursor proxy supporting `execute()`, `fetchone()`, `fetchall()`, `fetchmany()`, `commit()`, `rollback()`, and `close()`. Uses the same state machine as `DatabasePlugin` (disconnected -> connected -> in_transaction -> closed). Supports both DSN and keyword-based connection parameters.
+- `AsyncpgPlugin` -- intercepts `asyncpg.connect()` during a sandbox and returns a fake async connection supporting `execute()`, `fetch()`, `fetchrow()`, `fetchval()`, and `close()`. All methods are async, matching asyncpg's native interface. Connection stays in `connected` state for all query methods.
+- `bigfoot.psycopg2_mock` proxy -- auto-creates `Psycopg2Plugin` on the current test verifier on first access. Raises `ImportError` if `bigfoot[psycopg2]` is not installed.
+- `bigfoot.asyncpg_mock` proxy -- auto-creates `AsyncpgPlugin` on the current test verifier on first access. Raises `ImportError` if `bigfoot[asyncpg]` is not installed.
+- `bigfoot[psycopg2]` optional extra -- adds `psycopg2-binary>=2.9.0` dependency.
+- `bigfoot[asyncpg]` optional extra -- adds `asyncpg>=0.29.0` dependency.
+
 ## [0.9.0] - 2026-03-06
 
 ### Added

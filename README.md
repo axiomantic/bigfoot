@@ -14,6 +14,8 @@ Every call accounted for. Every assertion mandatory. No exceptions.
 
 ```bash
 pip install bigfoot                       # Core: MockPlugin + SubprocessPlugin + DatabasePlugin + SmtpPlugin + SocketPlugin + PopenPlugin + AsyncSubprocessPlugin
+pip install bigfoot[psycopg2]             # + Psycopg2Plugin
+pip install bigfoot[asyncpg]              # + AsyncpgPlugin
 pip install bigfoot[http]                 # + HttpPlugin (httpx, requests, urllib)
 pip install bigfoot[aiohttp]             # + aiohttp support for HttpPlugin
 pip install bigfoot[websockets]           # + AsyncWebSocketPlugin (websockets library)
@@ -310,6 +312,94 @@ def test_save_user():
 | `assert_execute(*, sql, parameters)` | `sql` (str), `parameters` (any) |
 | `assert_commit()` | no fields |
 | `assert_rollback()` | no fields |
+| `assert_close()` | no fields |
+
+## Psycopg2Plugin
+
+`Psycopg2Plugin` intercepts `psycopg2.connect` — requires `pip install bigfoot[psycopg2]`.
+
+Sessions follow the same state machine as DatabasePlugin: disconnected -> connected -> in_transaction -> connected/closed.
+
+```python
+import bigfoot
+import psycopg2
+
+def test_save_user():
+    bigfoot.psycopg2_mock.new_session() \
+        .expect("connect", returns=None) \
+        .expect("execute", returns=[]) \
+        .expect("commit", returns=None) \
+        .expect("close", returns=None)
+
+    with bigfoot:
+        conn = psycopg2.connect(host="localhost", dbname="app", user="admin")
+        cur = conn.cursor()
+        cur.execute("INSERT INTO users (name) VALUES (%s)", ("alice",))
+        conn.commit()
+        conn.close()
+
+    bigfoot.psycopg2_mock.assert_connect(host="localhost", dbname="app", user="admin")
+    bigfoot.psycopg2_mock.assert_execute(sql="INSERT INTO users (name) VALUES (%s)", parameters=("alice",))
+    bigfoot.psycopg2_mock.assert_commit()
+    bigfoot.psycopg2_mock.assert_close()
+```
+
+### Assertion helpers
+
+| Method | Fields asserted |
+|---|---|
+| `assert_connect(**kwargs)` | whichever of `dsn`, `host`, `port`, `dbname`, `user` were used |
+| `assert_execute(*, sql, parameters)` | `sql` (str), `parameters` (any) |
+| `assert_commit()` | no fields |
+| `assert_rollback()` | no fields |
+| `assert_close()` | no fields |
+
+## AsyncpgPlugin
+
+`AsyncpgPlugin` intercepts `asyncpg.connect` — requires `pip install bigfoot[asyncpg]`.
+
+asyncpg connections have query methods directly on the connection (no cursors). All methods are async.
+
+```python
+import bigfoot
+import asyncpg
+
+async def test_fetch_users():
+    bigfoot.asyncpg_mock.new_session() \
+        .expect("connect", returns=None) \
+        .expect("fetch", returns=[{"id": 1, "name": "Alice"}]) \
+        .expect("close", returns=None)
+
+    with bigfoot:
+        conn = await asyncpg.connect(host="localhost", database="app", user="admin")
+        rows = await conn.fetch("SELECT id, name FROM users")
+        await conn.close()
+
+    bigfoot.asyncpg_mock.assert_connect(host="localhost", database="app", user="admin")
+    bigfoot.asyncpg_mock.assert_fetch(query="SELECT id, name FROM users", args=[])
+    bigfoot.asyncpg_mock.assert_close()
+```
+
+### Session script steps
+
+| Step | `returns` value | Description |
+|---|---|---|
+| `"connect"` | `None` | Opens the database connection |
+| `"execute"` | `str` | Executes SQL; returns status string (e.g., `"INSERT 0 1"`) |
+| `"fetch"` | `list[dict]` | Returns list of Record-like dicts |
+| `"fetchrow"` | `dict \| None` | Returns single Record-like dict or None |
+| `"fetchval"` | `Any` | Returns single scalar value |
+| `"close"` | `None` | Closes the connection |
+
+### Assertion helpers
+
+| Method | Fields asserted |
+|---|---|
+| `assert_connect(**kwargs)` | whichever of `dsn`, `host`, `port`, `database`, `user` were used |
+| `assert_execute(*, query, args)` | `query` (str), `args` (list) |
+| `assert_fetch(*, query, args)` | `query` (str), `args` (list) |
+| `assert_fetchrow(*, query, args)` | `query` (str), `args` (list) |
+| `assert_fetchval(*, query, args)` | `query` (str), `args` (list) |
 | `assert_close()` | no fields |
 
 ## SmtpPlugin
@@ -803,6 +893,8 @@ bigfoot.popen_mock                      # proxy to the PopenPlugin for this test
 bigfoot.smtp_mock                       # proxy to the SmtpPlugin for this test
 bigfoot.socket_mock                     # proxy to the SocketPlugin for this test
 bigfoot.db_mock                         # proxy to the DatabasePlugin for this test
+bigfoot.psycopg2_mock                   # proxy to the Psycopg2Plugin for this test
+bigfoot.asyncpg_mock                    # proxy to the AsyncpgPlugin for this test
 bigfoot.async_websocket_mock            # proxy to the AsyncWebSocketPlugin for this test
 bigfoot.sync_websocket_mock             # proxy to the SyncWebSocketPlugin for this test
 bigfoot.redis_mock                      # proxy to the RedisPlugin for this test
@@ -816,6 +908,8 @@ from bigfoot import (
     MockPlugin,
     AsyncSubprocessPlugin,
     DatabasePlugin,
+    Psycopg2Plugin,
+    AsyncpgPlugin,
     PopenPlugin,
     SmtpPlugin,
     SocketPlugin,

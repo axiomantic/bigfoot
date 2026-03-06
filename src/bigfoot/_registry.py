@@ -53,6 +53,8 @@ def _is_available(entry: PluginEntry) -> bool:
         "websockets": ("bigfoot.plugins.websocket_plugin", "_WEBSOCKETS_AVAILABLE"),
         "websocket-client": ("bigfoot.plugins.websocket_plugin", "_WEBSOCKET_CLIENT_AVAILABLE"),
         "redis": ("bigfoot.plugins.redis_plugin", "_REDIS_AVAILABLE"),
+        "psycopg2": ("bigfoot.plugins.psycopg2_plugin", "_PSYCOPG2_AVAILABLE"),
+        "asyncpg": ("bigfoot.plugins.asyncpg_plugin", "_ASYNCPG_AVAILABLE"),
     }
     if entry.availability_check in _flag_map:
         mod_path, flag = _flag_map[entry.availability_check]
@@ -87,6 +89,8 @@ PLUGIN_REGISTRY: tuple[PluginEntry, ...] = (
         "websocket-client",
     ),
     PluginEntry("redis", "bigfoot.plugins.redis_plugin", "RedisPlugin", "redis"),
+    PluginEntry("psycopg2", "bigfoot.plugins.psycopg2_plugin", "Psycopg2Plugin", "psycopg2"),
+    PluginEntry("asyncpg", "bigfoot.plugins.asyncpg_plugin", "AsyncpgPlugin", "asyncpg"),
     PluginEntry("logging", "bigfoot.plugins.logging_plugin", "LoggingPlugin", "always"),
     PluginEntry(
         "async_subprocess",
