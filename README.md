@@ -1,5 +1,7 @@
 # bigfoot
 
+*Tests with big feet.*
+
 A pluggable interaction auditor for Python tests. Enforces a closed-loop contract:
 
 - **Bouncer**: Every external interaction must be pre-authorized. Unmocked calls raise `UnmockedInteractionError` immediately.
