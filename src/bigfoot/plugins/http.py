@@ -93,18 +93,20 @@ class HttpAssertionBuilder:
 
     Usage::
 
-        http.assert_request("GET", "https://example.com/api") \\
+        http.assert_request("GET", "https://example.com/api", require_response=True) \\
             .assert_response(200, {}, "")
 
-    ``assert_request()`` is lazy: it records the expected request fields but does
-    not touch the timeline.  ``assert_response()`` finalises the assertion by
-    calling ``verifier.assert_interaction()`` with all seven fields.
+    ``assert_request()`` with ``require_response=True`` is lazy: it records the
+    expected request fields but does not touch the timeline.  ``assert_response()``
+    finalises the assertion by calling ``verifier.assert_interaction()`` with all
+    seven fields.
     """
 
     def __init__(
         self,
         verifier: "StrictVerifier",
         sentinel: HttpRequestSentinel,
+        plugin: "HttpPlugin",
         method: str,
         url: str,
         headers: dict[str, Any],
@@ -112,6 +114,7 @@ class HttpAssertionBuilder:
     ) -> None:
         self._verifier = verifier
         self._sentinel = sentinel
+        self._plugin = plugin
         self._method = method
         self._url = url
         self._headers = headers
@@ -128,6 +131,7 @@ class HttpAssertionBuilder:
         This is the terminal step that calls ``verifier.assert_interaction()``
         with all seven assertable fields.
         """
+        self._plugin._asserting_request_only = False
         self._verifier.assert_interaction(
             self._sentinel,
             method=self._method,
@@ -191,11 +195,13 @@ class HttpPlugin(BasePlugin):
     _original_urllib_opener: Any = None
     _original_run_in_executor: Any = None
 
-    def __init__(self, verifier: "StrictVerifier") -> None:
+    def __init__(self, verifier: "StrictVerifier", require_response: bool = False) -> None:
         super().__init__(verifier)
         self._mock_queue: list[HttpMockConfig] = []
         self._sentinel = HttpRequestSentinel(self)
         self._pass_through_rules: list[tuple[str, str]] = []
+        self._require_response: bool = require_response
+        self._asserting_request_only: bool = False
 
     @property
     def request(self) -> HttpRequestSentinel:
@@ -208,15 +214,37 @@ class HttpPlugin(BasePlugin):
         url: str,
         headers: dict[str, Any] | None = None,
         body: str = "",
-    ) -> "HttpAssertionBuilder":
-        """Return an HttpAssertionBuilder pre-loaded with expected request fields.
+        require_response: bool | None = None,
+    ) -> "HttpAssertionBuilder | None":
+        """Assert an HTTP request interaction, optionally requiring a chained response assertion.
 
-        Call ``.assert_response()`` on the returned builder to complete the
+        When ``require_response`` is False (the default, or when the instance was
+        constructed with ``require_response=False``), this method is terminal: it
+        asserts only the four request fields and returns ``None``.
+
+        When ``require_response`` is True (either via the per-call argument or the
+        instance default), this method returns an ``HttpAssertionBuilder``.  The
+        caller must chain ``.assert_response()`` on the builder to complete the
         assertion with all seven fields.
         """
+        effective = require_response if require_response is not None else self._require_response
+        if not effective:
+            self._asserting_request_only = True
+            try:
+                self.verifier.assert_interaction(
+                    self._sentinel,
+                    method=method,
+                    url=url,
+                    request_headers=headers if headers is not None else {},
+                    request_body=body,
+                )
+            finally:
+                self._asserting_request_only = False
+            return None
         return HttpAssertionBuilder(
             verifier=self.verifier,
             sentinel=self._sentinel,
+            plugin=self,
             method=method,
             url=url,
             headers=headers if headers is not None else {},
@@ -892,7 +920,14 @@ class HttpPlugin(BasePlugin):
         )
 
     def assertable_fields(self, interaction: Interaction) -> frozenset[str]:
-        """Return the field names required in **expected when asserting an HTTP interaction."""
+        """Return the field names required in **expected when asserting an HTTP interaction.
+
+        When ``_asserting_request_only`` is True (set by the terminal path of
+        ``assert_request()``), only the four request fields are required.
+        Otherwise all seven fields are required.
+        """
+        if self._asserting_request_only:
+            return frozenset({"method", "url", "request_headers", "request_body"})
         return frozenset(
             {
                 "method", "url", "request_headers", "request_body",
