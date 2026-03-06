@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "bigfoot"
 version = "0.5.0"
-description = "A pluggable interaction auditor for Python tests."
+description = "Every call recorded. Every field asserted. Zero guesswork."
 requires-python = ">=3.11"
 readme = "README.md"
 license = { text = "MIT" }

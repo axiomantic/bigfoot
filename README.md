@@ -1,5 +1,9 @@
 # bigfoot
 
+[![CI](https://github.com/axiomantic/bigfoot/actions/workflows/ci.yml/badge.svg)](https://github.com/axiomantic/bigfoot/actions/workflows/ci.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 *Tests with big feet.*
 
 Every external call your code makes — HTTP, subprocess, sockets, databases — gets intercepted, queued, and verified against exactly what you said would happen. Unexpected call? Instant failure. Unasserted interaction? Teardown failure. Registered mock that never fired? Teardown failure.
