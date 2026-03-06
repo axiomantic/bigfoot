@@ -29,18 +29,6 @@ def test_payment_flow():
         response = httpx.post("https://api.stripe.com/v1/charges",
                               json={"amount": 5000})
 
-    # Option A: explicit assert_interaction (all 7 fields required)
-    bigfoot.assert_interaction(
-        bigfoot.http.request,
-        method="POST",
-        url="https://api.stripe.com/v1/charges",
-        request_headers=IsMapping(),  # use dirty-equals or ANY for headers
-        request_body=None,
-        status=200,
-        response_headers=IsMapping(),
-        response_body=IsMapping() | IsInstance(str),
-    )
-    # Option B: chained helper
     bigfoot.http.assert_request(
         method="POST", url="https://api.stripe.com/v1/charges",
         headers=IsMapping(), body=None,
@@ -145,10 +133,9 @@ async def test_async_flow():
         async with httpx.AsyncClient() as client:
             response = await client.get("https://api.example.com/items")
 
-    bigfoot.assert_interaction(bigfoot.http.request, method="GET",
-                               url="https://api.example.com/items",
-                               request_headers=IsMapping(), request_body=None,
-                               status=200, response_headers=IsMapping(), response_body="[]")
+    bigfoot.http.assert_request(method="GET", url="https://api.example.com/items",
+                               headers=IsMapping(), body=None,
+    ).assert_response(status=200, headers=IsMapping(), body="[]")
 ```
 
 ## Concurrent Assertions
@@ -169,14 +156,12 @@ async def test_concurrent():
             tb = tg.create_task(httpx.AsyncClient().get("https://api.example.com/b"))
 
     with bigfoot.in_any_order():
-        bigfoot.assert_interaction(bigfoot.http.request, method="GET",
-                                   url="https://api.example.com/a",
-                                   request_headers=IsMapping(), request_body=None,
-                                   status=200, response_headers=IsMapping(), response_body=IsMapping())
-        bigfoot.assert_interaction(bigfoot.http.request, method="GET",
-                                   url="https://api.example.com/b",
-                                   request_headers=IsMapping(), request_body=None,
-                                   status=200, response_headers=IsMapping(), response_body=IsMapping())
+        bigfoot.http.assert_request(method="GET", url="https://api.example.com/a",
+                                    headers=IsMapping(), body=None,
+        ).assert_response(status=200, headers=IsMapping(), body=IsMapping())
+        bigfoot.http.assert_request(method="GET", url="https://api.example.com/b",
+                                    headers=IsMapping(), body=None,
+        ).assert_response(status=200, headers=IsMapping(), body=IsMapping())
 ```
 
 `in_any_order()` operates globally across all plugin types (mock and HTTP).
@@ -219,14 +204,12 @@ def test_mixed():
         mocked = httpx.get("https://api.example.com/cached")   # returns mock
         real   = httpx.get("https://api.example.com/live")     # makes real HTTP call
 
-    bigfoot.assert_interaction(bigfoot.http.request,
-                               method="GET", url="https://api.example.com/cached",
-                               request_headers=IsMapping(), request_body=None,
-                               status=200, response_headers=IsMapping(), response_body=IsMapping() | IsInstance(str))
-    bigfoot.assert_interaction(bigfoot.http.request,
-                               method="GET", url="https://api.example.com/live",
-                               request_headers=IsMapping(), request_body=None,
-                               status=200, response_headers=IsMapping(), response_body=IsMapping() | IsInstance(str))
+    bigfoot.http.assert_request(method="GET", url="https://api.example.com/cached",
+                               headers=IsMapping(), body=None,
+    ).assert_response(status=200, headers=IsMapping(), body=IsMapping() | IsInstance(str))
+    bigfoot.http.assert_request(method="GET", url="https://api.example.com/live",
+                               headers=IsMapping(), body=None,
+    ).assert_response(status=200, headers=IsMapping(), body=IsMapping() | IsInstance(str))
 ```
 
 Pass-through rules are routing hints, not assertions. Unused pass-through rules do not raise `UnusedMocksError`.
