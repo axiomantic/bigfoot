@@ -4,7 +4,7 @@
 
 Every external call your code makes — HTTP, subprocess, sockets, databases — gets intercepted, queued, and verified against exactly what you said would happen. Unexpected call? Instant failure. Unasserted interaction? Teardown failure. Registered mock that never fired? Teardown failure.
 
-The point is certainty. When a bigfoot test passes, you know — not hope — that every interaction happened exactly as intended.
+Every call accounted for. Every assertion mandatory. No exceptions.
 
 ## Installation
 
