@@ -1,0 +1,42 @@
+name: Feature Request
+description: Suggest a new feature or plugin
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What feature would you like? One or two sentences.
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: >
+        Why do you need this? What problem does it solve?
+        What are you doing today as a workaround?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-design
+    attributes:
+      label: Proposed Design
+      description: >
+        If you have ideas on how this should work, describe them here.
+        Code examples, API sketches, or references to similar tools are all helpful.
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - New plugin
+        - Enhancement to existing plugin
+        - Core framework change
+        - Documentation
+        - Other
+    validations:
+      required: true

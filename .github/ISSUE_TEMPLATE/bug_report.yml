@@ -1,0 +1,51 @@
+name: Bug Report
+description: Report a bug in bigfoot
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened? What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal Reproduction
+      description: >
+        Provide the smallest possible code example that reproduces the issue.
+        Include the test file, the code under test, and the full error output.
+      render: python
+    validations:
+      required: true
+
+  - type: input
+    id: bigfoot-version
+    attributes:
+      label: bigfoot version
+      placeholder: "0.6.0"
+    validations:
+      required: true
+
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version
+      placeholder: "3.12.1"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "macOS 15.2 / Ubuntu 24.04 / Windows 11"
+
+  - type: textarea
+    id: traceback
+    attributes:
+      label: Full Traceback
+      description: Paste the complete traceback if applicable.
+      render: text
