@@ -107,9 +107,9 @@ def test_unmocked_interaction_error_str() -> None:
     )
     result = str(err)
     assert result == (
-        "UnmockedInteractionError: source_id='http.post', "
-        "args=('/api/v1/submit',), kwargs={'json': {'key': 'val'}}, "
-        "hint='Add mock for http.post'"
+        "Unexpected call: source_id='http.post', "
+        "args=('/api/v1/submit',), kwargs={'json': {'key': 'val'}}\n\n"
+        "Add mock for http.post"
     )
 
 
@@ -152,10 +152,7 @@ def test_unasserted_interactions_error_str() -> None:
         hint="Assert all recorded interactions before teardown.",
     )
     result = str(err)
-    assert result == (
-        "UnassertedInteractionsError: 2 unasserted interaction(s), "
-        "hint='Assert all recorded interactions before teardown.'"
-    )
+    assert result == "Assert all recorded interactions before teardown."
 
 
 # ---------------------------------------------------------------------------
@@ -196,9 +193,7 @@ def test_unused_mocks_error_str() -> None:
         hint="Remove or set required=False for unused mocks.",
     )
     result = str(err)
-    assert result == (
-        "UnusedMocksError: 1 unused mock(s), hint='Remove or set required=False for unused mocks.'"
-    )
+    assert result == "Remove or set required=False for unused mocks."
 
 
 # ---------------------------------------------------------------------------
@@ -264,10 +259,8 @@ def test_verification_error_str_both_set() -> None:
     result = str(err)
     assert result == (
         "VerificationError:\n"
-        "  [UnassertedInteractions] UnassertedInteractionsError: 1 unasserted interaction(s), "
-        "hint='Assert each interaction.'\n"
-        "  [UnusedMocks] UnusedMocksError: 1 unused mock(s), "
-        "hint='Remove or set required=False.'"
+        "  [UnassertedInteractions] Assert each interaction.\n"
+        "  [UnusedMocks] Remove or set required=False."
     )
 
 
@@ -281,8 +274,7 @@ def test_verification_error_str_only_unasserted() -> None:
     result = str(err)
     assert result == (
         "VerificationError:\n"
-        "  [UnassertedInteractions] UnassertedInteractionsError: 0 unasserted interaction(s), "
-        "hint='Nothing to assert.'"
+        "  [UnassertedInteractions] Nothing to assert."
     )
 
 
@@ -295,7 +287,7 @@ def test_verification_error_str_only_unused() -> None:
     err = VerificationError(unasserted=None, unused=unused)
     result = str(err)
     assert result == (
-        "VerificationError:\n  [UnusedMocks] UnusedMocksError: 1 unused mock(s), hint='Fix unused.'"
+        "VerificationError:\n  [UnusedMocks] Fix unused."
     )
 
 
@@ -349,10 +341,9 @@ def test_interaction_mismatch_error_str() -> None:
     )
     result = str(err)
     assert result == (
-        "InteractionMismatchError: "
-        "expected={'source_id': 'http.get'}, "
-        "actual={'source_id': 'db.read'}, "
-        "hint='Check order of assert_interaction() calls.'"
+        "Expected={'source_id': 'http.get'}, "
+        "actual={'source_id': 'db.read'}\n\n"
+        "Check order of assert_interaction() calls."
     )
 
 

@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-03-07
+
+### Changed
+
+- **Breaking:** Error messages now render the hint text directly instead of wrapping it in `repr()`. `UnassertedInteractionsError`, `UnusedMocksError`, `InteractionMismatchError`, and `UnmockedInteractionError` now produce readable, multi-line output in pytest tracebacks with copy-pasteable remediation code.
+
+### Improved
+
+- README rewritten: real pytest error output, corrected API examples (`IsInstance(dict)` not `IsMapping()`), plugin table with direct guide links, tighter first-viewport messaging.
+- PyPI classifiers and keywords expanded for better discoverability.
+- Added `SECURITY.md`, `CODE_OF_CONDUCT.md`, and `.github/FUNDING.yml`.
+
 ## [0.10.1] - 2026-03-06
 
 ### Fixed

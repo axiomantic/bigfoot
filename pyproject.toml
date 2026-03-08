@@ -4,12 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bigfoot"
-version = "0.10.1"
+version = "0.11.0"
 description = "Every call recorded. Every field asserted. Zero guesswork."
 requires-python = ">=3.11"
 readme = "README.md"
 license = { text = "MIT" }
-keywords = ["testing", "mocking", "http", "verification"]
+keywords = ["testing", "mocking", "http", "verification", "pytest", "assertions", "test-doubles", "integration-testing", "subprocess", "database", "websocket", "redis", "smtp"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -19,7 +19,10 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Testing :: Mocking",
+    "Topic :: Software Development :: Quality Assurance",
     "Framework :: Pytest",
+    "Typing :: Typed",
 ]
 
 dependencies = []
