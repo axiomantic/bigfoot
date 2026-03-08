@@ -143,8 +143,10 @@ bigfoot.http.pass_through("GET", url)
 
 ```toml
 [tool.bigfoot.http]
-require_response = true
+require_response = true  # Every assert_request() must be followed by .assert_response()
 ```
+
+Per-call arguments override project-level settings. See the [configuration guide](https://axiomantic.github.io/bigfoot/guides/configuration/).
 
 ## Selective Installation
 
