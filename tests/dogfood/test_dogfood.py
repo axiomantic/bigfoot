@@ -105,9 +105,9 @@ def test_unmocked_interaction_error_exact_message() -> None:
     assert err.hint == expected_hint
 
     expected_str = (
-        f"UnmockedInteractionError: source_id='mock:DataStore.fetch', "
-        f"args=('user_id_123',), kwargs={{}}, "
-        f"hint={expected_hint!r}"
+        f"Unexpected call: source_id='mock:DataStore.fetch', "
+        f"args=('user_id_123',), kwargs={{}}\n\n"
+        f"{expected_hint}"
     )
     assert str(err) == expected_str
 
@@ -165,9 +165,7 @@ def test_unused_mocks_error_at_teardown() -> None:
     assert "Mock registered at:" in err.hint
     assert "Remove this mock if it's not needed" in err.hint
 
-    expected_str_prefix = "UnusedMocksError: 1 unused mock(s), hint="
-    assert str(err).startswith(expected_str_prefix)
-    assert str(err) == f"UnusedMocksError: 1 unused mock(s), hint={err.hint!r}"
+    assert str(err) == err.hint
 
     # Mark the mock as not required so the auto-verifier teardown does not raise
     # The mock_config is already in err.mocks; we need to drain the queue.

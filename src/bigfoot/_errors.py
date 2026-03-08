@@ -30,9 +30,8 @@ class UnmockedInteractionError(BigfootError):
         self.kwargs = kwargs
         self.hint = hint
         super().__init__(
-            f"UnmockedInteractionError: source_id={source_id!r}, "
-            f"args={args!r}, kwargs={kwargs!r}, "
-            f"hint={hint!r}"
+            f"Unexpected call: source_id={source_id!r}, "
+            f"args={args!r}, kwargs={kwargs!r}\n\n{hint}"
         )
 
 
@@ -45,10 +44,7 @@ class UnassertedInteractionsError(BigfootError):
     def __init__(self, interactions: list[Any], hint: str) -> None:
         self.interactions = interactions
         self.hint = hint
-        super().__init__(
-            f"UnassertedInteractionsError: {len(interactions)} unasserted interaction(s), "
-            f"hint={hint!r}"
-        )
+        super().__init__(f"{hint}")
 
 
 class UnusedMocksError(BigfootError):
@@ -60,7 +56,7 @@ class UnusedMocksError(BigfootError):
     def __init__(self, mocks: list[Any], hint: str) -> None:
         self.mocks = mocks
         self.hint = hint
-        super().__init__(f"UnusedMocksError: {len(mocks)} unused mock(s), hint={hint!r}")
+        super().__init__(f"{hint}")
 
 
 class VerificationError(BigfootError):
@@ -109,7 +105,7 @@ class InteractionMismatchError(BigfootError):
         self.actual = actual
         self.hint = hint
         super().__init__(
-            f"InteractionMismatchError: expected={expected!r}, actual={actual!r}, hint={hint!r}"
+            f"Expected={expected!r}, actual={actual!r}\n\n{hint}"
         )
 
 
