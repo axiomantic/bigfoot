@@ -7,7 +7,11 @@
 
 **Every call recorded. Every field asserted. Zero guesswork.**
 
-bigfoot intercepts every external call your code makes -- HTTP, subprocess, database, socket, Redis, SMTP, WebSocket, logging -- and forces your tests to account for all of them. Forget to assert an interaction? Test fails. Register a mock that never fires? Test fails. Make a call you didn't mock? Test fails immediately.
+bigfoot intercepts every external call your code makes -- HTTP, subprocess, database, socket, Redis, SMTP, WebSocket, logging -- and forces your tests to account for all of them. It enforces three guarantees that most mocking libraries leave silent:
+
+1. **Every call must be pre-authorized.** Code makes a call with no registered mock? `UnmockedInteractionError`, immediately.
+2. **Every recorded interaction must be explicitly asserted.** Forget to assert an interaction? `UnassertedInteractionsError` at teardown.
+3. **Every registered mock must actually be triggered.** Register a mock that never fires? `UnusedMocksError` at teardown.
 
 ```bash
 pip install bigfoot[all]
