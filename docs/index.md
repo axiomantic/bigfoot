@@ -1,40 +1,31 @@
 # bigfoot
 
-**bigfoot** is a pluggable interaction auditor for Python tests. It enforces three guarantees that most mocking libraries leave silent:
+**bigfoot** intercepts every external call your code makes and forces your tests to account for all of them. It enforces three guarantees that most mocking libraries leave silent:
 
-- **Bouncer**: every external interaction must be pre-authorized. If code makes a call with no registered mock, bigfoot raises `UnmockedInteractionError` immediately at call time.
-- **Auditor**: every recorded interaction must be explicitly asserted. At teardown, any interaction that was never passed to `assert_interaction()` causes `UnassertedInteractionsError`.
-- **Accountant**: every registered mock must actually be triggered. At teardown, any mock that was registered with `required=True` (the default) but never called causes `UnusedMocksError`.
+1. **Every call must be pre-authorized.** If code makes a call with no registered mock, bigfoot raises `UnmockedInteractionError` immediately at call time.
+2. **Every recorded interaction must be explicitly asserted.** At teardown, any interaction not passed to an assertion method causes `UnassertedInteractionsError`.
+3. **Every registered mock must actually be triggered.** At teardown, any mock registered with `required=True` (the default) but never called causes `UnusedMocksError`.
 
-## Why this matters
-
-Standard mocking libraries let tests pass silently when:
-
-- A mock is registered for an endpoint that the code never calls (the logic path changed, but the test still passes)
-- A side-effecting call is intercepted but the test never checks that it happened
-- A mock is configured with wrong arguments and the code actually hit a different mock
-
-bigfoot makes each of these conditions a hard test failure. Tests that pass with bigfoot are tests that actually exercised the behavior they claim to cover.
+Standard mocking libraries let tests pass silently when a mock is registered for an endpoint that the code never calls, when a side-effecting call is intercepted but the test never checks that it happened, or when a mock is configured with wrong arguments and the code hits a different mock. bigfoot makes each of these conditions a hard test failure.
 
 ## Quick example
 
 ```python
-from bigfoot import StrictVerifier
+import bigfoot
 
-verifier = StrictVerifier()
-email = verifier.mock("EmailService")
-email.send.returns(True)
+def test_welcome_email():
+    email = bigfoot.mock("EmailService")
+    email.send.returns(True)
 
-with verifier.sandbox():
-    result = email.send(to="user@example.com", subject="Welcome")
-    assert result is True
+    with bigfoot:
+        result = email.send(to="user@example.com", subject="Welcome")
+        assert result is True
 
-verifier.assert_interaction(email.send, kwargs="{'to': 'user@example.com', 'subject': 'Welcome'}")
-verifier.verify_all()
+    email.send.assert_call(args=(), kwargs={"to": "user@example.com", "subject": "Welcome"})
 ```
 
-If `email.send` is never called, `verify_all()` raises `UnusedMocksError`.
-If `assert_interaction` is never called, `verify_all()` raises `UnassertedInteractionsError`.
+If `email.send` is never called, bigfoot raises `UnusedMocksError` at teardown.
+If `assert_call` is never called, bigfoot raises `UnassertedInteractionsError` at teardown.
 If the code calls `email.send` with no mock configured, bigfoot raises `UnmockedInteractionError` immediately.
 
 ## Navigation
