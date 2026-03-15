@@ -1,12 +1,12 @@
 # bigfoot
 
-**bigfoot** intercepts every external call your code makes and forces your tests to account for all of them. It enforces three guarantees that most mocking libraries leave silent:
+**bigfoot** intercepts every external call your code makes and forces your tests to account for all of them. It ships with plugins for HTTP, subprocess, database, socket, Redis, SMTP, WebSocket, logging, and more. It enforces three guarantees that most mocking libraries leave silent:
 
-1. **Every call must be pre-authorized.** If code makes a call with no registered mock, bigfoot raises `UnmockedInteractionError` immediately at call time.
-2. **Every recorded interaction must be explicitly asserted.** At teardown, any interaction not passed to an assertion method causes `UnassertedInteractionsError`.
-3. **Every registered mock must actually be triggered.** At teardown, any mock registered with `required=True` (the default) but never called causes `UnusedMocksError`.
+1. **Every call must be pre-authorized.** Code makes a call with no registered mock? `UnmockedInteractionError`, immediately.
+2. **Every recorded interaction must be explicitly asserted.** Forget to assert an interaction? `UnassertedInteractionsError` at teardown.
+3. **Every registered mock must actually be triggered.** Register a mock that never fires? `UnusedMocksError` at teardown.
 
-Standard mocking libraries let tests pass silently when a mock is registered for an endpoint that the code never calls, when a side-effecting call is intercepted but the test never checks that it happened, or when a mock is configured with wrong arguments and the code hits a different mock. bigfoot makes each of these conditions a hard test failure.
+A plugin system makes it straightforward to intercept any service and enforce all three guarantees.
 
 ## Quick example
 
