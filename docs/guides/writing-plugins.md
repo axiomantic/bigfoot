@@ -4,7 +4,7 @@ bigfoot's plugin system allows you to add interception for any type of interacti
 
 ## BasePlugin contract
 
-All plugins must subclass `BasePlugin` and implement ten abstract methods. The `__init__` method must call `super().__init__(verifier)`, which registers the plugin with the verifier.
+All plugins must subclass `BasePlugin` and implement nine abstract methods. The `__init__` method must call `super().__init__(verifier)`, which registers the plugin with the verifier.
 
 ```python
 from bigfoot._base_plugin import BasePlugin
@@ -180,6 +180,15 @@ class DbMockConfig:
         self.required = required
 
 
+class DbExecuteSentinel:
+    """Opaque handle used as source filter in assert_interaction for db execute."""
+
+    source_id = "db:execute"
+
+    def __init__(self, plugin: "DatabasePlugin") -> None:
+        self._plugin = plugin
+
+
 class DatabasePlugin(BasePlugin):
     _install_count: int = 0
     _install_lock: threading.Lock = threading.Lock()
@@ -189,6 +198,7 @@ class DatabasePlugin(BasePlugin):
         super().__init__(verifier)
         self._connection = connection
         self._mock_queue: list[DbMockConfig] = []
+        self._sentinel = DbExecuteSentinel(self)
 
     def mock_query(self, query: str, result: Any, required: bool = True) -> None:
         self._mock_queue.append(DbMockConfig(query=query, result=result, required=required))
@@ -419,7 +429,7 @@ Sessions are consumed in FIFO order. The first call to the connection entry poin
 
 ### Interaction recording and assertions
 
-State machine plugins auto-assert every interaction at the time it is recorded. You do not call `bigfoot.assert_interaction()` for stateful plugins — there is nothing to assert after the sandbox. `verify_all()` still runs at teardown and will report any `required=True` steps that were configured but never consumed.
+State machine plugins require explicit assertion like all other plugins. Each scripted step records an `Interaction` on the timeline, and you must call the appropriate convenience assertion method (e.g., `assert_connect`, `assert_execute`) or `verifier.assert_interaction()` after the sandbox to verify every recorded interaction. `verify_all()` runs at teardown and will report any unasserted interactions as well as any `required=True` steps that were configured but never consumed.
 
 ### Minimal implementation example
 
@@ -493,7 +503,7 @@ class FtpPlugin(StateMachinePlugin):
 
     def format_assert_hint(self, interaction: Interaction) -> str:
         method = interaction.details.get("method", "?")
-        return f"    # ftp_mock: session step '{method}' recorded (state-machine, auto-asserted)"
+        return f"    ftp.assert_{method}(...)"
 
     def format_unused_mock_hint(self, mock_config: object) -> str:
         method = getattr(mock_config, "method", "?")

@@ -200,10 +200,10 @@ Unexpected call to EmailService.send
   Called with: args=(), kwargs={'to': 'user@example.com'}
 
   To mock this interaction, add before your sandbox:
-    bigfoot.mock("EmailService").send.returns(<value>)
+    verifier.mock("EmailService").send.returns(<value>)
 
   Or to mark it optional:
-    bigfoot.mock("EmailService").send.required(False).returns(<value>)
+    verifier.mock("EmailService").send.required(False).returns(<value>)
 ```
 
 ### InteractionMismatchError
@@ -238,7 +238,7 @@ When `verify_all()` finds required mocks that were never consumed, the error mes
         email.send.returns(True)
     Options:
       - Remove this mock if it's not needed
-      - Mark it optional: bigfoot.mock("EmailService").send.required(False).returns(...)
+      - Mark it optional: verifier.mock("EmailService").send.required(False).returns(...)
 ```
 
 ## Interaction details
@@ -249,8 +249,8 @@ Each mock call is recorded with these fields in `interaction.details`:
 |---|---|
 | `mock_name` | The name passed to `bigfoot.mock()` |
 | `method_name` | The attribute name accessed on the proxy |
-| `args` | `repr()` of the positional arguments tuple |
-| `kwargs` | `repr()` of the keyword arguments dict |
+| `args` | The positional arguments tuple |
+| `kwargs` | The keyword arguments dict |
 
 The `args` and `kwargs` fields are assertable and must always be included in `assert_call()`:
 
