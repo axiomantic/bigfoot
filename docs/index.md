@@ -12,26 +12,30 @@ Standard mocking libraries let tests pass silently when a mock is registered for
 
 ```python
 import bigfoot
-import httpx
+from dirty_equals import IsInstance
 
-def test_payment_charge():
+def create_charge(amount):
+    """Production code -- calls Stripe via httpx internally."""
+    import httpx
+    response = httpx.post("https://api.stripe.com/v1/charges",
+                          json={"amount": amount})
+    return response.json()
+
+def test_payment_flow():
     bigfoot.http.mock_response("POST", "https://api.stripe.com/v1/charges",
                                json={"id": "ch_123"}, status=200)
 
     with bigfoot:
-        # Production code makes real httpx calls -- bigfoot intercepts them
-        response = httpx.post("https://api.stripe.com/v1/charges",
-                              json={"amount": 5000})
-        assert response.json()["id"] == "ch_123"
+        result = create_charge(5000)
 
-    bigfoot.http.assert_request("POST", "https://api.stripe.com/v1/charges",
-                                headers={"host": "api.stripe.com", "content-type": "application/json"},
-                                body='{"amount": 5000}')
+    bigfoot.http.assert_request(
+        "POST", "https://api.stripe.com/v1/charges",
+        headers=IsInstance(dict), body='{"amount": 5000}',
+    )
+    assert result["id"] == "ch_123"
 ```
 
-If you forget the `assert_request()` call, bigfoot raises `UnassertedInteractionsError` at teardown.
-If the mock is never triggered, bigfoot raises `UnusedMocksError` at teardown.
-If code makes an HTTP call with no registered mock, bigfoot raises `UnmockedInteractionError` immediately.
+The test calls `create_charge()`, which internally uses httpx. bigfoot intercepts the HTTP call transparently. If you forget the `assert_request()` call, bigfoot raises `UnassertedInteractionsError` at teardown. If the mock is never triggered, `UnusedMocksError`. If code makes an unmocked HTTP call, `UnmockedInteractionError` immediately.
 
 ## Navigation
 

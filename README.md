@@ -21,22 +21,27 @@ pip install bigfoot[all]
 
 ```python
 import bigfoot
-import httpx
 from dirty_equals import IsInstance
+
+def create_charge(amount):
+    """Production code -- calls Stripe via httpx internally."""
+    import httpx
+    response = httpx.post("https://api.stripe.com/v1/charges",
+                          json={"amount": amount})
+    return response.json()
 
 def test_payment_flow():
     bigfoot.http.mock_response("POST", "https://api.stripe.com/v1/charges",
                                json={"id": "ch_123"}, status=200)
 
     with bigfoot:
-        response = httpx.post("https://api.stripe.com/v1/charges",
-                              json={"amount": 5000})
+        result = create_charge(5000)
 
     bigfoot.http.assert_request(
-        method="POST", url="https://api.stripe.com/v1/charges",
-        headers=IsInstance(dict), body=IsInstance(str),
+        "POST", "https://api.stripe.com/v1/charges",
+        headers=IsInstance(dict), body='{"amount": 5000}',
     )
-    assert response.json()["id"] == "ch_123"
+    assert result["id"] == "ch_123"
 ```
 
 If you forget the `assert_request()` call, bigfoot fails the test at teardown:
