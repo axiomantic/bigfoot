@@ -13,8 +13,8 @@ from bigfoot._verifier import StrictVerifier
 from bigfoot.plugins.ssh_plugin import (
     _PARAMIKO_AVAILABLE,
     SshPlugin,
-    _FakeSSHClient,
     _FakeSFTPClient,
+    _FakeSSHClient,
 )
 
 # ---------------------------------------------------------------------------

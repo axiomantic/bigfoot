@@ -1,4 +1,7 @@
-"""GrpcPlugin: intercepts grpc.insecure_channel and grpc.secure_channel with per-method FIFO queues."""
+"""GrpcPlugin: intercepts grpc.insecure_channel and grpc.secure_channel.
+
+Uses per-method FIFO queues.
+"""
 
 from __future__ import annotations
 
@@ -123,7 +126,10 @@ class _GrpcCallable:
         self._method = method
         self._call_type = call_type
 
-    def __call__(self, request: Any = None, timeout: Any = None, metadata: Any = None, **kwargs: Any) -> Any:  # noqa: ANN401
+    def __call__(
+        self, request: Any = None, timeout: Any = None,  # noqa: ANN401
+        metadata: Any = None, **kwargs: Any,  # noqa: ANN401
+    ) -> Any:  # noqa: ANN401
         plugin = _get_grpc_plugin()
         queue_key = f"{self._call_type}:{self._method}"
         source_id = f"grpc:{self._call_type}:{self._method}"
@@ -181,19 +187,19 @@ class _GrpcCallable:
 class _FakeChannel:
     """Proxy channel returned by patched grpc.insecure_channel/secure_channel."""
 
-    def __init__(self, target: str, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, target: str, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
         self._target = target
 
-    def unary_unary(self, method: str, *args: Any, **kwargs: Any) -> _GrpcCallable:
+    def unary_unary(self, method: str, *args: Any, **kwargs: Any) -> _GrpcCallable:  # noqa: ANN401
         return _GrpcCallable(method, "unary_unary")
 
-    def unary_stream(self, method: str, *args: Any, **kwargs: Any) -> _GrpcCallable:
+    def unary_stream(self, method: str, *args: Any, **kwargs: Any) -> _GrpcCallable:  # noqa: ANN401
         return _GrpcCallable(method, "unary_stream")
 
-    def stream_unary(self, method: str, *args: Any, **kwargs: Any) -> _GrpcCallable:
+    def stream_unary(self, method: str, *args: Any, **kwargs: Any) -> _GrpcCallable:  # noqa: ANN401
         return _GrpcCallable(method, "stream_unary")
 
-    def stream_stream(self, method: str, *args: Any, **kwargs: Any) -> _GrpcCallable:
+    def stream_stream(self, method: str, *args: Any, **kwargs: Any) -> _GrpcCallable:  # noqa: ANN401
         return _GrpcCallable(method, "stream_stream")
 
     def subscribe(self, callback: Any, try_to_connect: bool = False) -> None:  # noqa: ANN401
@@ -208,7 +214,7 @@ class _FakeChannel:
     def __enter__(self) -> _FakeChannel:
         return self
 
-    def __exit__(self, *args: Any) -> None:
+    def __exit__(self, *args: Any) -> None:  # noqa: ANN401
         self.close()
 
 
@@ -217,11 +223,13 @@ class _FakeChannel:
 # ---------------------------------------------------------------------------
 
 
-def _patched_insecure_channel(target: str, *args: Any, **kwargs: Any) -> _FakeChannel:
+def _patched_insecure_channel(target: str, *args: Any, **kwargs: Any) -> _FakeChannel:  # noqa: ANN401
     return _FakeChannel(target, *args, **kwargs)
 
 
-def _patched_secure_channel(target: str, credentials: Any, *args: Any, **kwargs: Any) -> _FakeChannel:
+def _patched_secure_channel(  # noqa: ANN401
+    target: str, credentials: Any, *args: Any, **kwargs: Any,  # noqa: ANN401
+) -> _FakeChannel:
     return _FakeChannel(target, *args, **kwargs)
 
 

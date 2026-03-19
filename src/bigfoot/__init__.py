@@ -38,6 +38,7 @@ from bigfoot.plugins.async_subprocess_plugin import (
 from bigfoot.plugins.database_plugin import DatabasePlugin as _DatabasePlugin  # noqa: F401
 from bigfoot.plugins.logging_plugin import LoggingPlugin as _LoggingPlugin  # noqa: F401
 from bigfoot.plugins.popen_plugin import PopenPlugin as _PopenPlugin  # noqa: F401
+
 try:
     from bigfoot.plugins.celery_plugin import CeleryPlugin as _CeleryPlugin  # noqa: F401
 except ImportError:  # pragma: no cover
@@ -49,7 +50,9 @@ except ImportError:  # pragma: no cover
     pass  # boto3 extra not installed
 
 try:
-    from bigfoot.plugins.elasticsearch_plugin import ElasticsearchPlugin as _ElasticsearchPlugin  # noqa: F401
+    from bigfoot.plugins.elasticsearch_plugin import (
+        ElasticsearchPlugin as _ElasticsearchPlugin,  # noqa: F401
+    )
 except ImportError:  # pragma: no cover
     pass  # elasticsearch extra not installed
 
@@ -63,10 +66,10 @@ try:
 except ImportError:  # pragma: no cover
     pass  # crypto extra not installed
 from bigfoot.plugins.dns_plugin import DnsPlugin as _DnsPlugin  # noqa: F401
-from bigfoot.plugins.memcache_plugin import MemcachePlugin as _MemcachePlugin  # noqa: F401
-from bigfoot.plugins.redis_plugin import RedisPlugin as _RedisPlugin  # noqa: F401
 from bigfoot.plugins.file_io_plugin import FileIoPlugin as _FileIoPlugin  # noqa: F401
+from bigfoot.plugins.memcache_plugin import MemcachePlugin as _MemcachePlugin  # noqa: F401
 from bigfoot.plugins.native_plugin import NativePlugin as _NativePlugin  # noqa: F401
+from bigfoot.plugins.redis_plugin import RedisPlugin as _RedisPlugin  # noqa: F401
 
 try:
     from bigfoot.plugins.mongo_plugin import MongoPlugin as _MongoPlugin  # noqa: F401

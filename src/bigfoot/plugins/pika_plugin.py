@@ -46,7 +46,7 @@ _SOURCE_CLOSE = "pika:close"
 # ---------------------------------------------------------------------------
 
 
-def _find_pika_plugin() -> "PikaPlugin":
+def _find_pika_plugin() -> PikaPlugin:
     verifier = _get_verifier_or_raise("pika:connect")
     for plugin in verifier._plugins:
         if isinstance(plugin, PikaPlugin):
@@ -65,7 +65,7 @@ def _find_pika_plugin() -> "PikaPlugin":
 class _FakeChannel:
     """Fake pika channel that routes all operations through PikaPlugin."""
 
-    def __init__(self, connection: "_FakeBlockingConnection") -> None:
+    def __init__(self, connection: _FakeBlockingConnection) -> None:
         self._connection = connection
 
     def basic_publish(
@@ -194,7 +194,7 @@ class PikaPlugin(StateMachinePlugin):
     # Saved original, restored when count reaches 0.
     _original_blocking_connection: ClassVar[Any] = None
 
-    def __init__(self, verifier: "StrictVerifier") -> None:
+    def __init__(self, verifier: StrictVerifier) -> None:
         super().__init__(verifier)
         self._connect_sentinel = _StepSentinel(_SOURCE_CONNECT)
         self._channel_sentinel = _StepSentinel(_SOURCE_CHANNEL)
@@ -309,7 +309,8 @@ class PikaPlugin(StateMachinePlugin):
                 f"auto_ack={details.get('auto_ack', False)!r})"
             )
         if sid == _SOURCE_ACK:
-            return f"[PikaPlugin] channel.basic_ack(delivery_tag={details.get('delivery_tag', 0)!r})"
+            tag = details.get('delivery_tag', 0)
+            return f"[PikaPlugin] channel.basic_ack(delivery_tag={tag!r})"
         if sid == _SOURCE_NACK:
             return (
                 f"[PikaPlugin] channel.basic_nack("
@@ -345,7 +346,10 @@ class PikaPlugin(StateMachinePlugin):
             host = interaction.details.get("host", "?")
             port = interaction.details.get("port", 0)
             virtual_host = interaction.details.get("virtual_host", "/")
-            return f"    {sm}.assert_connect(host={host!r}, port={port!r}, virtual_host={virtual_host!r})"
+            return (
+                f"    {sm}.assert_connect(host={host!r}, "
+                f"port={port!r}, virtual_host={virtual_host!r})"
+            )
         if sid == _SOURCE_CHANNEL:
             return f"    {sm}.assert_channel()"
         if sid == _SOURCE_PUBLISH:

@@ -1,6 +1,5 @@
 """Error log search with Elasticsearch."""
 
-from elasticsearch import Elasticsearch
 
 
 def search_error_logs(es, index_name, hours=24, max_results=100):

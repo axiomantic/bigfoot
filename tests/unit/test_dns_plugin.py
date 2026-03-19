@@ -19,7 +19,6 @@ from bigfoot.plugins.dns_plugin import (
     DnsPlugin,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -299,7 +298,6 @@ def test_get_unused_mocks_excludes_required_false() -> None:
 def test_missing_assertion_fields_getaddrinfo(bigfoot_verifier: StrictVerifier) -> None:
     """Asserting getaddrinfo with incomplete fields raises MissingAssertionFieldsError."""
     import bigfoot
-
     from bigfoot.plugins.dns_plugin import _DnsSentinel
 
     bigfoot.dns_mock.mock_getaddrinfo("example.com", returns=[])

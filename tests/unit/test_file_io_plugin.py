@@ -10,13 +10,10 @@ import shutil
 
 import pytest
 
-from bigfoot._context import _current_test_verifier
 from bigfoot._errors import (
     ConflictError,
-    InteractionMismatchError,
     MissingAssertionFieldsError,
     UnmockedInteractionError,
-    UnusedMocksError,
 )
 from bigfoot._timeline import Interaction
 from bigfoot._verifier import StrictVerifier
@@ -120,7 +117,7 @@ def test_mock_open_read_returns_string_io() -> None:
     p.mock_operation("open", "/tmp/test.txt", returns="hello")
 
     with v.sandbox():
-        f = builtins.open("/tmp/test.txt", "r")
+        f = builtins.open("/tmp/test.txt")
         content = f.read()
         f.close()
 
@@ -527,7 +524,7 @@ def test_unmocked_error_when_no_mock_registered() -> None:
 
     with v.sandbox():
         with pytest.raises(UnmockedInteractionError) as exc_info:
-            builtins.open("/tmp/nonexistent.txt", "r")
+            builtins.open("/tmp/nonexistent.txt")
 
     assert exc_info.value.source_id == "file_io:open"
 
@@ -602,7 +599,7 @@ def test_missing_fields_error_when_field_omitted(bigfoot_verifier: StrictVerifie
     p.mock_operation("open", "/tmp/f.txt", returns="data")
 
     with bigfoot.sandbox():
-        f = builtins.open("/tmp/f.txt", "r")
+        f = builtins.open("/tmp/f.txt")
         f.close()
 
     with pytest.raises(MissingAssertionFieldsError):
@@ -631,7 +628,7 @@ def test_assert_open_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
     p.mock_operation("open", "/tmp/f.txt", returns="data")
 
     with bigfoot.sandbox():
-        f = builtins.open("/tmp/f.txt", "r")
+        f = builtins.open("/tmp/f.txt")
         f.close()
 
     p.assert_open(path="/tmp/f.txt", mode="r", encoding="utf-8")
@@ -750,7 +747,7 @@ def test_mock_operation_raises_os_error() -> None:
 
     with v.sandbox():
         with pytest.raises(OSError) as exc_info:
-            builtins.open("/tmp/f.txt", "r")
+            builtins.open("/tmp/f.txt")
 
     assert str(exc_info.value) == "perm denied"
 
@@ -784,9 +781,11 @@ def test_mock_remove_raises_file_not_found() -> None:
 #   MUTATION: Adding a try/except guard around a missing dep would change this.
 #   ESCAPE: Nothing reasonable -- import succeeds or fails.
 def test_file_io_plugin_always_importable() -> None:
-    from bigfoot.plugins.file_io_plugin import FileIoPlugin as _FIP
+    from bigfoot.plugins.file_io_plugin import (
+        FileIoPlugin as FileIoPluginDirect,
+    )
 
-    assert _FIP is FileIoPlugin
+    assert FileIoPluginDirect is FileIoPlugin
 
 
 # ---------------------------------------------------------------------------
@@ -810,7 +809,7 @@ def test_reentrancy_guard_bypasses_when_set(tmp_path: pathlib.Path) -> None:
         # With bypass set, open should fall through to real builtins.open
         token = _file_io_bypass.set(True)
         try:
-            with builtins.open(str(real_file), "r") as f:
+            with builtins.open(str(real_file)) as f:
                 content = f.read()
         finally:
             _file_io_bypass.reset(token)
@@ -829,7 +828,7 @@ def test_reentrancy_guard_not_active_without_bypass() -> None:
 
     with v.sandbox():
         with pytest.raises(UnmockedInteractionError):
-            builtins.open("/tmp/no_bypass.txt", "r")
+            builtins.open("/tmp/no_bypass.txt")
 
 
 # ESCAPE: test_reentrancy_guard_no_verifier_falls_through
@@ -845,7 +844,7 @@ def test_reentrancy_guard_no_verifier_falls_through(tmp_path: pathlib.Path) -> N
         real_file = tmp_path / "outside.txt"
         real_file.write_text("outside content")
         # Outside any sandbox, open should fall through
-        with builtins.open(str(real_file), "r") as f:
+        with builtins.open(str(real_file)) as f:
             content = f.read()
         assert content == "outside content"
     finally:
@@ -1115,10 +1114,10 @@ def test_fifo_ordering_same_key() -> None:
     p.mock_operation("open", "/tmp/f.txt", returns="second")
 
     with v.sandbox():
-        f1 = builtins.open("/tmp/f.txt", "r")
+        f1 = builtins.open("/tmp/f.txt")
         content1 = f1.read()
         f1.close()
-        f2 = builtins.open("/tmp/f.txt", "r")
+        f2 = builtins.open("/tmp/f.txt")
         content2 = f2.read()
         f2.close()
 
@@ -1256,7 +1255,7 @@ def test_file_io_mock_proxy(bigfoot_verifier: StrictVerifier) -> None:
     # End-to-end: register mock through proxy, trigger it, verify interaction
     bigfoot.file_io_mock.mock_operation("open", "/tmp/proxy-test.txt", returns="proxied")
     with bigfoot.sandbox():
-        f = builtins.open("/tmp/proxy-test.txt", "r")
+        f = builtins.open("/tmp/proxy-test.txt")
         result = f.read()
     assert result == "proxied"
     bigfoot.file_io_mock.assert_open(path="/tmp/proxy-test.txt", mode="r", encoding="utf-8")
@@ -1327,7 +1326,7 @@ def test_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) -> Non
     p.mock_operation("open", "/tmp/f.txt", returns="data")
 
     with bigfoot.sandbox():
-        f = builtins.open("/tmp/f.txt", "r")
+        f = builtins.open("/tmp/f.txt")
         f.close()
 
     timeline = bigfoot_verifier._timeline

@@ -21,7 +21,6 @@ from bigfoot.plugins.memcache_plugin import (  # noqa: E402
     MemcachePlugin,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -348,7 +347,6 @@ def test_get_unused_mocks_excludes_required_false() -> None:
 
 def test_missing_assertion_fields(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
-
     from bigfoot.plugins.memcache_plugin import _MemcacheSentinel
 
     bigfoot.memcache_mock.mock_command("SET", returns=True)

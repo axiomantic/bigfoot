@@ -8,7 +8,6 @@ from bigfoot._context import _current_test_verifier
 from bigfoot._errors import (
     InteractionMismatchError,
     MissingAssertionFieldsError,
-    UnassertedInteractionsError,
     UnmockedInteractionError,
 )
 from bigfoot._verifier import StrictVerifier

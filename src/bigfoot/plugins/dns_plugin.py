@@ -163,8 +163,8 @@ def _patched_resolver_resolve(
     self: Any,  # noqa: ANN401
     qname: str,
     rdtype: str = "A",
-    *args: Any,
-    **kwargs: Any,
+    *args: Any,  # noqa: ANN401
+    **kwargs: Any,  # noqa: ANN401
 ) -> Any:  # noqa: ANN401
     """Instance method: Resolver().resolve(qname, rdtype)."""
     plugin = _get_dns_plugin()
@@ -201,8 +201,8 @@ def _patched_resolver_resolve(
 def _patched_module_resolve(
     qname: str,
     rdtype: str = "A",
-    *args: Any,
-    **kwargs: Any,
+    *args: Any,  # noqa: ANN401
+    **kwargs: Any,  # noqa: ANN401
 ) -> Any:  # noqa: ANN401
     """Module-level: dns.resolver.resolve(qname, rdtype)."""
     plugin = _get_dns_plugin()

@@ -316,7 +316,7 @@ def test_activate_detects_conflict(monkeypatch: pytest.MonkeyPatch) -> None:
     v, p = _make_verifier_with_plugin()
 
     # Simulate another library patching CDLL.__init__
-    def fake_init(self, name, *args, **kwargs):
+    def fake_init(self, name, *args: object, **kwargs: object) -> None:
         pass
 
     monkeypatch.setattr(ctypes.CDLL, "__init__", fake_init)
@@ -471,9 +471,9 @@ def test_serialize_arg_struct() -> None:
 #   MUTATION: Returning the raw callback object fails equality.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_callback_serialized_as_callback_string() -> None:
-    CALLBACK = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int)
+    callback_type = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int)
 
-    @CALLBACK
+    @callback_type
     def my_callback(x):
         return x * 2
 
@@ -986,9 +986,9 @@ def test_args_serialized_in_interaction() -> None:
 #   ESCAPE: Nothing reasonable -- exact tuple equality.
 def test_callback_arg_serialized_in_interaction() -> None:
     v, p = _make_verifier_with_plugin()
-    CALLBACK = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int)
+    callback_type = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int)
 
-    @CALLBACK
+    @callback_type
     def my_cb(x):
         return x * 2
 
@@ -1029,8 +1029,8 @@ def test_serialize_arg_pointer_with_value() -> None:
 #   MUTATION: Not catching ValueError raises instead of returning None.
 #   ESCAPE: Nothing reasonable -- exact None check via is.
 def test_serialize_arg_null_pointer() -> None:
-    NullPtr = ctypes.POINTER(ctypes.c_int)
-    null = NullPtr()
+    null_ptr_type = ctypes.POINTER(ctypes.c_int)
+    null = null_ptr_type()
     result = _serialize_arg(null)
     assert result is None
 

@@ -7,7 +7,7 @@ from unittest.mock import patch
 import pytest
 
 from bigfoot._errors import BigfootConfigError
-from bigfoot._registry import PluginEntry, resolve_enabled_plugins, _is_available, get_plugin_class
+from bigfoot._registry import PluginEntry, resolve_enabled_plugins
 
 
 def _fake_entry(name: str, avail: str) -> PluginEntry:

@@ -133,7 +133,7 @@ def _patched_apply_async(
     link: Any = None,  # noqa: ANN401
     link_error: Any = None,  # noqa: ANN401
     shadow: str | None = None,
-    **options: Any,
+    **options: Any,  # noqa: ANN401
 ) -> Any:  # noqa: ANN401
     plugin = _get_celery_plugin()
     task_name = task_self.name

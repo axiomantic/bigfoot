@@ -49,7 +49,7 @@ _SOURCE_CLOSE = "ssh:close"
 # ---------------------------------------------------------------------------
 
 
-def _find_ssh_plugin() -> "SshPlugin":
+def _find_ssh_plugin() -> SshPlugin:
     verifier = _get_verifier_or_raise("ssh:connect")
     for plugin in verifier._plugins:
         if isinstance(plugin, SshPlugin):
@@ -68,7 +68,7 @@ def _find_ssh_plugin() -> "SshPlugin":
 class _FakeSFTPClient:
     """Fake paramiko SFTPClient that routes all operations through SshPlugin."""
 
-    def __init__(self, client: "_FakeSSHClient") -> None:
+    def __init__(self, client: _FakeSSHClient) -> None:
         self._client = client
 
     def get(self, remotepath: str, localpath: str, **kwargs: Any) -> Any:  # noqa: ANN401
@@ -217,7 +217,7 @@ class SshPlugin(StateMachinePlugin):
     # Saved original, restored when count reaches 0.
     _original_ssh_client: ClassVar[Any] = None
 
-    def __init__(self, verifier: "StrictVerifier") -> None:
+    def __init__(self, verifier: StrictVerifier) -> None:
         super().__init__(verifier)
         self._connect_sentinel = _StepSentinel(_SOURCE_CONNECT)
         self._exec_command_sentinel = _StepSentinel(_SOURCE_EXEC_COMMAND)

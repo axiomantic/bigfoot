@@ -21,7 +21,6 @@ from bigfoot.plugins.jwt_plugin import (  # noqa: E402
     JwtPlugin,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -427,8 +426,9 @@ def test_format_unused_mock_hint() -> None:
 
 
 def test_jwt_mock_proxy_mock_encode(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
     import jwt as jwt_mod
+
+    import bigfoot
 
     bigfoot.jwt_mock.mock_encode(returns="proxied_token")
 
@@ -470,8 +470,9 @@ def test_jwt_plugin_in_all() -> None:
 
 
 def test_jwt_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
     import jwt as jwt_mod
+
+    import bigfoot
 
     bigfoot.jwt_mock.mock_encode(returns="token")
     with bigfoot.sandbox():
@@ -485,8 +486,9 @@ def test_jwt_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) ->
 
 
 def test_assert_encode_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
     import jwt as jwt_mod
+
+    import bigfoot
 
     bigfoot.jwt_mock.mock_encode(returns="token")
     with bigfoot.sandbox():
@@ -495,8 +497,9 @@ def test_assert_encode_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
 
 
 def test_assert_decode_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
     import jwt as jwt_mod
+
+    import bigfoot
 
     bigfoot.jwt_mock.mock_decode(returns={"sub": "1"})
     with bigfoot.sandbox():
@@ -505,8 +508,9 @@ def test_assert_decode_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
 
 
 def test_assert_encode_wrong_params_raises(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
     import jwt as jwt_mod
+
+    import bigfoot
 
     bigfoot.jwt_mock.mock_encode(returns="token")
     with bigfoot.sandbox():
@@ -517,8 +521,9 @@ def test_assert_encode_wrong_params_raises(bigfoot_verifier: StrictVerifier) -> 
 
 
 def test_missing_assertion_fields_raises(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
     import jwt as jwt_mod
+
+    import bigfoot
 
     bigfoot.jwt_mock.mock_encode(returns="token")
     with bigfoot.sandbox():

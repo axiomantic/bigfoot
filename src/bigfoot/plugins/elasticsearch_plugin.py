@@ -104,7 +104,7 @@ class _ElasticsearchSentinel:
 # ---------------------------------------------------------------------------
 
 
-def _make_interceptor(operation: str) -> Any:
+def _make_interceptor(operation: str) -> Any:  # noqa: ANN401
     """Create an interceptor function for a specific ES operation."""
     detail_keys = _OPERATION_DETAILS.get(operation, ())
 
@@ -293,7 +293,10 @@ class ElasticsearchPlugin(BasePlugin):
     # Typed assertion helpers
     # ------------------------------------------------------------------
 
-    def assert_index(self, *, index: str, document: Any, id: str | None = None, **extra: Any) -> None:  # noqa: ANN401, A002
+    def assert_index(  # noqa: A002
+        self, *, index: str, document: Any, id: str | None = None,  # noqa: ANN401
+        **extra: Any,  # noqa: ANN401
+    ) -> None:
         """Assert the next index interaction."""
         from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
 
@@ -304,7 +307,11 @@ class ElasticsearchPlugin(BasePlugin):
         kwargs.update(extra)
         _get_test_verifier_or_raise().assert_interaction(sentinel, **kwargs)
 
-    def assert_search(self, *, index: str | None = None, query: Any = None, size: int | None = None, from_: int | None = None, **extra: Any) -> None:  # noqa: ANN401
+    def assert_search(
+        self, *, index: str | None = None, query: Any = None,  # noqa: ANN401
+        size: int | None = None, from_: int | None = None,
+        **extra: Any,  # noqa: ANN401
+    ) -> None:
         """Assert the next search interaction."""
         from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
 
@@ -321,7 +328,7 @@ class ElasticsearchPlugin(BasePlugin):
         kwargs.update(extra)
         _get_test_verifier_or_raise().assert_interaction(sentinel, **kwargs)
 
-    def assert_get(self, *, index: str, id: str, **extra: Any) -> None:  # noqa: A002
+    def assert_get(self, *, index: str, id: str, **extra: Any) -> None:  # noqa: A002, ANN401
         """Assert the next get interaction."""
         from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
 
@@ -330,7 +337,7 @@ class ElasticsearchPlugin(BasePlugin):
         kwargs.update(extra)
         _get_test_verifier_or_raise().assert_interaction(sentinel, **kwargs)
 
-    def assert_delete(self, *, index: str, id: str, **extra: Any) -> None:  # noqa: A002
+    def assert_delete(self, *, index: str, id: str, **extra: Any) -> None:  # noqa: A002, ANN401
         """Assert the next delete interaction."""
         from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
 

@@ -85,7 +85,10 @@ class _JwtSentinel:
 # ---------------------------------------------------------------------------
 
 
-def _patched_encode(payload: dict[str, Any], key: Any, algorithm: str | None = None, **kwargs: Any) -> Any:  # noqa: ANN401
+def _patched_encode(
+    payload: dict[str, Any], key: Any, algorithm: str | None = None,  # noqa: ANN401
+    **kwargs: Any,  # noqa: ANN401
+) -> Any:  # noqa: ANN401
     plugin = _get_jwt_plugin()
     source_id = "jwt:encode"
 
@@ -115,7 +118,10 @@ def _patched_encode(payload: dict[str, Any], key: Any, algorithm: str | None = N
     return config.returns
 
 
-def _patched_decode(token: str | bytes, key: Any = "", algorithms: Any = None, options: Any = None, **kwargs: Any) -> Any:  # noqa: ANN401
+def _patched_decode(
+    token: str | bytes, key: Any = "", algorithms: Any = None,  # noqa: ANN401
+    options: Any = None, **kwargs: Any,  # noqa: ANN401
+) -> Any:  # noqa: ANN401
     plugin = _get_jwt_plugin()
     source_id = "jwt:decode"
 
@@ -308,17 +314,25 @@ class JwtPlugin(BasePlugin):
     # Typed assertion helpers
     # ------------------------------------------------------------------
 
-    def assert_encode(self, *, payload: dict[str, Any], algorithm: str | None, extra_kwargs: dict[str, Any] | None = None, **extra: Any) -> None:
+    def assert_encode(
+        self, *, payload: dict[str, Any], algorithm: str | None,
+        extra_kwargs: dict[str, Any] | None = None,
+        **extra: Any,  # noqa: ANN401
+    ) -> None:
         """Assert the next jwt.encode() interaction."""
         from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
 
         sentinel = _JwtSentinel("encode")
         actual_extra_kwargs = extra_kwargs if extra_kwargs is not None else {}
         _get_test_verifier_or_raise().assert_interaction(
-            sentinel, payload=payload, algorithm=algorithm, extra_kwargs=actual_extra_kwargs, **extra
+            sentinel, payload=payload, algorithm=algorithm,
+            extra_kwargs=actual_extra_kwargs, **extra,
         )
 
-    def assert_decode(self, *, token: str | bytes, algorithms: Any, options: Any = None, **extra: Any) -> None:  # noqa: ANN401
+    def assert_decode(  # noqa: ANN401
+        self, *, token: str | bytes, algorithms: Any,  # noqa: ANN401
+        options: Any = None, **extra: Any,  # noqa: ANN401
+    ) -> None:
         """Assert the next jwt.decode() interaction."""
         from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
 

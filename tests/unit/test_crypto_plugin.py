@@ -21,7 +21,6 @@ from bigfoot.plugins.crypto_plugin import (  # noqa: E402
     CryptoPlugin,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -451,8 +450,9 @@ def test_format_unused_mock_hint() -> None:
 
 
 def test_crypto_mock_proxy_mock_encrypt(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
     from cryptography.fernet import Fernet
+
+    import bigfoot
 
     bigfoot.crypto_mock.mock_encrypt(returns=b"proxied_encrypted")
 
@@ -495,8 +495,9 @@ def test_crypto_plugin_in_all() -> None:
 
 
 def test_crypto_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
     from cryptography.fernet import Fernet
+
+    import bigfoot
 
     bigfoot.crypto_mock.mock_encrypt(returns=b"encrypted")
     with bigfoot.sandbox():
@@ -511,8 +512,9 @@ def test_crypto_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier)
 
 
 def test_assert_encrypt_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
     from cryptography.fernet import Fernet
+
+    import bigfoot
 
     bigfoot.crypto_mock.mock_encrypt(returns=b"encrypted")
     with bigfoot.sandbox():
@@ -522,8 +524,9 @@ def test_assert_encrypt_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
 
 
 def test_assert_decrypt_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
     from cryptography.fernet import Fernet
+
+    import bigfoot
 
     bigfoot.crypto_mock.mock_decrypt(returns=b"decrypted")
     with bigfoot.sandbox():
@@ -545,8 +548,9 @@ def test_assert_generate_key_typed_helper(bigfoot_verifier: StrictVerifier) -> N
 
 
 def test_assert_encrypt_wrong_params_raises(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
     from cryptography.fernet import Fernet
+
+    import bigfoot
 
     bigfoot.crypto_mock.mock_encrypt(returns=b"encrypted")
     with bigfoot.sandbox():

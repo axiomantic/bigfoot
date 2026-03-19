@@ -1,4 +1,7 @@
-"""MemcachePlugin: intercepts pymemcache.client.base.Client methods with a per-command FIFO queue."""
+"""MemcachePlugin: intercepts pymemcache Client methods.
+
+Uses a per-command FIFO queue.
+"""
 
 from __future__ import annotations
 

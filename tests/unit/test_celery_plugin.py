@@ -21,7 +21,6 @@ from bigfoot.plugins.celery_plugin import (  # noqa: E402
     CeleryPlugin,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -368,7 +367,6 @@ def test_get_unused_mocks_excludes_required_false() -> None:
 
 def test_missing_assertion_fields(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
-
     from bigfoot.plugins.celery_plugin import _CelerySentinel
 
     bigfoot.celery_mock.mock_delay("myapp.tasks.add", returns="mock-id")

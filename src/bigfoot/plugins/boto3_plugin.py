@@ -1,4 +1,7 @@
-"""Boto3Plugin: intercepts botocore.client.BaseClient._make_api_call with a per-service:operation FIFO queue."""
+"""Boto3Plugin: intercepts botocore BaseClient._make_api_call.
+
+Uses a per-service:operation FIFO queue.
+"""
 
 from __future__ import annotations
 
@@ -103,7 +106,9 @@ class _ServiceProxy:
 # ---------------------------------------------------------------------------
 
 
-def _patched_make_api_call(client_self: object, operation_name: str, api_params: dict[str, Any]) -> Any:  # noqa: ANN401
+def _patched_make_api_call(
+    client_self: object, operation_name: str, api_params: dict[str, Any],
+) -> Any:  # noqa: ANN401
     plugin = _get_boto3_plugin()
     service_name = client_self.meta.service_model.service_name  # type: ignore[attr-defined]
     queue_key = f"{service_name}:{operation_name}"

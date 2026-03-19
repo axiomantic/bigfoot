@@ -1,6 +1,5 @@
 """User profile caching with memcache."""
 
-from pymemcache.client.base import Client
 
 
 def get_user_profile(client, user_id):

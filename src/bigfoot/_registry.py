@@ -96,16 +96,27 @@ PLUGIN_REGISTRY: tuple[PluginEntry, ...] = (
     PluginEntry("memcache", "bigfoot.plugins.memcache_plugin", "MemcachePlugin", "pymemcache"),
     PluginEntry("celery", "bigfoot.plugins.celery_plugin", "CeleryPlugin", "celery"),
     PluginEntry("boto3", "bigfoot.plugins.boto3_plugin", "Boto3Plugin", "boto3"),
-    PluginEntry("elasticsearch", "bigfoot.plugins.elasticsearch_plugin", "ElasticsearchPlugin", "elasticsearch"),
+    PluginEntry(
+        "elasticsearch",
+        "bigfoot.plugins.elasticsearch_plugin",
+        "ElasticsearchPlugin",
+        "elasticsearch",
+    ),
     PluginEntry("jwt", "bigfoot.plugins.jwt_plugin", "JwtPlugin", "jwt"),
     PluginEntry("crypto", "bigfoot.plugins.crypto_plugin", "CryptoPlugin", "cryptography"),
     PluginEntry("mongo", "bigfoot.plugins.mongo_plugin", "MongoPlugin", "pymongo"),
-    PluginEntry("file_io", "bigfoot.plugins.file_io_plugin", "FileIoPlugin", "always", default_enabled=False),
+    PluginEntry(
+        "file_io", "bigfoot.plugins.file_io_plugin", "FileIoPlugin",
+        "always", default_enabled=False,
+    ),
     PluginEntry("pika", "bigfoot.plugins.pika_plugin", "PikaPlugin", "pika"),
     PluginEntry("ssh", "bigfoot.plugins.ssh_plugin", "SshPlugin", "paramiko"),
     PluginEntry("grpc", "bigfoot.plugins.grpc_plugin", "GrpcPlugin", "grpc"),
     PluginEntry("mcp", "bigfoot.plugins.mcp_plugin", "McpPlugin", "mcp"),
-    PluginEntry("native", "bigfoot.plugins.native_plugin", "NativePlugin", "always", default_enabled=False),
+    PluginEntry(
+        "native", "bigfoot.plugins.native_plugin", "NativePlugin",
+        "always", default_enabled=False,
+    ),
 )
 
 VALID_PLUGIN_NAMES: frozenset[str] = frozenset(e.name for e in PLUGIN_REGISTRY)

@@ -94,8 +94,8 @@ async def _patched_call_tool(
     self: Any,  # noqa: ANN401
     name: str,
     arguments: dict[str, Any] | None = None,
-    *args: Any,
-    **kwargs: Any,
+    *args: Any,  # noqa: ANN401
+    **kwargs: Any,  # noqa: ANN401
 ) -> Any:  # noqa: ANN401
     plugin = _get_mcp_plugin()
     queue_key = f"client:call_tool:{name}"
@@ -104,11 +104,12 @@ async def _patched_call_tool(
     with plugin._registry_lock:
         queue = plugin._queues.get(queue_key)
         if not queue:
-            hint = plugin.format_unmocked_hint(source_id, (), {"name": name, "arguments": arguments})
+            kw = {"name": name, "arguments": arguments}
+            hint = plugin.format_unmocked_hint(source_id, (), kw)
             raise UnmockedInteractionError(
                 source_id=source_id,
                 args=(),
-                kwargs={"name": name, "arguments": arguments},
+                kwargs=kw,
                 hint=hint,
             )
         config = queue.popleft()
@@ -134,8 +135,8 @@ async def _patched_call_tool(
 async def _patched_read_resource(
     self: Any,  # noqa: ANN401
     uri: Any,  # noqa: ANN401
-    *args: Any,
-    **kwargs: Any,
+    *args: Any,  # noqa: ANN401
+    **kwargs: Any,  # noqa: ANN401
 ) -> Any:  # noqa: ANN401
     plugin = _get_mcp_plugin()
     uri_str = str(uri)
@@ -175,8 +176,8 @@ async def _patched_get_prompt(
     self: Any,  # noqa: ANN401
     name: str,
     arguments: dict[str, str] | None = None,
-    *args: Any,
-    **kwargs: Any,
+    *args: Any,  # noqa: ANN401
+    **kwargs: Any,  # noqa: ANN401
 ) -> Any:  # noqa: ANN401
     plugin = _get_mcp_plugin()
     queue_key = f"client:get_prompt:{name}"
@@ -185,11 +186,12 @@ async def _patched_get_prompt(
     with plugin._registry_lock:
         queue = plugin._queues.get(queue_key)
         if not queue:
-            hint = plugin.format_unmocked_hint(source_id, (), {"name": name, "arguments": arguments})
+            kw = {"name": name, "arguments": arguments}
+            hint = plugin.format_unmocked_hint(source_id, (), kw)
             raise UnmockedInteractionError(
                 source_id=source_id,
                 args=(),
-                kwargs={"name": name, "arguments": arguments},
+                kwargs=kw,
                 hint=hint,
             )
         config = queue.popleft()
@@ -301,7 +303,9 @@ async def _patched_handle_request(
         return
 
     # For non-intercepted request types, delegate to the original handler
-    await McpPlugin._original_handle_request(self, message, req, session, lifespan_context, raise_exceptions)
+    await McpPlugin._original_handle_request(
+        self, message, req, session, lifespan_context, raise_exceptions,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -375,7 +379,10 @@ class McpPlugin(BasePlugin):
         required: bool = True,
     ) -> None:
         """Register a mock for a client call_tool invocation."""
-        self._enqueue("client", "call_tool", tool_name, returns=returns, raises=raises, required=required)
+        self._enqueue(
+            "client", "call_tool", tool_name,
+            returns=returns, raises=raises, required=required,
+        )
 
     def mock_read_resource(
         self,
@@ -386,7 +393,10 @@ class McpPlugin(BasePlugin):
         required: bool = True,
     ) -> None:
         """Register a mock for a client read_resource invocation."""
-        self._enqueue("client", "read_resource", uri, returns=returns, raises=raises, required=required)
+        self._enqueue(
+            "client", "read_resource", uri,
+            returns=returns, raises=raises, required=required,
+        )
 
     def mock_get_prompt(
         self,
@@ -397,7 +407,10 @@ class McpPlugin(BasePlugin):
         required: bool = True,
     ) -> None:
         """Register a mock for a client get_prompt invocation."""
-        self._enqueue("client", "get_prompt", prompt_name, returns=returns, raises=raises, required=required)
+        self._enqueue(
+            "client", "get_prompt", prompt_name,
+            returns=returns, raises=raises, required=required,
+        )
 
     # ------------------------------------------------------------------
     # Public API: register server mocks
@@ -412,7 +425,10 @@ class McpPlugin(BasePlugin):
         required: bool = True,
     ) -> None:
         """Register a mock for a server call_tool handler invocation."""
-        self._enqueue("server", "call_tool", tool_name, returns=returns, raises=raises, required=required)
+        self._enqueue(
+            "server", "call_tool", tool_name,
+            returns=returns, raises=raises, required=required,
+        )
 
     def mock_server_read_resource(
         self,
@@ -423,7 +439,10 @@ class McpPlugin(BasePlugin):
         required: bool = True,
     ) -> None:
         """Register a mock for a server read_resource handler invocation."""
-        self._enqueue("server", "read_resource", uri, returns=returns, raises=raises, required=required)
+        self._enqueue(
+            "server", "read_resource", uri,
+            returns=returns, raises=raises, required=required,
+        )
 
     def mock_server_get_prompt(
         self,
@@ -434,7 +453,10 @@ class McpPlugin(BasePlugin):
         required: bool = True,
     ) -> None:
         """Register a mock for a server get_prompt handler invocation."""
-        self._enqueue("server", "get_prompt", prompt_name, returns=returns, raises=raises, required=required)
+        self._enqueue(
+            "server", "get_prompt", prompt_name,
+            returns=returns, raises=raises, required=required,
+        )
 
     # ------------------------------------------------------------------
     # BasePlugin lifecycle

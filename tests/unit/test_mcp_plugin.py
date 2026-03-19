@@ -12,14 +12,12 @@ from bigfoot._errors import (
 )
 from bigfoot._timeline import Interaction
 from bigfoot._verifier import StrictVerifier
-
 from bigfoot.plugins.mcp_plugin import (
     _MCP_AVAILABLE,
     McpMockConfig,
     McpPlugin,
     _McpSentinel,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -171,8 +169,9 @@ def test_reference_counting_nested() -> None:
 @pytest.mark.asyncio
 async def test_client_call_tool_mock_and_assert(bigfoot_verifier: StrictVerifier) -> None:
     """Client call_tool: mock registers, patched method returns mock, assert passes."""
-    import bigfoot
     from mcp.client.session import ClientSession
+
+    import bigfoot
 
     mock_result = {"content": [{"type": "text", "text": "hello"}]}
     bigfoot.mcp_mock.mock_call_tool("my_tool", returns=mock_result)
@@ -197,8 +196,9 @@ async def test_client_call_tool_mock_and_assert(bigfoot_verifier: StrictVerifier
 @pytest.mark.asyncio
 async def test_client_read_resource_mock_and_assert(bigfoot_verifier: StrictVerifier) -> None:
     """Client read_resource: mock registers, patched method returns mock, assert passes."""
-    import bigfoot
     from mcp.client.session import ClientSession
+
+    import bigfoot
 
     mock_result = {"contents": [{"uri": "file:///data.txt", "text": "content"}]}
     bigfoot.mcp_mock.mock_read_resource("file:///data.txt", returns=mock_result)
@@ -222,8 +222,9 @@ async def test_client_read_resource_mock_and_assert(bigfoot_verifier: StrictVeri
 @pytest.mark.asyncio
 async def test_client_get_prompt_mock_and_assert(bigfoot_verifier: StrictVerifier) -> None:
     """Client get_prompt: mock registers, patched method returns mock, assert passes."""
-    import bigfoot
     from mcp.client.session import ClientSession
+
+    import bigfoot
 
     mock_result = {"messages": [{"role": "user", "content": "hello"}]}
     bigfoot.mcp_mock.mock_get_prompt("greeting", returns=mock_result)
@@ -248,8 +249,9 @@ async def test_client_get_prompt_mock_and_assert(bigfoot_verifier: StrictVerifie
 @pytest.mark.asyncio
 async def test_client_call_tool_fifo_ordering(bigfoot_verifier: StrictVerifier) -> None:
     """Multiple mocks for the same tool are consumed in FIFO order."""
-    import bigfoot
     from mcp.client.session import ClientSession
+
+    import bigfoot
 
     bigfoot.mcp_mock.mock_call_tool("tool_a", returns={"seq": 1})
     bigfoot.mcp_mock.mock_call_tool("tool_a", returns={"seq": 2})
@@ -274,8 +276,9 @@ async def test_client_call_tool_fifo_ordering(bigfoot_verifier: StrictVerifier) 
 @pytest.mark.asyncio
 async def test_unasserted_interaction_recorded(bigfoot_verifier: StrictVerifier) -> None:
     """Interactions are NOT auto-asserted; they appear in all_unasserted()."""
-    import bigfoot
     from mcp.client.session import ClientSession
+
+    import bigfoot
 
     bigfoot.mcp_mock.mock_call_tool("my_tool", returns={"ok": True})
 
@@ -300,8 +303,9 @@ async def test_unasserted_interaction_recorded(bigfoot_verifier: StrictVerifier)
 @pytest.mark.asyncio
 async def test_unmocked_call_tool_raises(bigfoot_verifier: StrictVerifier) -> None:
     """Calling a tool with no mock raises UnmockedInteractionError."""
-    import bigfoot
     from mcp.client.session import ClientSession
+
+    import bigfoot
 
     with bigfoot.sandbox():
         session = object.__new__(ClientSession)
@@ -314,8 +318,9 @@ async def test_unmocked_call_tool_raises(bigfoot_verifier: StrictVerifier) -> No
 @pytest.mark.asyncio
 async def test_unmocked_read_resource_raises(bigfoot_verifier: StrictVerifier) -> None:
     """Calling read_resource with no mock raises UnmockedInteractionError."""
-    import bigfoot
     from mcp.client.session import ClientSession
+
+    import bigfoot
 
     with bigfoot.sandbox():
         session = object.__new__(ClientSession)
@@ -328,8 +333,9 @@ async def test_unmocked_read_resource_raises(bigfoot_verifier: StrictVerifier) -
 @pytest.mark.asyncio
 async def test_unmocked_get_prompt_raises(bigfoot_verifier: StrictVerifier) -> None:
     """Calling get_prompt with no mock raises UnmockedInteractionError."""
-    import bigfoot
     from mcp.client.session import ClientSession
+
+    import bigfoot
 
     with bigfoot.sandbox():
         session = object.__new__(ClientSession)
@@ -373,8 +379,9 @@ def test_unused_mocks_excludes_required_false() -> None:
 @pytest.mark.asyncio
 async def test_assert_wrong_tool_name_raises(bigfoot_verifier: StrictVerifier) -> None:
     """assert_call_tool with wrong tool_name raises InteractionMismatchError."""
-    import bigfoot
     from mcp.client.session import ClientSession
+
+    import bigfoot
 
     bigfoot.mcp_mock.mock_call_tool("real_tool", returns={"ok": True})
 
@@ -458,8 +465,9 @@ def test_assertable_fields_returns_all_detail_keys_get_prompt() -> None:
 @pytest.mark.asyncio
 async def test_missing_assertion_fields_raises(bigfoot_verifier: StrictVerifier) -> None:
     """Incomplete fields in assert_interaction raises MissingAssertionFieldsError."""
-    import bigfoot
     from mcp.client.session import ClientSession
+
+    import bigfoot
 
     bigfoot.mcp_mock.mock_call_tool("my_tool", returns={"ok": True})
 
@@ -529,8 +537,9 @@ def test_server_get_prompt_mock_enqueues_correctly() -> None:
 @pytest.mark.asyncio
 async def test_mock_call_tool_raises_exception(bigfoot_verifier: StrictVerifier) -> None:
     """Mock with raises parameter raises the exception instead of returning."""
-    import bigfoot
     from mcp.client.session import ClientSession
+
+    import bigfoot
 
     bigfoot.mcp_mock.mock_call_tool("failing_tool", returns=None, raises=RuntimeError("boom"))
 
@@ -773,8 +782,9 @@ def test_sentinel_source_id() -> None:
 @pytest.mark.asyncio
 async def test_mcp_mock_proxy_mock_call_tool(bigfoot_verifier: StrictVerifier) -> None:
     """Module-level proxy routes mock_call_tool correctly."""
-    import bigfoot
     from mcp.client.session import ClientSession
+
+    import bigfoot
 
     bigfoot.mcp_mock.mock_call_tool("proxy_tool", returns={"proxied": True})
 
@@ -823,8 +833,9 @@ async def test_call_tool_none_arguments_become_empty_dict(
     bigfoot_verifier: StrictVerifier,
 ) -> None:
     """When arguments is None, interaction details record an empty dict."""
-    import bigfoot
     from mcp.client.session import ClientSession
+
+    import bigfoot
 
     bigfoot.mcp_mock.mock_call_tool("tool_no_args", returns={"ok": True})
 
@@ -842,8 +853,9 @@ async def test_get_prompt_none_arguments_become_empty_dict(
     bigfoot_verifier: StrictVerifier,
 ) -> None:
     """When arguments is None, interaction details record an empty dict."""
-    import bigfoot
     from mcp.client.session import ClientSession
+
+    import bigfoot
 
     bigfoot.mcp_mock.mock_get_prompt("my_prompt", returns={"messages": []})
 

@@ -153,7 +153,10 @@ def _patched_fernet_decrypt(fernet_self: object, token: bytes | str, ttl: int | 
     return config.returns
 
 
-def _patched_generate_private_key(public_exponent: int = 65537, key_size: int = 2048, backend: Any = None) -> Any:  # noqa: ANN401
+def _patched_generate_private_key(
+    public_exponent: int = 65537, key_size: int = 2048,
+    backend: Any = None,  # noqa: ANN401
+) -> Any:  # noqa: ANN401
     plugin = _get_crypto_plugin()
     source_id = "crypto:generate_key"
 
@@ -375,7 +378,7 @@ class CryptoPlugin(BasePlugin):
     # Typed assertion helpers
     # ------------------------------------------------------------------
 
-    def assert_encrypt(self, *, plaintext_length: int, **extra: Any) -> None:
+    def assert_encrypt(self, *, plaintext_length: int, **extra: Any) -> None:  # noqa: ANN401
         """Assert the next Fernet.encrypt() interaction."""
         from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
 
@@ -384,7 +387,7 @@ class CryptoPlugin(BasePlugin):
             sentinel, plaintext_length=plaintext_length, **extra
         )
 
-    def assert_decrypt(self, *, token: bytes | str, ttl: int | None = None, **extra: Any) -> None:
+    def assert_decrypt(self, *, token: bytes | str, ttl: int | None = None, **extra: Any) -> None:  # noqa: ANN401
         """Assert the next Fernet.decrypt() interaction."""
         from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
 
@@ -393,7 +396,7 @@ class CryptoPlugin(BasePlugin):
             sentinel, token=token, ttl=ttl, **extra
         )
 
-    def assert_generate_key(self, *, algorithm: str, key_size: int, **extra: Any) -> None:
+    def assert_generate_key(self, *, algorithm: str, key_size: int, **extra: Any) -> None:  # noqa: ANN401
         """Assert the next rsa.generate_private_key() interaction."""
         from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
 

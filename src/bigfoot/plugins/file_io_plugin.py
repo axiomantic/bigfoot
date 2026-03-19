@@ -277,7 +277,10 @@ def _intercepted_write_text(self_path: pathlib.Path, data: str, *args: Any, **kw
     )
 
 
-def _intercepted_write_bytes(self_path: pathlib.Path, data: bytes, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+def _intercepted_write_bytes(
+    self_path: pathlib.Path, data: bytes,
+    *args: Any, **kwargs: Any,  # noqa: ANN401
+) -> Any:  # noqa: ANN401
     """Interceptor for pathlib.Path.write_bytes."""
     path_str = str(self_path)
     details = {"path": path_str, "data": data}

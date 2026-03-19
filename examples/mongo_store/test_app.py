@@ -20,7 +20,8 @@ def _silence_pymongo():
 def test_create_order():
     mock_result = type("InsertOneResult", (), {"inserted_id": "order_789"})()
     bigfoot.mongo_mock.mock_operation("insert_one", returns=mock_result)
-    bigfoot.mongo_mock.mock_operation("update_one", returns=type("UpdateResult", (), {"modified_count": 1})())
+    update_result = type("UpdateResult", (), {"modified_count": 1})()
+    bigfoot.mongo_mock.mock_operation("update_one", returns=update_result)
 
     with bigfoot:
         client = pymongo.MongoClient("mongodb://localhost:27017")
@@ -31,7 +32,11 @@ def test_create_order():
     bigfoot.mongo_mock.assert_insert_one(
         database="shopdb",
         collection="orders",
-        document={"customer_id": "cust_123", "items": [{"sku": "WIDGET", "qty": 3}], "status": "pending"},
+        document={
+            "customer_id": "cust_123",
+            "items": [{"sku": "WIDGET", "qty": 3}],
+            "status": "pending",
+        },
     )
     bigfoot.mongo_mock.assert_update_one(
         database="shopdb",

@@ -391,7 +391,7 @@ class MongoPlugin(BasePlugin):
     def _assert_operation(
         self,
         operation: str,
-        **expected_fields: Any,
+        **expected_fields: Any,  # noqa: ANN401
     ) -> None:
         """Common implementation for typed assertion helpers."""
         from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
