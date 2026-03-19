@@ -235,10 +235,10 @@ class JwtPlugin(BasePlugin):
             JwtPlugin._install_count = max(0, JwtPlugin._install_count - 1)
             if JwtPlugin._install_count == 0:
                 if JwtPlugin._original_encode is not None:
-                    jwt_lib.encode = JwtPlugin._original_encode  # type: ignore[assignment]
+                    jwt_lib.encode = JwtPlugin._original_encode
                     JwtPlugin._original_encode = None
                 if JwtPlugin._original_decode is not None:
-                    jwt_lib.decode = JwtPlugin._original_decode  # type: ignore[assignment]
+                    jwt_lib.decode = JwtPlugin._original_decode
                     JwtPlugin._original_decode = None
 
     # ------------------------------------------------------------------

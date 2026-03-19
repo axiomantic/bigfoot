@@ -272,8 +272,8 @@ class CeleryPlugin(BasePlugin):
             if CeleryPlugin._install_count == 0:
                 CeleryPlugin._original_delay = Task.delay
                 CeleryPlugin._original_apply_async = Task.apply_async
-                Task.delay = _patched_delay  # type: ignore[assignment]
-                Task.apply_async = _patched_apply_async  # type: ignore[assignment]
+                Task.delay = _patched_delay
+                Task.apply_async = _patched_apply_async
             CeleryPlugin._install_count += 1
 
     def deactivate(self) -> None:
@@ -283,10 +283,10 @@ class CeleryPlugin(BasePlugin):
             CeleryPlugin._install_count = max(0, CeleryPlugin._install_count - 1)
             if CeleryPlugin._install_count == 0:
                 if CeleryPlugin._original_delay is not None:
-                    Task.delay = CeleryPlugin._original_delay  # type: ignore[assignment]
+                    Task.delay = CeleryPlugin._original_delay
                     CeleryPlugin._original_delay = None
                 if CeleryPlugin._original_apply_async is not None:
-                    Task.apply_async = CeleryPlugin._original_apply_async  # type: ignore[method-assign]
+                    Task.apply_async = CeleryPlugin._original_apply_async
                     CeleryPlugin._original_apply_async = None
 
     # ------------------------------------------------------------------

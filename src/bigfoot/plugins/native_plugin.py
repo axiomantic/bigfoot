@@ -107,7 +107,7 @@ def _serialize_arg(value: Any) -> Any:  # noqa: ANN401
         return _serialize_struct(value)
     if isinstance(value, ctypes._SimpleCData):
         return value.value
-    if isinstance(value, ctypes._CFuncPtr):
+    if isinstance(value, ctypes._CFuncPtr):  # type: ignore[attr-defined]
         return "<callback>"
     if callable(value) and hasattr(value, "_type_"):
         return "<callback>"
@@ -331,7 +331,7 @@ class NativePlugin(BasePlugin):
                 # Optionally patch cffi if available
                 if _CFFI_AVAILABLE:
                     NativePlugin._original_ffi_dlopen = cffi_lib.FFI.dlopen
-                    cffi_lib.FFI.dlopen = _patched_ffi_dlopen  # type: ignore[assignment]
+                    cffi_lib.FFI.dlopen = _patched_ffi_dlopen
 
             NativePlugin._install_count += 1
 
@@ -340,10 +340,10 @@ class NativePlugin(BasePlugin):
             NativePlugin._install_count = max(0, NativePlugin._install_count - 1)
             if NativePlugin._install_count == 0:
                 if NativePlugin._original_cdll_init is not None:
-                    ctypes.CDLL.__init__ = NativePlugin._original_cdll_init  # type: ignore[assignment]
+                    ctypes.CDLL.__init__ = NativePlugin._original_cdll_init  # type: ignore[method-assign]
                     NativePlugin._original_cdll_init = None
                 if NativePlugin._original_ffi_dlopen is not None and _CFFI_AVAILABLE:
-                    cffi_lib.FFI.dlopen = NativePlugin._original_ffi_dlopen  # type: ignore[assignment]
+                    cffi_lib.FFI.dlopen = NativePlugin._original_ffi_dlopen
                     NativePlugin._original_ffi_dlopen = None
 
     # ------------------------------------------------------------------

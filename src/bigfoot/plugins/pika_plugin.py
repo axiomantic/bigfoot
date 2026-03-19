@@ -267,7 +267,7 @@ class PikaPlugin(StateMachinePlugin):
         with PikaPlugin._install_lock:
             if PikaPlugin._install_count == 0:
                 PikaPlugin._original_blocking_connection = pika_lib.BlockingConnection
-                pika_lib.BlockingConnection = _FakeBlockingConnection  # type: ignore[assignment, misc]
+                pika_lib.BlockingConnection = _FakeBlockingConnection
             PikaPlugin._install_count += 1
 
     def deactivate(self) -> None:
@@ -277,7 +277,7 @@ class PikaPlugin(StateMachinePlugin):
             PikaPlugin._install_count = max(0, PikaPlugin._install_count - 1)
             if PikaPlugin._install_count == 0:
                 if PikaPlugin._original_blocking_connection is not None:
-                    pika_lib.BlockingConnection = PikaPlugin._original_blocking_connection  # type: ignore[misc]
+                    pika_lib.BlockingConnection = PikaPlugin._original_blocking_connection
                     PikaPlugin._original_blocking_connection = None
 
     # ------------------------------------------------------------------

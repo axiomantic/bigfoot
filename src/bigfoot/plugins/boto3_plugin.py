@@ -227,7 +227,7 @@ class Boto3Plugin(BasePlugin):
         with Boto3Plugin._install_lock:
             if Boto3Plugin._install_count == 0:
                 Boto3Plugin._original_make_api_call = botocore.client.BaseClient._make_api_call
-                botocore.client.BaseClient._make_api_call = _patched_make_api_call  # type: ignore[assignment]
+                botocore.client.BaseClient._make_api_call = _patched_make_api_call
             Boto3Plugin._install_count += 1
 
     def deactivate(self) -> None:
@@ -235,7 +235,7 @@ class Boto3Plugin(BasePlugin):
             Boto3Plugin._install_count = max(0, Boto3Plugin._install_count - 1)
             if Boto3Plugin._install_count == 0:
                 if Boto3Plugin._original_make_api_call is not None:
-                    botocore.client.BaseClient._make_api_call = Boto3Plugin._original_make_api_call  # type: ignore[method-assign]
+                    botocore.client.BaseClient._make_api_call = Boto3Plugin._original_make_api_call
                     Boto3Plugin._original_make_api_call = None
 
     # ------------------------------------------------------------------

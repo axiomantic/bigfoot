@@ -281,7 +281,7 @@ class CryptoPlugin(BasePlugin):
                 CryptoPlugin._original_generate_private_key = _rsa_mod.generate_private_key
                 _Fernet.encrypt = _patched_fernet_encrypt  # type: ignore[assignment]
                 _Fernet.decrypt = _patched_fernet_decrypt  # type: ignore[assignment]
-                _rsa_mod.generate_private_key = _patched_generate_private_key  # type: ignore[assignment]
+                _rsa_mod.generate_private_key = _patched_generate_private_key
             CryptoPlugin._install_count += 1
 
     def deactivate(self) -> None:
@@ -295,7 +295,7 @@ class CryptoPlugin(BasePlugin):
                     _Fernet.decrypt = CryptoPlugin._original_decrypt  # type: ignore[method-assign]
                     CryptoPlugin._original_decrypt = None
                 if CryptoPlugin._original_generate_private_key is not None:
-                    _rsa_mod.generate_private_key = CryptoPlugin._original_generate_private_key  # type: ignore[assignment]
+                    _rsa_mod.generate_private_key = CryptoPlugin._original_generate_private_key
                     CryptoPlugin._original_generate_private_key = None
 
     # ------------------------------------------------------------------

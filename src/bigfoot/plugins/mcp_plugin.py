@@ -475,10 +475,10 @@ class McpPlugin(BasePlugin):
                 McpPlugin._original_get_prompt = _ClientSession.get_prompt
                 McpPlugin._original_handle_request = _Server._handle_request
 
-                _ClientSession.call_tool = _patched_call_tool  # type: ignore[assignment]
-                _ClientSession.read_resource = _patched_read_resource  # type: ignore[assignment]
-                _ClientSession.get_prompt = _patched_get_prompt  # type: ignore[assignment]
-                _Server._handle_request = _patched_handle_request  # type: ignore[assignment]
+                _ClientSession.call_tool = _patched_call_tool  # type: ignore[method-assign]
+                _ClientSession.read_resource = _patched_read_resource  # type: ignore[method-assign]
+                _ClientSession.get_prompt = _patched_get_prompt  # type: ignore[method-assign]
+                _Server._handle_request = _patched_handle_request  # type: ignore[method-assign]
             McpPlugin._install_count += 1
 
     def deactivate(self) -> None:

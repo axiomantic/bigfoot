@@ -349,13 +349,13 @@ class DnsPlugin(BasePlugin):
                 DnsPlugin._original_getaddrinfo = socket.getaddrinfo
                 DnsPlugin._original_gethostbyname = socket.gethostbyname
                 socket.getaddrinfo = _patched_getaddrinfo  # type: ignore[assignment]
-                socket.gethostbyname = _patched_gethostbyname  # type: ignore[assignment]
+                socket.gethostbyname = _patched_gethostbyname
 
                 if _DNSPYTHON_AVAILABLE:
                     DnsPlugin._original_resolve = dns.resolver.resolve
                     DnsPlugin._original_resolver_resolve = dns.resolver.Resolver.resolve
                     dns.resolver.resolve = _patched_module_resolve  # type: ignore[assignment]
-                    dns.resolver.Resolver.resolve = _patched_resolver_resolve  # type: ignore[assignment]
+                    dns.resolver.Resolver.resolve = _patched_resolver_resolve  # type: ignore[assignment, method-assign]
 
             DnsPlugin._install_count += 1
 
@@ -364,16 +364,16 @@ class DnsPlugin(BasePlugin):
             DnsPlugin._install_count = max(0, DnsPlugin._install_count - 1)
             if DnsPlugin._install_count == 0:
                 if DnsPlugin._original_getaddrinfo is not None:
-                    socket.getaddrinfo = DnsPlugin._original_getaddrinfo  # type: ignore[assignment]
+                    socket.getaddrinfo = DnsPlugin._original_getaddrinfo
                     DnsPlugin._original_getaddrinfo = None
                 if DnsPlugin._original_gethostbyname is not None:
-                    socket.gethostbyname = DnsPlugin._original_gethostbyname  # type: ignore[assignment]
+                    socket.gethostbyname = DnsPlugin._original_gethostbyname
                     DnsPlugin._original_gethostbyname = None
                 if DnsPlugin._original_resolve is not None and _DNSPYTHON_AVAILABLE:
-                    dns.resolver.resolve = DnsPlugin._original_resolve  # type: ignore[assignment]
+                    dns.resolver.resolve = DnsPlugin._original_resolve
                     DnsPlugin._original_resolve = None
                 if DnsPlugin._original_resolver_resolve is not None and _DNSPYTHON_AVAILABLE:
-                    dns.resolver.Resolver.resolve = DnsPlugin._original_resolver_resolve  # type: ignore[assignment]
+                    dns.resolver.Resolver.resolve = DnsPlugin._original_resolver_resolve  # type: ignore[method-assign]
                     DnsPlugin._original_resolver_resolve = None
 
     # ------------------------------------------------------------------

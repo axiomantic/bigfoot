@@ -94,7 +94,7 @@ class _GrpcSentinel:
 class _MockStreamIterator:
     """Yields pre-configured responses for server-streaming/bidi RPCs."""
 
-    def __init__(self, responses: list, raises: BaseException | None = None) -> None:
+    def __init__(self, responses: list[Any], raises: BaseException | None = None) -> None:
         self._responses = iter(responses)
         self._raises = raises
 
@@ -302,7 +302,7 @@ class GrpcPlugin(BasePlugin):
         self,
         method: str,
         *,
-        returns: list,
+        returns: list[Any],
         raises: BaseException | None = None,
         required: bool = True,
     ) -> None:
@@ -324,7 +324,7 @@ class GrpcPlugin(BasePlugin):
         self,
         method: str,
         *,
-        returns: list,
+        returns: list[Any],
         raises: BaseException | None = None,
         required: bool = True,
     ) -> None:
@@ -345,8 +345,8 @@ class GrpcPlugin(BasePlugin):
             if GrpcPlugin._install_count == 0:
                 GrpcPlugin._original_insecure_channel = grpc_lib.insecure_channel
                 GrpcPlugin._original_secure_channel = grpc_lib.secure_channel
-                grpc_lib.insecure_channel = _patched_insecure_channel  # type: ignore[assignment]
-                grpc_lib.secure_channel = _patched_secure_channel  # type: ignore[assignment]
+                grpc_lib.insecure_channel = _patched_insecure_channel
+                grpc_lib.secure_channel = _patched_secure_channel
             GrpcPlugin._install_count += 1
 
     def deactivate(self) -> None:
@@ -354,10 +354,10 @@ class GrpcPlugin(BasePlugin):
             GrpcPlugin._install_count = max(0, GrpcPlugin._install_count - 1)
             if GrpcPlugin._install_count == 0:
                 if GrpcPlugin._original_insecure_channel is not None:
-                    grpc_lib.insecure_channel = GrpcPlugin._original_insecure_channel  # type: ignore[assignment]
+                    grpc_lib.insecure_channel = GrpcPlugin._original_insecure_channel
                     GrpcPlugin._original_insecure_channel = None
                 if GrpcPlugin._original_secure_channel is not None:
-                    grpc_lib.secure_channel = GrpcPlugin._original_secure_channel  # type: ignore[assignment]
+                    grpc_lib.secure_channel = GrpcPlugin._original_secure_channel
                     GrpcPlugin._original_secure_channel = None
 
     # ------------------------------------------------------------------

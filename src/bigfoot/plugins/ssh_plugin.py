@@ -305,7 +305,7 @@ class SshPlugin(StateMachinePlugin):
         with SshPlugin._install_lock:
             if SshPlugin._install_count == 0:
                 SshPlugin._original_ssh_client = paramiko_lib.SSHClient
-                paramiko_lib.SSHClient = _FakeSSHClient  # type: ignore[assignment, misc]
+                paramiko_lib.SSHClient = _FakeSSHClient
             SshPlugin._install_count += 1
 
     def deactivate(self) -> None:
@@ -315,7 +315,7 @@ class SshPlugin(StateMachinePlugin):
             SshPlugin._install_count = max(0, SshPlugin._install_count - 1)
             if SshPlugin._install_count == 0:
                 if SshPlugin._original_ssh_client is not None:
-                    paramiko_lib.SSHClient = SshPlugin._original_ssh_client  # type: ignore[misc]
+                    paramiko_lib.SSHClient = SshPlugin._original_ssh_client
                     SshPlugin._original_ssh_client = None
 
     # ------------------------------------------------------------------
