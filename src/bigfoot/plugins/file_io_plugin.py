@@ -158,6 +158,10 @@ def _intercept_operation(
         source_id = f"file_io:{operation}"
         path = os.path.normpath(path)
         queue_key = f"{operation}:{path}"
+        # Ensure details uses the normalized path for cross-platform consistency.
+        for key in ("path", "src", "dst"):
+            if key in details:
+                details[key] = os.path.normpath(details[key])
 
         with plugin._registry_lock:
             queue = plugin._queues.get(queue_key)
@@ -777,7 +781,7 @@ class FileIoPlugin(BasePlugin):
         sentinel = _FileIoSentinel(source_id)
         _get_test_verifier_or_raise().assert_interaction(
             sentinel,
-            path=path,
+            path=os.path.normpath(path),
         )
 
     def assert_read_bytes(self, path: str) -> None:
@@ -788,7 +792,7 @@ class FileIoPlugin(BasePlugin):
         sentinel = _FileIoSentinel(source_id)
         _get_test_verifier_or_raise().assert_interaction(
             sentinel,
-            path=path,
+            path=os.path.normpath(path),
         )
 
     def assert_write_text(self, path: str, data: str) -> None:
@@ -799,7 +803,7 @@ class FileIoPlugin(BasePlugin):
         sentinel = _FileIoSentinel(source_id)
         _get_test_verifier_or_raise().assert_interaction(
             sentinel,
-            path=path,
+            path=os.path.normpath(path),
             data=data,
         )
 
@@ -811,7 +815,7 @@ class FileIoPlugin(BasePlugin):
         sentinel = _FileIoSentinel(source_id)
         _get_test_verifier_or_raise().assert_interaction(
             sentinel,
-            path=path,
+            path=os.path.normpath(path),
             data=data,
         )
 
@@ -825,27 +829,30 @@ class FileIoPlugin(BasePlugin):
         for interaction in timeline.all_unasserted():
             if interaction.source_id in ("file_io:remove", "file_io:unlink"):
                 sentinel = _FileIoSentinel(interaction.source_id)
-                verifier.assert_interaction(sentinel, path=path)
+                verifier.assert_interaction(
+                    sentinel, path=os.path.normpath(path),
+                )
                 return
         # Fall back to remove
         sentinel = _FileIoSentinel("file_io:remove")
-        verifier.assert_interaction(sentinel, path=path)
+        verifier.assert_interaction(sentinel, path=os.path.normpath(path))
 
     def assert_rename(self, src: str, dst: str) -> None:
         """Typed helper: assert the next file_io:rename or file_io:replace interaction."""
         from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
 
         verifier = _get_test_verifier_or_raise()
+        nsrc, ndst = os.path.normpath(src), os.path.normpath(dst)
         # Try both rename and replace source_ids
         timeline = verifier._timeline
         for interaction in timeline.all_unasserted():
             if interaction.source_id in ("file_io:rename", "file_io:replace"):
                 sentinel = _FileIoSentinel(interaction.source_id)
-                verifier.assert_interaction(sentinel, src=src, dst=dst)
+                verifier.assert_interaction(sentinel, src=nsrc, dst=ndst)
                 return
         # Fall back to rename
         sentinel = _FileIoSentinel("file_io:rename")
-        verifier.assert_interaction(sentinel, src=src, dst=dst)
+        verifier.assert_interaction(sentinel, src=nsrc, dst=ndst)
 
     def assert_makedirs(self, path: str, exist_ok: bool) -> None:
         """Typed helper: assert the next file_io:makedirs interaction."""
@@ -853,7 +860,7 @@ class FileIoPlugin(BasePlugin):
 
         sentinel = _FileIoSentinel("file_io:makedirs")
         _get_test_verifier_or_raise().assert_interaction(
-            sentinel, path=path, exist_ok=exist_ok,
+            sentinel, path=os.path.normpath(path), exist_ok=exist_ok,
         )
 
     def assert_mkdir(self, path: str) -> None:
@@ -861,21 +868,24 @@ class FileIoPlugin(BasePlugin):
         from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
 
         sentinel = _FileIoSentinel("file_io:mkdir")
-        _get_test_verifier_or_raise().assert_interaction(sentinel, path=path)
+        _get_test_verifier_or_raise().assert_interaction(
+            sentinel, path=os.path.normpath(path),
+        )
 
     def assert_copy(self, src: str, dst: str) -> None:
         """Typed helper: assert the next file_io:copy or file_io:copy2 interaction."""
         from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
 
         verifier = _get_test_verifier_or_raise()
+        nsrc, ndst = os.path.normpath(src), os.path.normpath(dst)
         timeline = verifier._timeline
         for interaction in timeline.all_unasserted():
             if interaction.source_id in ("file_io:copy", "file_io:copy2"):
                 sentinel = _FileIoSentinel(interaction.source_id)
-                verifier.assert_interaction(sentinel, src=src, dst=dst)
+                verifier.assert_interaction(sentinel, src=nsrc, dst=ndst)
                 return
         sentinel = _FileIoSentinel("file_io:copy")
-        verifier.assert_interaction(sentinel, src=src, dst=dst)
+        verifier.assert_interaction(sentinel, src=nsrc, dst=ndst)
 
     def assert_copytree(self, src: str, dst: str) -> None:
         """Typed helper: assert the next file_io:copytree interaction."""
@@ -885,8 +895,8 @@ class FileIoPlugin(BasePlugin):
         sentinel = _FileIoSentinel(source_id)
         _get_test_verifier_or_raise().assert_interaction(
             sentinel,
-            src=src,
-            dst=dst,
+            src=os.path.normpath(src),
+            dst=os.path.normpath(dst),
         )
 
     def assert_rmtree(self, path: str) -> None:
@@ -897,5 +907,5 @@ class FileIoPlugin(BasePlugin):
         sentinel = _FileIoSentinel(source_id)
         _get_test_verifier_or_raise().assert_interaction(
             sentinel,
-            path=path,
+            path=os.path.normpath(path),
         )

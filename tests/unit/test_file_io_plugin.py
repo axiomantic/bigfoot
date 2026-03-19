@@ -143,7 +143,7 @@ def test_mock_open_write_returns_string_io() -> None:
     # Verify the interaction was actually recorded on the timeline
     interactions = v._timeline.all_unasserted()
     assert len(interactions) == 1
-    assert interactions[0].details == {"path": "/tmp/out.txt", "mode": "w", "encoding": "utf-8"}
+    assert interactions[0].details == {"path": os.path.normpath("/tmp/out.txt"), "mode": "w", "encoding": "utf-8"}
 
 
 # ESCAPE: test_mock_open_binary_read_returns_bytes_io
@@ -216,7 +216,7 @@ def test_mock_write_text() -> None:
     # Verify interaction was recorded with correct details
     interactions = v._timeline.all_unasserted()
     assert len(interactions) == 1
-    assert interactions[0].details == {"path": "/tmp/w.txt", "data": "some data"}
+    assert interactions[0].details == {"path": os.path.normpath("/tmp/w.txt"), "data": "some data"}
 
 
 # ESCAPE: test_mock_write_bytes
@@ -235,7 +235,7 @@ def test_mock_write_bytes() -> None:
 
     interactions = v._timeline.all_unasserted()
     assert len(interactions) == 1
-    assert interactions[0].details == {"path": "/tmp/w.bin", "data": b"binary data"}
+    assert interactions[0].details == {"path": os.path.normpath("/tmp/w.bin"), "data": b"binary data"}
 
 
 # ESCAPE: test_mock_remove
@@ -253,7 +253,7 @@ def test_mock_remove() -> None:
 
     interactions = v._timeline.all_unasserted()
     assert len(interactions) == 1
-    assert interactions[0].details == {"path": "/tmp/del.txt"}
+    assert interactions[0].details == {"path": os.path.normpath("/tmp/del.txt")}
 
 
 # ESCAPE: test_mock_unlink
@@ -271,7 +271,7 @@ def test_mock_unlink() -> None:
 
     interactions = v._timeline.all_unasserted()
     assert len(interactions) == 1
-    assert interactions[0].details == {"path": "/tmp/ul.txt"}
+    assert interactions[0].details == {"path": os.path.normpath("/tmp/ul.txt")}
 
 
 # ESCAPE: test_mock_rename
@@ -289,7 +289,7 @@ def test_mock_rename() -> None:
 
     interactions = v._timeline.all_unasserted()
     assert len(interactions) == 1
-    assert interactions[0].details == {"src": "/tmp/old.txt", "dst": "/tmp/new.txt"}
+    assert interactions[0].details == {"src": os.path.normpath("/tmp/old.txt"), "dst": os.path.normpath("/tmp/new.txt")}
 
 
 # ESCAPE: test_mock_replace
@@ -307,7 +307,7 @@ def test_mock_replace() -> None:
 
     interactions = v._timeline.all_unasserted()
     assert len(interactions) == 1
-    assert interactions[0].details == {"src": "/tmp/src.txt", "dst": "/tmp/dst.txt"}
+    assert interactions[0].details == {"src": os.path.normpath("/tmp/src.txt"), "dst": os.path.normpath("/tmp/dst.txt")}
 
 
 # ESCAPE: test_mock_makedirs
@@ -325,7 +325,7 @@ def test_mock_makedirs() -> None:
 
     interactions = v._timeline.all_unasserted()
     assert len(interactions) == 1
-    assert interactions[0].details == {"path": "/tmp/newdir", "exist_ok": True}
+    assert interactions[0].details == {"path": os.path.normpath("/tmp/newdir"), "exist_ok": True}
 
 
 # ESCAPE: test_mock_mkdir
@@ -343,7 +343,7 @@ def test_mock_mkdir() -> None:
 
     interactions = v._timeline.all_unasserted()
     assert len(interactions) == 1
-    assert interactions[0].details == {"path": "/tmp/singledir"}
+    assert interactions[0].details == {"path": os.path.normpath("/tmp/singledir")}
 
 
 # ESCAPE: test_mock_copy
@@ -361,7 +361,7 @@ def test_mock_copy() -> None:
 
     interactions = v._timeline.all_unasserted()
     assert len(interactions) == 1
-    assert interactions[0].details == {"src": "/tmp/src.txt", "dst": "/tmp/dst.txt"}
+    assert interactions[0].details == {"src": os.path.normpath("/tmp/src.txt"), "dst": os.path.normpath("/tmp/dst.txt")}
 
 
 # ESCAPE: test_mock_copy2
@@ -379,7 +379,7 @@ def test_mock_copy2() -> None:
 
     interactions = v._timeline.all_unasserted()
     assert len(interactions) == 1
-    assert interactions[0].details == {"src": "/tmp/s2.txt", "dst": "/tmp/d2.txt"}
+    assert interactions[0].details == {"src": os.path.normpath("/tmp/s2.txt"), "dst": os.path.normpath("/tmp/d2.txt")}
 
 
 # ESCAPE: test_mock_copytree
@@ -397,7 +397,7 @@ def test_mock_copytree() -> None:
 
     interactions = v._timeline.all_unasserted()
     assert len(interactions) == 1
-    assert interactions[0].details == {"src": "/tmp/srcdir", "dst": "/tmp/dstdir"}
+    assert interactions[0].details == {"src": os.path.normpath("/tmp/srcdir"), "dst": os.path.normpath("/tmp/dstdir")}
 
 
 # ESCAPE: test_mock_rmtree
@@ -415,7 +415,7 @@ def test_mock_rmtree() -> None:
 
     interactions = v._timeline.all_unasserted()
     assert len(interactions) == 1
-    assert interactions[0].details == {"path": "/tmp/rmdir"}
+    assert interactions[0].details == {"path": os.path.normpath("/tmp/rmdir")}
 
 
 # ---------------------------------------------------------------------------
@@ -563,7 +563,7 @@ def test_unused_mock_reported_by_get_unused_mocks() -> None:
     unused = p.get_unused_mocks()
     assert len(unused) == 1
     assert unused[0].operation == "open"
-    assert unused[0].path_pattern == "/tmp/f.txt"
+    assert unused[0].path_pattern == os.path.normpath("/tmp/f.txt")
     assert unused[0].returns == "data"
 
 
@@ -901,11 +901,11 @@ def test_format_interaction_open() -> None:
     interaction = Interaction(
         source_id="file_io:open",
         sequence=0,
-        details={"path": "/tmp/f.txt", "mode": "r", "encoding": "utf-8"},
+        details={"path": os.path.normpath("/tmp/f.txt"), "mode": "r", "encoding": "utf-8"},
         plugin=p,
     )
     result = p.format_interaction(interaction)
-    assert result == "[FileIoPlugin] open('/tmp/f.txt', mode='r')"
+    assert result == f"[FileIoPlugin] open('{os.path.normpath('/tmp/f.txt')}', mode='r')"
 
 
 # ESCAPE: test_format_interaction_remove
@@ -919,11 +919,11 @@ def test_format_interaction_remove() -> None:
     interaction = Interaction(
         source_id="file_io:remove",
         sequence=0,
-        details={"path": "/tmp/del.txt"},
+        details={"path": os.path.normpath("/tmp/del.txt")},
         plugin=p,
     )
     result = p.format_interaction(interaction)
-    assert result == "[FileIoPlugin] os.remove('/tmp/del.txt')"
+    assert result == f"[FileIoPlugin] os.remove('{os.path.normpath('/tmp/del.txt')}')"
 
 
 # ESCAPE: test_format_interaction_rename
@@ -937,11 +937,11 @@ def test_format_interaction_rename() -> None:
     interaction = Interaction(
         source_id="file_io:rename",
         sequence=0,
-        details={"src": "/tmp/old.txt", "dst": "/tmp/new.txt"},
+        details={"src": os.path.normpath("/tmp/old.txt"), "dst": os.path.normpath("/tmp/new.txt")},
         plugin=p,
     )
     result = p.format_interaction(interaction)
-    assert result == "[FileIoPlugin] os.rename('/tmp/old.txt', '/tmp/new.txt')"
+    assert result == f"[FileIoPlugin] os.rename('{os.path.normpath('/tmp/old.txt')}', '{os.path.normpath('/tmp/new.txt')}')"
 
 
 # ESCAPE: test_format_interaction_makedirs
@@ -955,11 +955,11 @@ def test_format_interaction_makedirs() -> None:
     interaction = Interaction(
         source_id="file_io:makedirs",
         sequence=0,
-        details={"path": "/tmp/newdir", "exist_ok": True},
+        details={"path": os.path.normpath("/tmp/newdir"), "exist_ok": True},
         plugin=p,
     )
     result = p.format_interaction(interaction)
-    assert result == "[FileIoPlugin] os.makedirs('/tmp/newdir', exist_ok=True)"
+    assert result == f"[FileIoPlugin] os.makedirs('{os.path.normpath('/tmp/newdir')}', exist_ok=True)"
 
 
 # ESCAPE: test_format_interaction_copy
@@ -973,11 +973,11 @@ def test_format_interaction_copy() -> None:
     interaction = Interaction(
         source_id="file_io:copy",
         sequence=0,
-        details={"src": "/tmp/s.txt", "dst": "/tmp/d.txt"},
+        details={"src": os.path.normpath("/tmp/s.txt"), "dst": os.path.normpath("/tmp/d.txt")},
         plugin=p,
     )
     result = p.format_interaction(interaction)
-    assert result == "[FileIoPlugin] shutil.copy('/tmp/s.txt', '/tmp/d.txt')"
+    assert result == f"[FileIoPlugin] shutil.copy('{os.path.normpath('/tmp/s.txt')}', '{os.path.normpath('/tmp/d.txt')}')"
 
 
 # ESCAPE: test_format_interaction_rmtree
@@ -991,11 +991,11 @@ def test_format_interaction_rmtree() -> None:
     interaction = Interaction(
         source_id="file_io:rmtree",
         sequence=0,
-        details={"path": "/tmp/rmdir"},
+        details={"path": os.path.normpath("/tmp/rmdir")},
         plugin=p,
     )
     result = p.format_interaction(interaction)
-    assert result == "[FileIoPlugin] shutil.rmtree('/tmp/rmdir')"
+    assert result == f"[FileIoPlugin] shutil.rmtree('{os.path.normpath('/tmp/rmdir')}')"
 
 
 # ESCAPE: test_format_mock_hint
@@ -1009,11 +1009,11 @@ def test_format_mock_hint() -> None:
     interaction = Interaction(
         source_id="file_io:open",
         sequence=0,
-        details={"path": "/tmp/f.txt", "mode": "r", "encoding": "utf-8"},
+        details={"path": os.path.normpath("/tmp/f.txt"), "mode": "r", "encoding": "utf-8"},
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    bigfoot.file_io_mock.mock_operation('open', '/tmp/f.txt', returns=...)"
+    assert result == f"    bigfoot.file_io_mock.mock_operation('open', '{os.path.normpath('/tmp/f.txt')}', returns=...)"
 
 
 # ESCAPE: test_format_unmocked_hint
@@ -1024,11 +1024,12 @@ def test_format_mock_hint() -> None:
 #   ESCAPE: Different format fails the equality check.
 def test_format_unmocked_hint() -> None:
     v, p = _make_verifier_with_plugin()
-    result = p.format_unmocked_hint("file_io:open", ("/tmp/f.txt", "r"), {})
+    result = p.format_unmocked_hint("file_io:open", (os.path.normpath("/tmp/f.txt"), "r"), {})
+    np = os.path.normpath
     assert result == (
-        "open('/tmp/f.txt', ...) was called but no mock was registered.\n"
+        f"open('{np('/tmp/f.txt')}', ...) was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    bigfoot.file_io_mock.mock_operation('open', '/tmp/f.txt', returns=...)"
+        f"    bigfoot.file_io_mock.mock_operation('open', '{np('/tmp/f.txt')}', returns=...)"
     )
 
 
@@ -1043,13 +1044,14 @@ def test_format_assert_hint() -> None:
     interaction = Interaction(
         source_id="file_io:open",
         sequence=0,
-        details={"path": "/tmp/f.txt", "mode": "r", "encoding": "utf-8"},
+        details={"path": os.path.normpath("/tmp/f.txt"), "mode": "r", "encoding": "utf-8"},
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
+    np = os.path.normpath
     assert result == (
         "    bigfoot.file_io_mock.assert_open(\n"
-        "        path='/tmp/f.txt',\n"
+        f"        path='{np('/tmp/f.txt')}',\n"
         "        mode='r',\n"
         "        encoding='utf-8',\n"
         "    )"
@@ -1067,13 +1069,14 @@ def test_format_assert_hint_remove() -> None:
     interaction = Interaction(
         source_id="file_io:remove",
         sequence=0,
-        details={"path": "/tmp/del.txt"},
+        details={"path": os.path.normpath("/tmp/del.txt")},
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
+    np = os.path.normpath
     assert result == (
         "    bigfoot.file_io_mock.assert_remove(\n"
-        "        path='/tmp/del.txt',\n"
+        f"        path='{np('/tmp/del.txt')}',\n"
         "    )"
     )
 
@@ -1086,10 +1089,11 @@ def test_format_assert_hint_remove() -> None:
 #   ESCAPE: Nothing reasonable -- exact string equality on prefix + traceback.
 def test_format_unused_mock_hint() -> None:
     v, p = _make_verifier_with_plugin()
-    config = FileIoMockConfig(operation="open", path_pattern="/tmp/f.txt", returns="data")
+    config = FileIoMockConfig(operation="open", path_pattern=os.path.normpath("/tmp/f.txt"), returns="data")
     result = p.format_unused_mock_hint(config)
+    np = os.path.normpath
     expected_prefix = (
-        "file_io:open('/tmp/f.txt') was mocked (required=True) but never called.\n"
+        f"file_io:open('{np('/tmp/f.txt')}') was mocked (required=True) but never called.\n"
         "Registered at:\n"
     )
     assert result == expected_prefix + config.registration_traceback
@@ -1277,12 +1281,12 @@ def test_matches_field_comparison() -> None:
     interaction = Interaction(
         source_id="file_io:open",
         sequence=0,
-        details={"path": "/tmp/f.txt", "mode": "r", "encoding": "utf-8"},
+        details={"path": os.path.normpath("/tmp/f.txt"), "mode": "r", "encoding": "utf-8"},
         plugin=p,
     )
     assert p.matches(interaction, {}) is True
-    assert p.matches(interaction, {"path": "/tmp/f.txt"}) is True
-    assert p.matches(interaction, {"path": "/tmp/wrong.txt"}) is False
+    assert p.matches(interaction, {"path": os.path.normpath("/tmp/f.txt")}) is True
+    assert p.matches(interaction, {"path": os.path.normpath("/tmp/wrong.txt")}) is False
     assert p.matches(interaction, {"foo": "bar"}) is False
 
 
