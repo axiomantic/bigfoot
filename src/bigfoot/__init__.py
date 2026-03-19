@@ -84,6 +84,11 @@ except ImportError:  # pragma: no cover
     pass  # paramiko extra not installed
 
 try:
+    from bigfoot.plugins.grpc_plugin import GrpcPlugin as _GrpcPlugin  # noqa: F401
+except ImportError:  # pragma: no cover
+    pass  # grpc extra not installed
+
+try:
     from bigfoot.plugins.psycopg2_plugin import Psycopg2Plugin as _Psycopg2Plugin  # noqa: F401
 except ImportError:  # pragma: no cover
     pass  # psycopg2 extra not installed
@@ -125,6 +130,11 @@ except NameError:  # pragma: no cover
 
 try:
     SshPlugin = _SshPlugin
+except NameError:  # pragma: no cover
+    pass
+
+try:
+    GrpcPlugin = _GrpcPlugin
 except NameError:  # pragma: no cover
     pass
 
@@ -243,6 +253,8 @@ __all__ = [
     "pika_mock",
     "SshPlugin",
     "ssh_mock",
+    "GrpcPlugin",
+    "grpc_mock",
 ]
 
 
@@ -604,6 +616,34 @@ class _SshProxy:
 
 
 ssh_mock = _SshProxy()
+
+
+# ---------------------------------------------------------------------------
+# gRPC proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _GrpcProxy:
+    """Proxy to the GrpcPlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test. Raises ImportError if
+    the grpc extra is not installed.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        from bigfoot.plugins.grpc_plugin import _GRPC_AVAILABLE
+
+        if not _GRPC_AVAILABLE:
+            raise ImportError(
+                "bigfoot[grpc] is required to use bigfoot.grpc_mock. "
+                "Install it with: pip install bigfoot[grpc]"
+            )
+        verifier = _get_test_verifier_or_raise()
+        plugin = _get_or_create_plugin(verifier, _GrpcPlugin)
+        return getattr(plugin, name)
+
+
+grpc_mock = _GrpcProxy()
 
 
 # ---------------------------------------------------------------------------
