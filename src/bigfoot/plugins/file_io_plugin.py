@@ -768,6 +768,8 @@ class FileIoPlugin(BasePlugin):
 
         source_id = "file_io:open"
         sentinel = _FileIoSentinel(source_id)
+        if "path" in expected:
+            expected["path"] = os.path.normpath(expected["path"])
         _get_test_verifier_or_raise().assert_interaction(
             sentinel,
             **expected,

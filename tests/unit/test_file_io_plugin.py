@@ -1048,10 +1048,10 @@ def test_format_assert_hint() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    np = os.path.normpath
+    npath = os.path.normpath("/tmp/f.txt")
     assert result == (
         "    bigfoot.file_io_mock.assert_open(\n"
-        f"        path='{np('/tmp/f.txt')}',\n"
+        f"        path={npath!r},\n"
         "        mode='r',\n"
         "        encoding='utf-8',\n"
         "    )"
@@ -1073,10 +1073,10 @@ def test_format_assert_hint_remove() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    np = os.path.normpath
+    npath = os.path.normpath("/tmp/del.txt")
     assert result == (
         "    bigfoot.file_io_mock.assert_remove(\n"
-        f"        path='{np('/tmp/del.txt')}',\n"
+        f"        path={npath!r},\n"
         "    )"
     )
 
