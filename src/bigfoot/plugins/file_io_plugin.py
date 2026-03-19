@@ -156,6 +156,7 @@ def _intercept_operation(
             return original_fn(*original_args, **original_kwargs)
 
         source_id = f"file_io:{operation}"
+        path = os.path.normpath(path)
         queue_key = f"{operation}:{path}"
 
         with plugin._registry_lock:
@@ -521,14 +522,15 @@ class FileIoPlugin(BasePlugin):
             raises: If provided, this exception is raised instead of returning.
             required: If False, the mock is not reported as unused at teardown.
         """
+        normalized_path = os.path.normpath(path_pattern)
         config = FileIoMockConfig(
             operation=operation,
-            path_pattern=path_pattern,
+            path_pattern=normalized_path,
             returns=returns,
             raises=raises,
             required=required,
         )
-        queue_key = f"{operation}:{path_pattern}"
+        queue_key = f"{operation}:{normalized_path}"
         with self._registry_lock:
             if queue_key not in self._queues:
                 self._queues[queue_key] = deque()
