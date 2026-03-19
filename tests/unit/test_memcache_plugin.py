@@ -456,8 +456,11 @@ def test_format_mock_hint() -> None:
 def test_format_unmocked_hint() -> None:
     v, p = _make_verifier_with_plugin()
     result = p.format_unmocked_hint("memcache:get", ("mykey",), {})
-    assert "GET" in result
-    assert "bigfoot.memcache_mock.mock_command" in result
+    assert result == (
+        "memcache.GET(...) was called but no mock was registered.\n"
+        "Register a mock with:\n"
+        "    bigfoot.memcache_mock.mock_command('GET', returns=...)"
+    )
 
 
 def test_format_assert_hint() -> None:
@@ -469,16 +472,23 @@ def test_format_assert_hint() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert "assert_get" in result
-    assert "mykey" in result
+    assert result == (
+        "    bigfoot.memcache_mock.assert_get(\n"
+        "        command='GET',\n"
+        "        key='mykey',\n"
+        "    )"
+    )
 
 
 def test_format_unused_mock_hint() -> None:
     v, p = _make_verifier_with_plugin()
     config = MemcacheMockConfig(command="GET", returns=b"value")
     result = p.format_unused_mock_hint(config)
-    assert "GET" in result
-    assert "never called" in result
+    expected_prefix = (
+        "memcache.GET(...) was mocked (required=True) but never called.\n"
+        "Registered at:\n"
+    )
+    assert result == expected_prefix + config.registration_traceback
 
 
 # ---------------------------------------------------------------------------

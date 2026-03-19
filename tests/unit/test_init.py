@@ -34,6 +34,10 @@ def test_all_contains_expected_names() -> None:
         "Psycopg2Plugin",
         "AsyncpgPlugin",
         "AsyncSubprocessPlugin",
+        "Boto3Plugin",
+        "ElasticsearchPlugin",
+        "JwtPlugin",
+        "CryptoPlugin",
         # Errors
         "BigfootConfigError",
         "BigfootError",
@@ -73,6 +77,10 @@ def test_all_contains_expected_names() -> None:
         "async_subprocess_mock",
         "psycopg2_mock",
         "asyncpg_mock",
+        "boto3_mock",
+        "elasticsearch_mock",
+        "jwt_mock",
+        "crypto_mock",
     }
     assert set(bigfoot.__all__) == expected_all
 

@@ -365,7 +365,6 @@ class CeleryPlugin(BasePlugin):
     def assert_delay(
         self,
         task_name: str,
-        dispatch_method: str,
         args: tuple[Any, ...],
         kwargs: dict[str, Any],
         options: dict[str, Any],
@@ -378,7 +377,7 @@ class CeleryPlugin(BasePlugin):
         _get_test_verifier_or_raise().assert_interaction(
             sentinel,
             task_name=task_name,
-            dispatch_method=dispatch_method,
+            dispatch_method="delay",
             args=args,
             kwargs=kwargs,
             options=options,
@@ -387,7 +386,6 @@ class CeleryPlugin(BasePlugin):
     def assert_apply_async(
         self,
         task_name: str,
-        dispatch_method: str,
         args: tuple[Any, ...],
         kwargs: dict[str, Any],
         options: dict[str, Any],
@@ -400,7 +398,7 @@ class CeleryPlugin(BasePlugin):
         _get_test_verifier_or_raise().assert_interaction(
             sentinel,
             task_name=task_name,
-            dispatch_method=dispatch_method,
+            dispatch_method="apply_async",
             args=args,
             kwargs=kwargs,
             options=options,

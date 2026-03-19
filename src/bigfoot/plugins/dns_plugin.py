@@ -159,56 +159,6 @@ def _patched_gethostbyname(hostname: str) -> Any:  # noqa: ANN401
     return config.returns
 
 
-def _patched_resolve(
-    self_or_qname: Any,  # noqa: ANN401
-    qname_or_rdtype: Any = None,  # noqa: ANN401
-    rdtype: str | None = None,
-    *args: Any,
-    **kwargs: Any,
-) -> Any:  # noqa: ANN401
-    """Handles both dns.resolver.resolve(qname, rdtype) and Resolver().resolve(qname, rdtype)."""
-    # Detect whether called as module-level function or instance method
-    if isinstance(self_or_qname, str):
-        # Module-level: dns.resolver.resolve(qname, rdtype)
-        actual_qname = self_or_qname
-        actual_rdtype = str(qname_or_rdtype) if qname_or_rdtype is not None else "A"
-    else:
-        # Instance method: resolver.resolve(qname, rdtype)
-        actual_qname = str(qname_or_rdtype) if qname_or_rdtype is not None else ""
-        actual_rdtype = str(rdtype) if rdtype is not None else "A"
-        # But wait -- if called as Resolver.resolve(qname, rdtype), self_or_qname is the Resolver
-        # and qname_or_rdtype is qname, rdtype is the rdtype param
-        if actual_qname == "" and qname_or_rdtype is None:
-            actual_qname = str(self_or_qname)
-
-    plugin = _get_dns_plugin()
-    queue_key = f"resolve:{actual_qname}"
-    with plugin._registry_lock:
-        queue = plugin._queues.get(queue_key)
-        if not queue:
-            source_id = f"dns:resolve:{actual_qname}"
-            hint = plugin.format_unmocked_hint(source_id, (actual_qname, actual_rdtype), {})
-            raise UnmockedInteractionError(
-                source_id=source_id,
-                args=(actual_qname, actual_rdtype),
-                kwargs={},
-                hint=hint,
-            )
-        config = queue.popleft()
-
-    interaction = Interaction(
-        source_id=f"dns:resolve:{actual_qname}",
-        sequence=0,
-        details={"qname": actual_qname, "rdtype": actual_rdtype},
-        plugin=plugin,
-    )
-    plugin.record(interaction)
-
-    if config.raises is not None:
-        raise config.raises
-    return config.returns
-
-
 def _patched_resolver_resolve(
     self: Any,  # noqa: ANN401
     qname: str,

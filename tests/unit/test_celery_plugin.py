@@ -216,7 +216,6 @@ def test_assert_delay_full_assertion(bigfoot_verifier: StrictVerifier) -> None:
 
     bigfoot.celery_mock.assert_delay(
         task_name="myapp.tasks.add",
-        dispatch_method="delay",
         args=(1, 2),
         kwargs={},
         options={},
@@ -233,7 +232,6 @@ def test_assert_apply_async_full_assertion(bigfoot_verifier: StrictVerifier) -> 
 
     bigfoot.celery_mock.assert_apply_async(
         task_name="myapp.tasks.add",
-        dispatch_method="apply_async",
         args=(1, 2),
         kwargs={},
         options={"countdown": 10},
@@ -387,7 +385,6 @@ def test_missing_assertion_fields(bigfoot_verifier: StrictVerifier) -> None:
     # Now assert fully so teardown passes
     bigfoot.celery_mock.assert_delay(
         task_name="myapp.tasks.add",
-        dispatch_method="delay",
         args=(1, 2),
         kwargs={},
         options={},
@@ -414,7 +411,6 @@ def test_celery_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier)
     # Assert it so verify_all() at teardown succeeds
     bigfoot.celery_mock.assert_delay(
         task_name="myapp.tasks.add",
-        dispatch_method="delay",
         args=(1, 2),
         kwargs={},
         options={},
@@ -505,9 +501,11 @@ def test_format_mock_hint() -> None:
 def test_format_unmocked_hint() -> None:
     v, p = _make_verifier_with_plugin()
     result = p.format_unmocked_hint("celery:myapp.tasks.add:delay", (), {})
-    assert "myapp.tasks.add" in result
-    assert "delay" in result
-    assert "bigfoot.celery_mock" in result
+    assert result == (
+        "celery.delay('myapp.tasks.add', ...) was called but no mock was registered.\n"
+        "Register a mock with:\n"
+        "    bigfoot.celery_mock.mock_delay('myapp.tasks.add', returns=...)"
+    )
 
 
 def test_format_assert_hint() -> None:
@@ -525,8 +523,15 @@ def test_format_assert_hint() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert "assert_delay" in result
-    assert "myapp.tasks.add" in result
+    assert result == (
+        "    bigfoot.celery_mock.assert_delay(\n"
+        "        task_name='myapp.tasks.add',\n"
+        "        dispatch_method='delay',\n"
+        "        args=(1, 2),\n"
+        "        kwargs={},\n"
+        "        options={},\n"
+        "    )"
+    )
 
 
 def test_format_unused_mock_hint() -> None:
@@ -537,8 +542,11 @@ def test_format_unused_mock_hint() -> None:
         returns="mock-id",
     )
     result = p.format_unused_mock_hint(config)
-    assert "myapp.tasks.add" in result
-    assert "never called" in result
+    expected_prefix = (
+        "celery.delay('myapp.tasks.add') was mocked (required=True) but never called.\n"
+        "Registered at:\n"
+    )
+    assert result == expected_prefix + config.registration_traceback
 
 
 # ---------------------------------------------------------------------------
@@ -557,7 +565,6 @@ def test_celery_mock_proxy_mock_delay(bigfoot_verifier: StrictVerifier) -> None:
     assert result == "proxy-result"
     bigfoot.celery_mock.assert_delay(
         task_name="myapp.tasks.add",
-        dispatch_method="delay",
         args=(1, 2),
         kwargs={},
         options={},
@@ -605,7 +612,6 @@ def test_assert_delay_wrong_args_raises(bigfoot_verifier: StrictVerifier) -> Non
     with pytest.raises(InteractionMismatchError):
         bigfoot.celery_mock.assert_delay(
             task_name="myapp.tasks.add",
-            dispatch_method="delay",
             args=(99, 99),
             kwargs={},
             options={},
@@ -613,7 +619,6 @@ def test_assert_delay_wrong_args_raises(bigfoot_verifier: StrictVerifier) -> Non
     # Assert correctly so teardown passes
     bigfoot.celery_mock.assert_delay(
         task_name="myapp.tasks.add",
-        dispatch_method="delay",
         args=(1, 2),
         kwargs={},
         options={},

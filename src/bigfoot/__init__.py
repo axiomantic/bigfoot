@@ -38,7 +38,30 @@ from bigfoot.plugins.async_subprocess_plugin import (
 from bigfoot.plugins.database_plugin import DatabasePlugin as _DatabasePlugin  # noqa: F401
 from bigfoot.plugins.logging_plugin import LoggingPlugin as _LoggingPlugin  # noqa: F401
 from bigfoot.plugins.popen_plugin import PopenPlugin as _PopenPlugin  # noqa: F401
-from bigfoot.plugins.celery_plugin import CeleryPlugin as _CeleryPlugin  # noqa: F401
+try:
+    from bigfoot.plugins.celery_plugin import CeleryPlugin as _CeleryPlugin  # noqa: F401
+except ImportError:  # pragma: no cover
+    pass  # celery extra not installed
+
+try:
+    from bigfoot.plugins.boto3_plugin import Boto3Plugin as _Boto3Plugin  # noqa: F401
+except ImportError:  # pragma: no cover
+    pass  # boto3 extra not installed
+
+try:
+    from bigfoot.plugins.elasticsearch_plugin import ElasticsearchPlugin as _ElasticsearchPlugin  # noqa: F401
+except ImportError:  # pragma: no cover
+    pass  # elasticsearch extra not installed
+
+try:
+    from bigfoot.plugins.jwt_plugin import JwtPlugin as _JwtPlugin  # noqa: F401
+except ImportError:  # pragma: no cover
+    pass  # jwt extra not installed
+
+try:
+    from bigfoot.plugins.crypto_plugin import CryptoPlugin as _CryptoPlugin  # noqa: F401
+except ImportError:  # pragma: no cover
+    pass  # crypto extra not installed
 from bigfoot.plugins.dns_plugin import DnsPlugin as _DnsPlugin  # noqa: F401
 from bigfoot.plugins.memcache_plugin import MemcachePlugin as _MemcachePlugin  # noqa: F401
 from bigfoot.plugins.redis_plugin import RedisPlugin as _RedisPlugin  # noqa: F401
@@ -70,10 +93,33 @@ SmtpPlugin = _SmtpPlugin
 SocketPlugin = _SocketPlugin
 AsyncWebSocketPlugin = _AsyncWebSocketPlugin
 SyncWebSocketPlugin = _SyncWebSocketPlugin
-CeleryPlugin = _CeleryPlugin
+try:
+    CeleryPlugin = _CeleryPlugin
+except NameError:  # pragma: no cover
+    pass
 DnsPlugin = _DnsPlugin
 MemcachePlugin = _MemcachePlugin
 RedisPlugin = _RedisPlugin
+
+try:
+    Boto3Plugin = _Boto3Plugin
+except NameError:  # pragma: no cover
+    pass
+
+try:
+    ElasticsearchPlugin = _ElasticsearchPlugin
+except NameError:  # pragma: no cover
+    pass
+
+try:
+    JwtPlugin = _JwtPlugin
+except NameError:  # pragma: no cover
+    pass
+
+try:
+    CryptoPlugin = _CryptoPlugin
+except NameError:  # pragma: no cover
+    pass
 
 try:
     Psycopg2Plugin = _Psycopg2Plugin
@@ -110,6 +156,10 @@ __all__ = [
     "MemcachePlugin",
     "Psycopg2Plugin",
     "AsyncpgPlugin",
+    "Boto3Plugin",
+    "ElasticsearchPlugin",
+    "JwtPlugin",
+    "CryptoPlugin",
     # Errors
     "BigfootConfigError",
     "BigfootError",
@@ -149,6 +199,10 @@ __all__ = [
     "async_subprocess_mock",
     "psycopg2_mock",
     "asyncpg_mock",
+    "boto3_mock",
+    "elasticsearch_mock",
+    "jwt_mock",
+    "crypto_mock",
 ]
 
 
@@ -586,6 +640,118 @@ class _AsyncpgProxy:
 
 
 asyncpg_mock = _AsyncpgProxy()
+
+
+# ---------------------------------------------------------------------------
+# boto3 proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _Boto3Proxy:
+    """Proxy to the Boto3Plugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test. Raises ImportError if
+    the boto3 extra is not installed.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        from bigfoot.plugins.boto3_plugin import _BOTO3_AVAILABLE
+
+        if not _BOTO3_AVAILABLE:
+            raise ImportError(
+                "bigfoot[boto3] is required to use bigfoot.boto3_mock. "
+                "Install it with: pip install bigfoot[boto3]"
+            )
+        verifier = _get_test_verifier_or_raise()
+        plugin = _get_or_create_plugin(verifier, _Boto3Plugin)
+        return getattr(plugin, name)
+
+
+boto3_mock = _Boto3Proxy()
+
+
+# ---------------------------------------------------------------------------
+# Elasticsearch proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _ElasticsearchProxy:
+    """Proxy to the ElasticsearchPlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test. Raises ImportError if
+    the elasticsearch extra is not installed.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        from bigfoot.plugins.elasticsearch_plugin import _ELASTICSEARCH_AVAILABLE
+
+        if not _ELASTICSEARCH_AVAILABLE:
+            raise ImportError(
+                "bigfoot[elasticsearch] is required to use bigfoot.elasticsearch_mock. "
+                "Install it with: pip install bigfoot[elasticsearch]"
+            )
+        verifier = _get_test_verifier_or_raise()
+        plugin = _get_or_create_plugin(verifier, _ElasticsearchPlugin)
+        return getattr(plugin, name)
+
+
+elasticsearch_mock = _ElasticsearchProxy()
+
+
+# ---------------------------------------------------------------------------
+# JWT proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _JwtProxy:
+    """Proxy to the JwtPlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test. Raises ImportError if
+    the jwt extra is not installed.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        from bigfoot.plugins.jwt_plugin import _JWT_AVAILABLE
+
+        if not _JWT_AVAILABLE:
+            raise ImportError(
+                "bigfoot[jwt] is required to use bigfoot.jwt_mock. "
+                "Install it with: pip install bigfoot[jwt]"
+            )
+        verifier = _get_test_verifier_or_raise()
+        plugin = _get_or_create_plugin(verifier, _JwtPlugin)
+        return getattr(plugin, name)
+
+
+jwt_mock = _JwtProxy()
+
+
+# ---------------------------------------------------------------------------
+# Crypto proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _CryptoProxy:
+    """Proxy to the CryptoPlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test. Raises ImportError if
+    the cryptography extra is not installed.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        from bigfoot.plugins.crypto_plugin import _CRYPTOGRAPHY_AVAILABLE
+
+        if not _CRYPTOGRAPHY_AVAILABLE:
+            raise ImportError(
+                "bigfoot[crypto] is required to use bigfoot.crypto_mock. "
+                "Install it with: pip install bigfoot[crypto]"
+            )
+        verifier = _get_test_verifier_or_raise()
+        plugin = _get_or_create_plugin(verifier, _CryptoPlugin)
+        return getattr(plugin, name)
+
+
+crypto_mock = _CryptoProxy()
 
 
 # ---------------------------------------------------------------------------

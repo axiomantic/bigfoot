@@ -95,6 +95,10 @@ PLUGIN_REGISTRY: tuple[PluginEntry, ...] = (
     PluginEntry("dns", "bigfoot.plugins.dns_plugin", "DnsPlugin", "always"),
     PluginEntry("memcache", "bigfoot.plugins.memcache_plugin", "MemcachePlugin", "pymemcache"),
     PluginEntry("celery", "bigfoot.plugins.celery_plugin", "CeleryPlugin", "celery"),
+    PluginEntry("boto3", "bigfoot.plugins.boto3_plugin", "Boto3Plugin", "boto3"),
+    PluginEntry("elasticsearch", "bigfoot.plugins.elasticsearch_plugin", "ElasticsearchPlugin", "elasticsearch"),
+    PluginEntry("jwt", "bigfoot.plugins.jwt_plugin", "JwtPlugin", "jwt"),
+    PluginEntry("crypto", "bigfoot.plugins.crypto_plugin", "CryptoPlugin", "cryptography"),
 )
 
 VALID_PLUGIN_NAMES: frozenset[str] = frozenset(e.name for e in PLUGIN_REGISTRY)

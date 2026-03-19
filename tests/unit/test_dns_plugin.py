@@ -465,9 +465,11 @@ def test_format_mock_hint_getaddrinfo() -> None:
 def test_format_unmocked_hint() -> None:
     v, p = _make_verifier_with_plugin()
     result = p.format_unmocked_hint("dns:getaddrinfo:example.com", (), {})
-    assert "getaddrinfo" in result
-    assert "example.com" in result
-    assert "bigfoot.dns_mock" in result
+    assert result == (
+        "socket.getaddrinfo('example.com', ...) was called but no mock was registered.\n"
+        "Register a mock with:\n"
+        "    bigfoot.dns_mock.mock_getaddrinfo('example.com', returns=...)"
+    )
 
 
 def test_format_assert_hint_getaddrinfo() -> None:
@@ -479,17 +481,26 @@ def test_format_assert_hint_getaddrinfo() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert "assert_getaddrinfo" in result
-    assert "example.com" in result
+    assert result == (
+        "    bigfoot.dns_mock.assert_getaddrinfo(\n"
+        "        host='example.com',\n"
+        "        port=80,\n"
+        "        family=0,\n"
+        "        type=0,\n"
+        "        proto=0,\n"
+        "    )"
+    )
 
 
 def test_format_unused_mock_hint() -> None:
     v, p = _make_verifier_with_plugin()
     config = DnsMockConfig(operation="getaddrinfo", hostname="example.com", returns=[])
     result = p.format_unused_mock_hint(config)
-    assert "getaddrinfo" in result
-    assert "example.com" in result
-    assert "never called" in result
+    expected_prefix = (
+        "dns.getaddrinfo('example.com') was mocked (required=True) but never called.\n"
+        "Registered at:\n"
+    )
+    assert result == expected_prefix + config.registration_traceback
 
 
 # ---------------------------------------------------------------------------
