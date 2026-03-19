@@ -57,7 +57,15 @@ class StrictVerifier:
                 plugin_cls = get_plugin_class(entry)
                 plugin_cls(self)  # BasePlugin.__init__ calls _register_plugin
             except ImportError:
-                pass  # optional dep not available at class-import time
+                explicitly_enabled = set(self._bigfoot_config.get("enabled_plugins", []))
+                if entry.name in explicitly_enabled:
+                    from bigfoot._errors import BigfootConfigError
+                    raise BigfootConfigError(
+                        f"Plugin '{entry.name}' is in enabled_plugins but failed "
+                        f"to import. Ensure its dependencies are installed: "
+                        f"pip install bigfoot[{entry.name}]"
+                    )
+                # Silent skip only for default-enabled (not explicitly listed) plugins
 
     def _register_plugin(self, plugin: "BasePlugin") -> None:
         for existing in self._plugins:
