@@ -65,6 +65,12 @@ except ImportError:  # pragma: no cover
 from bigfoot.plugins.dns_plugin import DnsPlugin as _DnsPlugin  # noqa: F401
 from bigfoot.plugins.memcache_plugin import MemcachePlugin as _MemcachePlugin  # noqa: F401
 from bigfoot.plugins.redis_plugin import RedisPlugin as _RedisPlugin  # noqa: F401
+from bigfoot.plugins.file_io_plugin import FileIoPlugin as _FileIoPlugin  # noqa: F401
+
+try:
+    from bigfoot.plugins.mongo_plugin import MongoPlugin as _MongoPlugin  # noqa: F401
+except ImportError:  # pragma: no cover
+    pass  # pymongo extra not installed
 from bigfoot.plugins.smtp_plugin import SmtpPlugin as _SmtpPlugin  # noqa: F401
 
 try:
@@ -100,6 +106,12 @@ except NameError:  # pragma: no cover
 DnsPlugin = _DnsPlugin
 MemcachePlugin = _MemcachePlugin
 RedisPlugin = _RedisPlugin
+FileIoPlugin = _FileIoPlugin
+
+try:
+    MongoPlugin = _MongoPlugin
+except NameError:  # pragma: no cover
+    pass
 
 try:
     Boto3Plugin = _Boto3Plugin
@@ -151,6 +163,7 @@ __all__ = [
     "AsyncWebSocketPlugin",
     "SyncWebSocketPlugin",
     "RedisPlugin",
+    "MongoPlugin",
     "CeleryPlugin",
     "DnsPlugin",
     "MemcachePlugin",
@@ -192,6 +205,7 @@ __all__ = [
     "async_websocket_mock",
     "sync_websocket_mock",
     "redis_mock",
+    "mongo_mock",
     "dns_mock",
     "memcache_mock",
     "celery_mock",
@@ -203,6 +217,8 @@ __all__ = [
     "elasticsearch_mock",
     "jwt_mock",
     "crypto_mock",
+    "FileIoPlugin",
+    "file_io_mock",
 ]
 
 
@@ -487,6 +503,55 @@ class _RedisProxy:
 
 
 redis_mock = _RedisProxy()
+
+
+# ---------------------------------------------------------------------------
+# File I/O proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _FileIoProxy:
+    """Proxy to the FileIoPlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test. FileIoPlugin is always
+    available (no optional dependencies), but is NOT default enabled.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        verifier = _get_test_verifier_or_raise()
+        plugin = _get_or_create_plugin(verifier, _FileIoPlugin)
+        return getattr(plugin, name)
+
+
+file_io_mock = _FileIoProxy()
+
+
+# ---------------------------------------------------------------------------
+# MongoDB proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _MongoProxy:
+    """Proxy to the MongoPlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test. Raises ImportError if
+    the pymongo extra is not installed.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        from bigfoot.plugins.mongo_plugin import _PYMONGO_AVAILABLE
+
+        if not _PYMONGO_AVAILABLE:
+            raise ImportError(
+                "bigfoot[mongo] is required to use bigfoot.mongo_mock. "
+                "Install it with: pip install bigfoot[mongo]"
+            )
+        verifier = _get_test_verifier_or_raise()
+        plugin = _get_or_create_plugin(verifier, _MongoPlugin)
+        return getattr(plugin, name)
+
+
+mongo_mock = _MongoProxy()
 
 
 # ---------------------------------------------------------------------------

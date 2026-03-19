@@ -28,6 +28,7 @@ def test_all_contains_expected_names() -> None:
         "AsyncWebSocketPlugin",
         "SyncWebSocketPlugin",
         "RedisPlugin",
+        "MongoPlugin",
         "CeleryPlugin",
         "DnsPlugin",
         "MemcachePlugin",
@@ -70,6 +71,7 @@ def test_all_contains_expected_names() -> None:
         "async_websocket_mock",
         "sync_websocket_mock",
         "redis_mock",
+        "mongo_mock",
         "dns_mock",
         "memcache_mock",
         "celery_mock",
@@ -81,6 +83,8 @@ def test_all_contains_expected_names() -> None:
         "elasticsearch_mock",
         "jwt_mock",
         "crypto_mock",
+        "FileIoPlugin",
+        "file_io_mock",
     }
     assert set(bigfoot.__all__) == expected_all
 

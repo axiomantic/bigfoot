@@ -124,10 +124,11 @@ def _make_interceptor(operation: str) -> Any:
                 )
             config = queue.popleft()
 
-        # Extract relevant details from kwargs
+        # Extract relevant details from kwargs (only store fields actually provided)
         details: dict[str, Any] = {}
         for key in detail_keys:
-            details[key] = kwargs.get(key)
+            if key in kwargs:
+                details[key] = kwargs[key]
 
         interaction = Interaction(
             source_id=source_id,
@@ -230,9 +231,8 @@ class ElasticsearchPlugin(BasePlugin):
         except Exception:
             return False
 
-    def assertable_fields(self, interaction: Interaction) -> frozenset[str]:
-        """Return only keys whose values are not None (optional ES params)."""
-        return frozenset(k for k, v in interaction.details.items() if v is not None)
+    # assertable_fields uses BasePlugin default: frozenset(interaction.details.keys())
+    # Only fields actually provided in kwargs are stored in details.
 
     def get_unused_mocks(self) -> list[ElasticsearchMockConfig]:
         unused: list[ElasticsearchMockConfig] = []

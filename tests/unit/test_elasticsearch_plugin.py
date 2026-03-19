@@ -292,22 +292,22 @@ def test_matches_field_comparison() -> None:
     assert p.matches(interaction, {"index": "wrong"}) is False
 
 
-def test_assertable_fields_excludes_none_values() -> None:
-    """Custom assertable_fields: only keys with non-None values are required."""
+def test_assertable_fields_only_provided_keys() -> None:
+    """Only kwargs actually provided are stored in details and assertable."""
     v, p = _make_verifier_with_plugin()
+    # Simulate an interaction where only index and document were provided (no id)
     interaction = Interaction(
         source_id="elasticsearch:index",
         sequence=0,
-        details={"index": "my-index", "document": {"a": 1}, "id": None},
+        details={"index": "my-index", "document": {"a": 1}},
         plugin=p,
     )
     fields = p.assertable_fields(interaction)
     assert fields == frozenset({"index", "document"})
-    assert "id" not in fields
 
 
-def test_assertable_fields_all_non_none() -> None:
-    """When all values are non-None, all keys are assertable."""
+def test_assertable_fields_all_keys() -> None:
+    """When all detail keys are provided, all are assertable."""
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
         source_id="elasticsearch:index",
