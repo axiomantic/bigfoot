@@ -101,6 +101,8 @@ PLUGIN_REGISTRY: tuple[PluginEntry, ...] = (
     PluginEntry("crypto", "bigfoot.plugins.crypto_plugin", "CryptoPlugin", "cryptography"),
     PluginEntry("mongo", "bigfoot.plugins.mongo_plugin", "MongoPlugin", "pymongo"),
     PluginEntry("file_io", "bigfoot.plugins.file_io_plugin", "FileIoPlugin", "always", default_enabled=False),
+    PluginEntry("pika", "bigfoot.plugins.pika_plugin", "PikaPlugin", "pika"),
+    PluginEntry("ssh", "bigfoot.plugins.ssh_plugin", "SshPlugin", "paramiko"),
 )
 
 VALID_PLUGIN_NAMES: frozenset[str] = frozenset(e.name for e in PLUGIN_REGISTRY)

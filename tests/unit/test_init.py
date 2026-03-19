@@ -85,6 +85,10 @@ def test_all_contains_expected_names() -> None:
         "crypto_mock",
         "FileIoPlugin",
         "file_io_mock",
+        "PikaPlugin",
+        "pika_mock",
+        "SshPlugin",
+        "ssh_mock",
     }
     assert set(bigfoot.__all__) == expected_all
 

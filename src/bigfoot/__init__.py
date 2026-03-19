@@ -74,6 +74,16 @@ except ImportError:  # pragma: no cover
 from bigfoot.plugins.smtp_plugin import SmtpPlugin as _SmtpPlugin  # noqa: F401
 
 try:
+    from bigfoot.plugins.pika_plugin import PikaPlugin as _PikaPlugin  # noqa: F401
+except ImportError:  # pragma: no cover
+    pass  # pika extra not installed
+
+try:
+    from bigfoot.plugins.ssh_plugin import SshPlugin as _SshPlugin  # noqa: F401
+except ImportError:  # pragma: no cover
+    pass  # paramiko extra not installed
+
+try:
     from bigfoot.plugins.psycopg2_plugin import Psycopg2Plugin as _Psycopg2Plugin  # noqa: F401
 except ImportError:  # pragma: no cover
     pass  # psycopg2 extra not installed
@@ -107,6 +117,16 @@ DnsPlugin = _DnsPlugin
 MemcachePlugin = _MemcachePlugin
 RedisPlugin = _RedisPlugin
 FileIoPlugin = _FileIoPlugin
+
+try:
+    PikaPlugin = _PikaPlugin
+except NameError:  # pragma: no cover
+    pass
+
+try:
+    SshPlugin = _SshPlugin
+except NameError:  # pragma: no cover
+    pass
 
 try:
     MongoPlugin = _MongoPlugin
@@ -219,6 +239,10 @@ __all__ = [
     "crypto_mock",
     "FileIoPlugin",
     "file_io_mock",
+    "PikaPlugin",
+    "pika_mock",
+    "SshPlugin",
+    "ssh_mock",
 ]
 
 
@@ -524,6 +548,62 @@ class _FileIoProxy:
 
 
 file_io_mock = _FileIoProxy()
+
+
+# ---------------------------------------------------------------------------
+# Pika proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _PikaProxy:
+    """Proxy to the PikaPlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test. Raises ImportError if
+    the pika extra is not installed.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        from bigfoot.plugins.pika_plugin import _PIKA_AVAILABLE
+
+        if not _PIKA_AVAILABLE:
+            raise ImportError(
+                "bigfoot[pika] is required to use bigfoot.pika_mock. "
+                "Install it with: pip install bigfoot[pika]"
+            )
+        verifier = _get_test_verifier_or_raise()
+        plugin = _get_or_create_plugin(verifier, _PikaPlugin)
+        return getattr(plugin, name)
+
+
+pika_mock = _PikaProxy()
+
+
+# ---------------------------------------------------------------------------
+# SSH proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _SshProxy:
+    """Proxy to the SshPlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test. Raises ImportError if
+    the paramiko extra is not installed.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        from bigfoot.plugins.ssh_plugin import _PARAMIKO_AVAILABLE
+
+        if not _PARAMIKO_AVAILABLE:
+            raise ImportError(
+                "bigfoot[ssh] is required to use bigfoot.ssh_mock. "
+                "Install it with: pip install bigfoot[ssh]"
+            )
+        verifier = _get_test_verifier_or_raise()
+        plugin = _get_or_create_plugin(verifier, _SshPlugin)
+        return getattr(plugin, name)
+
+
+ssh_mock = _SshProxy()
 
 
 # ---------------------------------------------------------------------------
