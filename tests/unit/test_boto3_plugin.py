@@ -28,10 +28,19 @@ from bigfoot.plugins.boto3_plugin import (
 def _make_verifier_with_plugin() -> tuple[StrictVerifier, Boto3Plugin]:
     """Return (verifier, plugin) with Boto3Plugin registered but NOT activated.
 
-    Guard mode's @pytest.mark.allow("dns", "socket") at module level handles
-    permitting boto3's internal DNS/socket calls during credential discovery.
+    Removes DnsPlugin and SocketPlugin to prevent them from intercepting
+    boto3's internal DNS/socket calls (credential provider hits 169.254.169.254)
+    inside the sandbox. Guard mode's @pytest.mark.allow handles calls outside
+    the sandbox.
     """
+    from bigfoot.plugins.dns_plugin import DnsPlugin
+    from bigfoot.plugins.socket_plugin import SocketPlugin
+
     v = StrictVerifier()
+    v._plugins = [
+        p for p in v._plugins
+        if not isinstance(p, (DnsPlugin, SocketPlugin))
+    ]
     for p in v._plugins:
         if isinstance(p, Boto3Plugin):
             return v, p
