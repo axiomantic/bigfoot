@@ -179,3 +179,41 @@ class TestSupportsGuard:
         from bigfoot.plugins.socket_plugin import SocketPlugin
 
         assert SocketPlugin.supports_guard is True
+
+
+from bigfoot._guard import allow
+
+
+class TestAllow:
+    """Test allow() context manager."""
+
+    def test_sets_allowlist_and_resets(self) -> None:
+        assert _guard_allowlist.get() == frozenset()
+        with allow("dns", "socket"):
+            assert _guard_allowlist.get() == frozenset({"dns", "socket"})
+        assert _guard_allowlist.get() == frozenset()
+
+    def test_nestable_unions_allowlists(self) -> None:
+        with allow("dns"):
+            assert _guard_allowlist.get() == frozenset({"dns"})
+            with allow("socket"):
+                assert _guard_allowlist.get() == frozenset({"dns", "socket"})
+            assert _guard_allowlist.get() == frozenset({"dns"})
+        assert _guard_allowlist.get() == frozenset()
+
+    def test_rejects_unknown_plugin_names(self) -> None:
+        from bigfoot._errors import BigfootConfigError
+
+        with pytest.raises(BigfootConfigError, match="Unknown plugin name"):
+            with allow("nonexistent_plugin"):
+                pass
+
+    def test_single_plugin_name(self) -> None:
+        with allow("http"):
+            assert _guard_allowlist.get() == frozenset({"http"})
+
+    def test_resets_on_exception(self) -> None:
+        with pytest.raises(ValueError, match="boom"):
+            with allow("dns"):
+                raise ValueError("boom")
+        assert _guard_allowlist.get() == frozenset()
