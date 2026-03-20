@@ -38,6 +38,9 @@ class _CallFn:
 # Never actually returned — the exception path re-raises before reaching `return result`.
 _SENTINEL = object()
 
+# Sentinel: distinguishes "parameter not passed" from None in assert_call().
+_ABSENT = object()
+
 
 # ---------------------------------------------------------------------------
 # MockConfig

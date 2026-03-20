@@ -6,9 +6,40 @@ import pytest
 
 from bigfoot._context import _active_verifier
 from bigfoot._errors import SandboxNotActiveError, UnmockedInteractionError
-from bigfoot._mock_plugin import MethodProxy, MockConfig, MockPlugin, MockProxy
+from bigfoot._mock_plugin import (
+    MethodProxy,
+    MockConfig,
+    MockPlugin,
+    MockProxy,
+    _ABSENT,
+)
 from bigfoot._timeline import Interaction
 from bigfoot._verifier import StrictVerifier
+
+# ---------------------------------------------------------------------------
+# _ABSENT sentinel
+# ---------------------------------------------------------------------------
+
+
+def test_absent_sentinel_is_unique_object() -> None:
+    """_ABSENT is a unique object sentinel distinct from None, True, False, and _SENTINEL."""
+    # ESCAPE: test_absent_sentinel_is_unique_object
+    #   CLAIM: _ABSENT is a module-level sentinel that is distinct from common values.
+    #   PATH: Module-level `_ABSENT = object()` creates a unique identity.
+    #   CHECK: `_ABSENT is not None`, `_ABSENT is not True`, `_ABSENT is not False`,
+    #          `isinstance(_ABSENT, object)`, and identity comparison with _SENTINEL.
+    #   MUTATION: Setting `_ABSENT = None` would fail `_ABSENT is not None`.
+    #            Setting `_ABSENT = _SENTINEL` would fail the identity check vs _SENTINEL.
+    #   ESCAPE: Nothing reasonable -- exact identity checks against all common confusions.
+    #   IMPACT: assert_call() could not distinguish "parameter not passed" from None.
+    from bigfoot._mock_plugin import _SENTINEL
+
+    assert _ABSENT is not None
+    assert _ABSENT is not True
+    assert _ABSENT is not False
+    assert isinstance(_ABSENT, object)
+    assert _ABSENT is not _SENTINEL
+
 
 # ---------------------------------------------------------------------------
 # MockPlugin registration
