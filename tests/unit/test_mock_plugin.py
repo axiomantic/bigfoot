@@ -1650,3 +1650,70 @@ def test_wraps_delegation_returned_and_raised_mutually_exclusive() -> None:
     # Second: raised, no returned
     assert "raised" in unasserted[1].details
     assert "returned" not in unasserted[1].details
+
+
+# ---------------------------------------------------------------------------
+# assertable_fields adapts to raised/returned
+# ---------------------------------------------------------------------------
+
+
+def test_mock_plugin_assertable_fields_includes_raised_when_present() -> None:
+    """assertable_fields includes 'raised' when interaction.details has 'raised'."""
+    v = StrictVerifier()
+    p = MockPlugin(v)
+
+    interaction = Interaction(
+        source_id="mock:Svc.method",
+        sequence=0,
+        details={
+            "mock_name": "Svc",
+            "method_name": "method",
+            "args": (),
+            "kwargs": {},
+            "raised": ValueError("err"),
+        },
+        plugin=p,
+    )
+    result = p.assertable_fields(interaction)
+    assert result == frozenset({"args", "kwargs", "raised"})
+
+
+def test_mock_plugin_assertable_fields_includes_returned_when_present() -> None:
+    """assertable_fields includes 'returned' when interaction.details has 'returned'."""
+    v = StrictVerifier()
+    p = MockPlugin(v)
+
+    interaction = Interaction(
+        source_id="mock:Svc.method",
+        sequence=0,
+        details={
+            "mock_name": "Svc",
+            "method_name": "method",
+            "args": (),
+            "kwargs": {},
+            "returned": 42,
+        },
+        plugin=p,
+    )
+    result = p.assertable_fields(interaction)
+    assert result == frozenset({"args", "kwargs", "returned"})
+
+
+def test_mock_plugin_assertable_fields_plain_call_unchanged() -> None:
+    """assertable_fields for a plain mock call (no raised/returned) is still {args, kwargs}."""
+    v = StrictVerifier()
+    p = MockPlugin(v)
+
+    interaction = Interaction(
+        source_id="mock:Svc.method",
+        sequence=0,
+        details={
+            "mock_name": "Svc",
+            "method_name": "method",
+            "args": (),
+            "kwargs": {},
+        },
+        plugin=p,
+    )
+    result = p.assertable_fields(interaction)
+    assert result == frozenset({"args", "kwargs"})

@@ -364,8 +364,20 @@ class MockPlugin(BasePlugin):
         )
 
     def assertable_fields(self, interaction: Interaction) -> frozenset[str]:
-        """Return the field names required in **expected when asserting a mock interaction."""
-        return frozenset({"args", "kwargs"})
+        """Return the field names required in **expected when asserting a mock interaction.
+
+        Adapts based on interaction content:
+        - Standard mock calls: {args, kwargs}
+        - .raises() side effects: {args, kwargs, raised}
+        - Spy returned: {args, kwargs, returned}
+        - Spy raised: {args, kwargs, raised}
+        """
+        base = {"args", "kwargs"}
+        if "raised" in interaction.details:
+            base.add("raised")
+        if "returned" in interaction.details:
+            base.add("returned")
+        return frozenset(base)
 
     def get_unused_mocks(self) -> list[MockConfig]:
         """Return MockConfig objects that are required=True and still in the queue (never
