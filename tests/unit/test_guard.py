@@ -838,3 +838,260 @@ class TestGuardActiveDuringTestBody:
         from bigfoot import pytest_plugin
 
         assert hasattr(pytest_plugin, "pytest_runtest_call")
+
+
+class TestGuardModeIntegration:
+    """Integration tests for guard mode end-to-end behavior.
+
+    These tests verify the full guard mode stack: interceptors, ContextVars,
+    allowlists, sandbox precedence, and config-driven disablement.
+    """
+
+    def test_guard_blocks_real_socket_connect_outside_sandbox(self) -> None:
+        """Guard mode blocks real socket.connect when outside a sandbox.
+
+        Creates its own SocketPlugin activation to be resilient against earlier
+        tests that force-reset plugin install counts.
+        """
+        import socket as socket_mod
+
+        from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
+
+        v = StrictVerifier()
+        sp = SocketPlugin(v)
+        sp.activate()
+        try:
+            sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
+            try:
+                with pytest.raises(GuardedCallError) as exc_info:
+                    sock.connect(("127.0.0.1", 1))
+                assert exc_info.value.plugin_name == "socket"
+                assert exc_info.value.source_id == "socket:connect"
+            finally:
+                _SOCKET_CLOSE_ORIGINAL(sock)
+        finally:
+            sp.deactivate()
+
+    @pytest.mark.allow("socket")
+    def test_allow_mark_permits_real_socket_operations(self) -> None:
+        """@pytest.mark.allow('socket') permits real socket operations.
+
+        Creates its own SocketPlugin activation to be resilient against earlier
+        tests that force-reset plugin install counts.
+        """
+        import socket as socket_mod
+
+        from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.socket_plugin import SocketPlugin
+
+        v = StrictVerifier()
+        sp = SocketPlugin(v)
+        sp.activate()
+        try:
+            sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
+            try:
+                # connect to a port that should refuse -- proves the REAL connect ran
+                with pytest.raises((ConnectionRefusedError, OSError)):
+                    sock.connect(("127.0.0.1", 1))
+            finally:
+                sock.close()
+        finally:
+            sp.deactivate()
+
+    def test_sandbox_takes_precedence_over_guard(self) -> None:
+        """Inside a sandbox, guard mode is irrelevant; sandbox mocking applies.
+
+        Creates its own verifier + DnsPlugin to be self-contained.
+        """
+        import socket
+
+        from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.dns_plugin import DnsPlugin, _DnsSentinel
+
+        v = StrictVerifier()
+        dns_plugin = None
+        for p in v._plugins:
+            if isinstance(p, DnsPlugin):
+                dns_plugin = p
+                break
+        assert dns_plugin is not None, "DnsPlugin should be registered"
+
+        dns_plugin.mock_getaddrinfo(
+            "example.com", returns=[(2, 1, 6, "", ("93.184.216.34", 80))],
+        )
+        with v.sandbox():
+            result = socket.getaddrinfo("example.com", 80)
+            assert result == [(2, 1, 6, "", ("93.184.216.34", 80))]
+
+        v.assert_interaction(
+            _DnsSentinel("dns:getaddrinfo:example.com"),
+            host="example.com",
+            port=80,
+            family=0,
+            type=0,
+            proto=0,
+        )
+
+    @pytest.mark.allow("dns")
+    def test_allow_context_manager_adds_to_mark_allowlist(self) -> None:
+        """allow() inside @pytest.mark.allow adds to the existing allowlist."""
+        # Mark already allows "dns"
+        assert _guard_allowlist.get() == frozenset({"dns"})
+
+        with allow("socket"):
+            assert _guard_allowlist.get() == frozenset({"dns", "socket"})
+
+        # After exiting allow(), back to mark-only
+        assert _guard_allowlist.get() == frozenset({"dns"})
+
+    @pytest.mark.allow("dns")
+    @pytest.mark.allow("socket")
+    def test_multiple_allow_marks_combine_end_to_end(self) -> None:
+        """Multiple @pytest.mark.allow marks combine; real I/O passes through.
+
+        Creates its own DnsPlugin activation to be resilient against earlier
+        tests that force-reset plugin install counts.
+        """
+        import socket as socket_mod
+
+        from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.dns_plugin import DnsPlugin
+
+        v = StrictVerifier()
+        dns = DnsPlugin(v)
+        dns.activate()
+        try:
+            # Both dns and socket are allowed, so real getaddrinfo should work
+            result = socket_mod.getaddrinfo("localhost", 80)
+            assert isinstance(result, list)
+            assert len(result) > 0
+            # Verify the result contains real address tuples
+            first = result[0]
+            assert len(first) == 5  # (family, type, proto, canonname, sockaddr)
+        finally:
+            dns.deactivate()
+
+    def test_guard_active_is_false_during_fixture_setup(self) -> None:
+        """Indirectly verify guard is scoped to test body, not fixtures.
+
+        The hook wraps pytest_runtest_call (test body only). If guard were
+        active during fixture setup, the _bigfoot_auto_verifier fixture
+        would fail when creating StrictVerifier (which internally may
+        perform I/O-like operations). The fact that we get here proves it.
+        """
+        assert _guard_active.get() is True  # Active in test body
+
+    def test_guard_blocks_dns_lookup_outside_sandbox(self) -> None:
+        """Guard blocks real DNS lookups outside a sandbox.
+
+        Creates its own DnsPlugin activation to be resilient against earlier
+        tests that force-reset plugin install counts (e.g., test_dns_plugin.py).
+        """
+        import socket as socket_mod
+
+        from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.dns_plugin import DnsPlugin
+
+        v = StrictVerifier()
+        dns = DnsPlugin(v)
+        dns.activate()
+        try:
+            with pytest.raises(GuardedCallError) as exc_info:
+                socket_mod.getaddrinfo("example.com", 80)
+            assert exc_info.value.plugin_name == "dns"
+        finally:
+            dns.deactivate()
+
+    def test_guard_blocks_subprocess_outside_sandbox(self) -> None:
+        """Guard blocks real subprocess.run outside a sandbox.
+
+        Creates its own SubprocessPlugin activation to be resilient against
+        earlier tests that force-reset plugin install counts.
+        """
+        import subprocess as subprocess_mod
+
+        from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.subprocess import SubprocessPlugin
+
+        v = StrictVerifier()
+        sp = SubprocessPlugin(v)
+        sp.activate()
+        try:
+            with pytest.raises(GuardedCallError) as exc_info:
+                subprocess_mod.run(["echo", "hello"], capture_output=True)
+            assert exc_info.value.plugin_name == "subprocess"
+            assert exc_info.value.source_id == "subprocess:run"
+        finally:
+            sp.deactivate()
+
+    @pytest.mark.allow("subprocess")
+    def test_allow_mark_permits_real_subprocess(self) -> None:
+        """@pytest.mark.allow('subprocess') permits real subprocess.run.
+
+        Creates its own SubprocessPlugin activation to be resilient against
+        earlier tests that force-reset plugin install counts.
+        """
+        import subprocess as subprocess_mod
+
+        from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.subprocess import SubprocessPlugin
+
+        v = StrictVerifier()
+        sp = SubprocessPlugin(v)
+        sp.activate()
+        try:
+            result = subprocess_mod.run(
+                ["echo", "guard_test"], capture_output=True, text=True,
+            )
+            assert result.returncode == 0
+            assert result.stdout == "guard_test\n"
+        finally:
+            sp.deactivate()
+
+    def test_guard_blocks_http_outside_sandbox(self) -> None:
+        """Guard blocks real HTTP requests outside a sandbox.
+
+        Creates its own HttpPlugin activation to be resilient against earlier
+        tests that force-reset plugin install counts.
+        """
+        import httpx
+
+        from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.http import HttpPlugin
+
+        v = StrictVerifier()
+        hp = HttpPlugin(v)
+        hp.activate()
+        try:
+            with pytest.raises(GuardedCallError) as exc_info:
+                httpx.get("https://example.com")
+            assert exc_info.value.plugin_name == "http"
+            assert exc_info.value.source_id == "http:request"
+        finally:
+            hp.deactivate()
+
+    def test_guarded_call_error_message_has_actionable_guidance(self) -> None:
+        """GuardedCallError message contains all three remediation options.
+
+        Creates its own DnsPlugin activation to be resilient against earlier
+        tests that force-reset plugin install counts.
+        """
+        import socket as socket_mod
+
+        from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.dns_plugin import DnsPlugin
+
+        v = StrictVerifier()
+        dns = DnsPlugin(v)
+        dns.activate()
+        try:
+            with pytest.raises(GuardedCallError) as exc_info:
+                socket_mod.getaddrinfo("example.com", 80)
+            msg = str(exc_info.value)
+            assert "bigfoot_verifier.sandbox()" in msg
+            assert 'bigfoot.allow("dns")' in msg
+            assert '@pytest.mark.allow("dns")' in msg
+            assert "supports_guard" in msg
+        finally:
+            dns.deactivate()
