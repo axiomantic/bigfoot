@@ -299,20 +299,20 @@ def test_mock_reuses_existing_mock_plugin() -> None:
     from bigfoot._mock_plugin import MockPlugin
 
     v = StrictVerifier()
-    # First call creates MockPlugin and proxy
-    proxy_a = v.mock("Svc")
+    # First call creates MockPlugin and mock
+    mock_a = v.mock("os.path:sep")
     # Exactly one MockPlugin should be registered
     plugins_after_first = [p for p in v._plugins if isinstance(p, MockPlugin)]
     assert len(plugins_after_first) == 1
 
     # Second call must reuse the same MockPlugin (not register another)
-    proxy_b = v.mock("Other")
+    mock_b = v.mock("os.path:join")
     plugins_after_second = [p for p in v._plugins if isinstance(p, MockPlugin)]
     assert len(plugins_after_second) == 1
     assert plugins_after_first[0] is plugins_after_second[0]
 
-    # Both proxies should be distinct
-    assert proxy_a is not proxy_b
+    # Both mocks should be distinct
+    assert mock_a is not mock_b
 
 
 def test_mock_skips_non_mock_plugins_when_searching() -> None:
@@ -325,10 +325,10 @@ def test_mock_skips_non_mock_plugins_when_searching() -> None:
 
     # Calling mock() with a non-MockPlugin already registered must create exactly one
     # MockPlugin (the search will iterate past non_mock, find none, and create one).
-    proxy = v.mock("Svc")
+    mock_obj = v.mock("os.path:sep")
     mock_plugins = [p for p in v._plugins if isinstance(p, MockPlugin)]
     assert len(mock_plugins) == 1
-    assert proxy is not None
+    assert mock_obj is not None
 
 
 # --- Coverage gap: SandboxContext._enter() activation failure recovery ---
@@ -581,40 +581,45 @@ def test_assert_interaction_in_any_order_no_source_raises_mismatch_not_missing()
 # ---------------------------------------------------------------------------
 
 
-def test_verifier_spy_returns_mock_proxy_with_wraps() -> None:
-    """verifier.spy() creates a MockProxy whose wraps attribute is the real object."""
-    from bigfoot._mock_plugin import MockProxy
+def test_verifier_spy_returns_import_site_mock_with_spy_flag() -> None:
+    """verifier.spy() creates an ImportSiteMock with spy=True."""
+    from bigfoot._mock_plugin import ImportSiteMock
 
     v = StrictVerifier()
-
-    class _Real:
-        def do(self) -> str:
-            return "real"
-
-    real = _Real()
-    proxy = v.spy("Svc", real)
-    assert isinstance(proxy, MockProxy)
-    assert proxy.wraps is real
+    spy = v.spy("os.path:sep")
+    assert isinstance(spy, ImportSiteMock)
+    assert spy._spy is True
 
 
-def test_verifier_spy_delegates_to_real_object() -> None:
-    """verifier.spy() delegates calls to the real object and records on timeline."""
+def test_verifier_spy_delegates_to_real_function() -> None:
+    """verifier.spy() delegates calls to the real function and records on timeline."""
+    import sys
+    import types
+
     v = StrictVerifier()
+    mod = types.ModuleType("_test_verifier_spy")
+    mod.add = lambda x, y: x + y  # type: ignore[attr-defined]
+    sys.modules["_test_verifier_spy"] = mod
+    try:
+        spy = v.spy("_test_verifier_spy:add")
 
-    class _Real:
-        def add(self, x: int, y: int) -> int:
-            return x + y
+        with v.sandbox():
+            result = mod.add(2, 3)
 
-    real = _Real()
-    proxy = v.spy("Calculator", real)
+        assert result == 5
+        unasserted = v._timeline.all_unasserted()
+        assert len(unasserted) == 1
+        assert "_test_verifier_spy:add" in unasserted[0].source_id
 
-    with v.sandbox():
-        result = proxy.add(2, 3)
-
-    assert result == 5
-    unasserted = v._timeline.all_unasserted()
-    assert len(unasserted) == 1
-    assert unasserted[0].source_id == "mock:Calculator.add"
+        # Assert the interaction so verify_all doesn't fail
+        v.assert_interaction(
+            spy.__getattr__("__call__"),
+            args=(2, 3),
+            kwargs={},
+            returned=5,
+        )
+    finally:
+        del sys.modules["_test_verifier_spy"]
 
 
 # ---------------------------------------------------------------------------

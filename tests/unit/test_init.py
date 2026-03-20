@@ -315,7 +315,7 @@ def test_module_level_mock_raises_no_active_verifier_error_outside_test() -> Non
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            bigfoot.mock("SomeService")
+            bigfoot.mock("os.path:sep")
     finally:
         _current_test_verifier.reset(token)
 
@@ -349,14 +349,14 @@ def test_missing_assertion_fields_error_in_all() -> None:
     assert "MissingAssertionFieldsError" in bigfoot.__all__
 
 
-def test_mock_accepts_wraps_parameter() -> None:
-    """bigfoot.mock() accepts a wraps keyword argument."""
+def test_mock_accepts_path_parameter() -> None:
+    """bigfoot.mock() accepts a path positional argument (new import-site API)."""
     import inspect
 
     import bigfoot
 
     sig = inspect.signature(bigfoot.mock)
-    assert "wraps" in sig.parameters
+    assert "path" in sig.parameters
 
 
 def test_async_websocket_mock_raises_import_error_when_websockets_unavailable(
@@ -397,18 +397,27 @@ def test_bigfoot_module_is_context_manager(bigfoot_verifier: object) -> None:
       MUTATION: If __class__ swap is missing, ``with bigfoot:`` raises AttributeError.
       ESCAPE: A stub that returns *something* but not the verifier would fail the isinstance check.
     """
+    import sys
+    import types
+
     import bigfoot
     from bigfoot import StrictVerifier
 
-    proxy = bigfoot.mock("Svc")
-    proxy.do.returns(42)
+    mod = types.ModuleType("_test_init_cm")
+    mod.do = lambda: "real"  # type: ignore[attr-defined]
+    sys.modules["_test_init_cm"] = mod
+    try:
+        mock = bigfoot.mock("_test_init_cm:do")
+        mock.returns(42)
 
-    with bigfoot as v:
-        assert isinstance(v, StrictVerifier)
-        result = proxy.do()
-        assert result == 42
+        with bigfoot as v:
+            assert isinstance(v, StrictVerifier)
+            result = mod.do()
+            assert result == 42
 
-    bigfoot.assert_interaction(proxy.do, args=(), kwargs={})
+        mock.assert_call(args=(), kwargs={})
+    finally:
+        del sys.modules["_test_init_cm"]
 
 
 async def test_bigfoot_module_is_async_context_manager(bigfoot_verifier: object) -> None:
@@ -421,18 +430,27 @@ async def test_bigfoot_module_is_async_context_manager(bigfoot_verifier: object)
       CHECK: The ``as`` target is the StrictVerifier; async code inside the block is intercepted.
       MUTATION: Missing __aenter__ raises AttributeError; wrong return raises AssertionError.
     """
+    import sys
+    import types
+
     import bigfoot
     from bigfoot import StrictVerifier
 
-    proxy = bigfoot.mock("AsyncSvc")
-    proxy.fetch.returns({"ok": True})
+    mod = types.ModuleType("_test_init_async_cm")
+    mod.fetch = lambda: "real"  # type: ignore[attr-defined]
+    sys.modules["_test_init_async_cm"] = mod
+    try:
+        mock = bigfoot.mock("_test_init_async_cm:fetch")
+        mock.returns({"ok": True})
 
-    async with bigfoot as v:
-        assert isinstance(v, StrictVerifier)
-        result = proxy.fetch()
-        assert result == {"ok": True}
+        async with bigfoot as v:
+            assert isinstance(v, StrictVerifier)
+            result = mod.fetch()
+            assert result == {"ok": True}
 
-    bigfoot.assert_interaction(proxy.fetch, args=(), kwargs={})
+        mock.assert_call(args=(), kwargs={})
+    finally:
+        del sys.modules["_test_init_async_cm"]
 
 
 def test_bigfoot_nested_sandboxes_via_with_bigfoot(bigfoot_verifier: object) -> None:
