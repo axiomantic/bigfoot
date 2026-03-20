@@ -291,6 +291,8 @@ class _BaseMock:
         self._enforce: bool = False  # True when activated via sandbox
         if spy:
             self._wraps_target: Any = None
+        # Register with plugin so SandboxContext can activate this mock
+        plugin._mocks.append(self)
 
     # --- Subclass hook: resolve the (parent, attr_name) pair ---
 
@@ -524,18 +526,14 @@ class MockPlugin(BasePlugin):
     def create_import_site_mock(
         self, path: str, *, spy: bool = False
     ) -> ImportSiteMock:
-        """Create and register an ImportSiteMock."""
-        mock = ImportSiteMock(path=path, plugin=self, spy=spy)
-        self._mocks.append(mock)
-        return mock
+        """Create an ImportSiteMock. Registration happens in _BaseMock.__init__."""
+        return ImportSiteMock(path=path, plugin=self, spy=spy)
 
     def create_object_mock(
         self, target: object, attr: str, *, spy: bool = False
     ) -> ObjectMock:
-        """Create and register an ObjectMock."""
-        mock = ObjectMock(target=target, attr=attr, plugin=self, spy=spy)
-        self._mocks.append(mock)
-        return mock
+        """Create an ObjectMock. Registration happens in _BaseMock.__init__."""
+        return ObjectMock(target=target, attr=attr, plugin=self, spy=spy)
 
     def _register_active_patch(
         self, patch_key: tuple[int, str], mock: _BaseMock

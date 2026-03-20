@@ -33,6 +33,14 @@ def _create_fake_module(name: str, **attrs: object) -> types.ModuleType:
     return mod
 
 
+def _drain_unused_mocks(plugin: MockPlugin) -> None:
+    """Mark all unused mock configs as not required to prevent teardown errors."""
+    for mock in plugin._mocks:
+        for method_proxy in mock._methods.values():
+            for config in method_proxy._config_queue:
+                config.required = False
+
+
 # --- ImportSiteMock tests ---
 
 def test_import_site_mock_validates_path_format() -> None:
@@ -119,6 +127,7 @@ def test_import_site_mock_activate_patches_target(bigfoot_verifier: StrictVerifi
 
         mock._deactivate()
         assert mod.process is original
+        _drain_unused_mocks(plugin)
     finally:
         del sys.modules["_test_mod_activate"]
 
@@ -136,6 +145,7 @@ def test_object_mock_activate_patches_target(bigfoot_verifier: StrictVerifier) -
 
     mock._deactivate()
     assert target.process is original
+    _drain_unused_mocks(plugin)
 
 
 def test_mock_deactivate_restores_original(bigfoot_verifier: StrictVerifier) -> None:
@@ -151,6 +161,7 @@ def test_mock_deactivate_restores_original(bigfoot_verifier: StrictVerifier) -> 
 
         mock._deactivate()
         assert mod.value == "original"
+        _drain_unused_mocks(plugin)
     finally:
         del sys.modules["_test_mod_restore"]
 
@@ -167,6 +178,7 @@ def test_mock_context_manager_sets_enforce_false(bigfoot_verifier: StrictVerifie
 
         with mock:
             assert mock._enforce is False
+        _drain_unused_mocks(plugin)
     finally:
         del sys.modules["_test_mod_cm"]
 
@@ -213,5 +225,6 @@ def test_conflict_detection_same_target(bigfoot_verifier: StrictVerifier) -> Non
         with pytest.raises(ConflictError):
             m2._activate(enforce=True)
         m1._deactivate()
+        _drain_unused_mocks(plugin)
     finally:
         del sys.modules["_test_mod_conflict"]

@@ -227,7 +227,12 @@ class StrictVerifier:
         return InAnyOrderContext()
 
     def verify_all(self) -> None:
-        """Run Enforcement 2 and 3. Called at teardown."""
+        """Run Enforcement 2 and 3. Called at teardown.
+
+        Only interactions with enforce=True are checked. Interactions recorded
+        during individual mock activation (enforce=False) are not required to
+        be asserted.
+        """
         self._assert_no_active_sandbox()
         unasserted = [i for i in self._timeline.all_unasserted() if i.enforce]
         unused: list[tuple[BasePlugin, Any]] = []
@@ -316,11 +321,12 @@ class StrictVerifier:
 
 
 class SandboxContext:
-    """Activates all plugins. Supports both sync (with) and async (async with)."""
+    """Activates all plugins and mocks. Supports both sync (with) and async (async with)."""
 
     def __init__(self, verifier: StrictVerifier) -> None:
         self._verifier = verifier
         self._token: contextvars.Token[Any] | None = None
+        self._activated_mocks: list[Any] = []  # list[_BaseMock]
 
     def _enter(self) -> StrictVerifier:
         self._token = _active_verifier.set(self._verifier)
@@ -335,7 +341,31 @@ class SandboxContext:
                 errors.append(e)
                 break
 
+        # Activate all registered mocks with enforce=True
+        if not errors:
+            from bigfoot._mock_plugin import MockPlugin as _MP  # noqa: PLC0415
+
+            mock_plugin = next(
+                (p for p in self._verifier._plugins if isinstance(p, _MP)), None
+            )
+            if mock_plugin is not None:
+                for mock_obj in mock_plugin._mocks:
+                    try:
+                        mock_obj._activate(enforce=True)
+                        self._activated_mocks.append(mock_obj)
+                    except Exception as e:
+                        errors.append(e)
+                        break
+
         if errors:
+            # Deactivate mocks in reverse order first
+            for mock_obj in reversed(self._activated_mocks):
+                try:
+                    mock_obj._deactivate()
+                except Exception as cleanup_e:
+                    errors.append(cleanup_e)
+            self._activated_mocks.clear()
+            # Then deactivate plugins
             for plugin in reversed(activated_so_far):
                 try:
                     plugin.deactivate()
@@ -349,6 +379,16 @@ class SandboxContext:
 
     def _exit(self) -> None:
         errors: list[BaseException] = []
+
+        # Deactivate mocks in reverse order FIRST (before plugins)
+        for mock_obj in reversed(self._activated_mocks):
+            try:
+                mock_obj._deactivate()
+            except Exception as e:
+                errors.append(e)
+        self._activated_mocks.clear()
+
+        # Then deactivate plugins (existing behavior)
         for plugin in reversed(self._verifier._plugins):
             try:
                 plugin.deactivate()
