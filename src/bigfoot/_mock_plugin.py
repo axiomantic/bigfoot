@@ -340,6 +340,9 @@ class MockPlugin(BasePlugin):
         """Copy-pasteable code to configure a mock for this interaction."""
         mock_name = interaction.details.get("mock_name", "?")
         method_name = interaction.details.get("method_name", "?")
+        if "raised" in interaction.details:
+            raised = interaction.details["raised"]
+            return f'verifier.mock("{mock_name}").{method_name}.raises({raised!r})'
         return f'verifier.mock("{mock_name}").{method_name}.returns(<value>)'
 
     def format_unmocked_hint(
@@ -369,12 +372,17 @@ class MockPlugin(BasePlugin):
         method_name = interaction.details.get("method_name", "?")
         args = interaction.details.get("args", ())
         kwargs = interaction.details.get("kwargs", {})
-        return (
-            f'verifier.mock("{mock_name}").{method_name}.assert_call(\n'
-            f"    args={args!r},\n"
-            f"    kwargs={kwargs!r},\n"
-            f")"
-        )
+        lines = [
+            f'verifier.mock("{mock_name}").{method_name}.assert_call(',
+            f"    args={args!r},",
+            f"    kwargs={kwargs!r},",
+        ]
+        if "raised" in interaction.details:
+            lines.append(f"    raised={interaction.details['raised']!r},")
+        if "returned" in interaction.details:
+            lines.append(f"    returned={interaction.details['returned']!r},")
+        lines.append(")")
+        return "\n".join(lines)
 
     def assertable_fields(self, interaction: Interaction) -> frozenset[str]:
         """Return the field names required in **expected when asserting a mock interaction.

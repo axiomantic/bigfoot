@@ -1811,3 +1811,110 @@ def test_assert_call_missing_raised_raises_missing_fields_error() -> None:
         assert "raised" in exc_info.value.missing_fields
     finally:
         _current_test_verifier.reset(token)
+
+
+# ---------------------------------------------------------------------------
+# format_assert_hint with raised/returned
+# ---------------------------------------------------------------------------
+
+
+def test_format_assert_hint_includes_raised_when_present() -> None:
+    """format_assert_hint includes raised= line when details has 'raised'."""
+    v = StrictVerifier()
+    p = MockPlugin(v)
+
+    exc = ValueError("boom")
+    interaction = Interaction(
+        source_id="mock:Svc.method",
+        sequence=0,
+        details={
+            "mock_name": "Svc",
+            "method_name": "method",
+            "args": ("a",),
+            "kwargs": {},
+            "raised": exc,
+        },
+        plugin=p,
+    )
+    result = p.format_assert_hint(interaction)
+    assert result == (
+        'verifier.mock("Svc").method.assert_call(\n'
+        "    args=('a',),\n"
+        "    kwargs={},\n"
+        f"    raised={exc!r},\n"
+        ")"
+    )
+
+
+def test_format_assert_hint_includes_returned_when_present() -> None:
+    """format_assert_hint includes returned= line when details has 'returned'."""
+    v = StrictVerifier()
+    p = MockPlugin(v)
+
+    interaction = Interaction(
+        source_id="mock:Svc.method",
+        sequence=0,
+        details={
+            "mock_name": "Svc",
+            "method_name": "method",
+            "args": (),
+            "kwargs": {},
+            "returned": {"data": "value"},
+        },
+        plugin=p,
+    )
+    result = p.format_assert_hint(interaction)
+    assert result == (
+        'verifier.mock("Svc").method.assert_call(\n'
+        "    args=(),\n"
+        "    kwargs={},\n"
+        "    returned={'data': 'value'},\n"
+        ")"
+    )
+
+
+def test_format_assert_hint_plain_call_unchanged() -> None:
+    """format_assert_hint for a plain call (no raised/returned) is unchanged."""
+    v = StrictVerifier()
+    p = MockPlugin(v)
+
+    interaction = Interaction(
+        source_id="mock:Svc.method",
+        sequence=0,
+        details={
+            "mock_name": "Svc",
+            "method_name": "method",
+            "args": (),
+            "kwargs": {},
+        },
+        plugin=p,
+    )
+    result = p.format_assert_hint(interaction)
+    assert result == (
+        'verifier.mock("Svc").method.assert_call(\n'
+        "    args=(),\n"
+        "    kwargs={},\n"
+        ")"
+    )
+
+
+def test_format_mock_hint_includes_raises_when_raised_in_details() -> None:
+    """format_mock_hint suggests .raises() when interaction has 'raised'."""
+    v = StrictVerifier()
+    p = MockPlugin(v)
+
+    exc = ValueError("boom")
+    interaction = Interaction(
+        source_id="mock:Svc.method",
+        sequence=0,
+        details={
+            "mock_name": "Svc",
+            "method_name": "method",
+            "args": (),
+            "kwargs": {},
+            "raised": exc,
+        },
+        plugin=p,
+    )
+    result = p.format_mock_hint(interaction)
+    assert result == f'verifier.mock("Svc").method.raises({exc!r})'
