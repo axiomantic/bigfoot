@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise, _GuardPassThrough
+from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -106,6 +106,9 @@ class _ServiceProxy:
 def _patched_make_api_call(
     client_self: object, operation_name: str, api_params: dict[str, Any],
 ) -> Any:  # noqa: ANN401
+    # Check allowlist FIRST - bypasses both guard and sandbox
+    if "boto3" in _guard_allowlist.get():
+        return Boto3Plugin._original_make_api_call(client_self, operation_name, api_params)
     try:
         plugin = _get_boto3_plugin()
     except _GuardPassThrough:

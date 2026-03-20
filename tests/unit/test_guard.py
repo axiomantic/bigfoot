@@ -1071,6 +1071,31 @@ class TestGuardModeIntegration:
         finally:
             hp.deactivate()
 
+    def test_allow_bypasses_sandbox_interceptor(self) -> None:
+        """allow() causes interceptor to call original even inside sandbox."""
+        import socket
+
+        from bigfoot._verifier import StrictVerifier
+
+        # Set allowlist
+        token = _guard_allowlist.set(frozenset({"dns"}))
+        try:
+            # Create verifier with DNS plugin and enter sandbox
+            v = StrictVerifier()
+            with v.sandbox():
+                # DNS call should pass through to real function
+                result = socket.getaddrinfo("localhost", 80)
+                assert isinstance(result, list)
+                assert len(result) > 0
+            # No interactions should be recorded for dns
+            dns_interactions = [
+                i for i in v._timeline._interactions
+                if i.source_id.startswith("dns:")
+            ]
+            assert len(dns_interactions) == 0
+        finally:
+            _guard_allowlist.reset(token)
+
     def test_guarded_call_error_message_has_actionable_guidance(self) -> None:
         """GuardedCallError message contains all three remediation options.
 

@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise, _GuardPassThrough
+from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -93,6 +93,9 @@ def _patched_getaddrinfo(
     proto: int = 0,
     flags: int = 0,
 ) -> Any:  # noqa: ANN401
+    # Check allowlist FIRST - bypasses both guard and sandbox
+    if "dns" in _guard_allowlist.get():
+        return DnsPlugin._original_getaddrinfo(host, port, family, type, proto, flags)
     try:
         plugin = _get_dns_plugin()
     except _GuardPassThrough:
@@ -133,6 +136,9 @@ def _patched_getaddrinfo(
 
 
 def _patched_gethostbyname(hostname: str) -> Any:  # noqa: ANN401
+    # Check allowlist FIRST - bypasses both guard and sandbox
+    if "dns" in _guard_allowlist.get():
+        return DnsPlugin._original_gethostbyname(hostname)
     try:
         plugin = _get_dns_plugin()
     except _GuardPassThrough:
@@ -174,6 +180,9 @@ def _patched_resolver_resolve(
     **kwargs: Any,  # noqa: ANN401
 ) -> Any:  # noqa: ANN401
     """Instance method: Resolver().resolve(qname, rdtype)."""
+    # Check allowlist FIRST - bypasses both guard and sandbox
+    if "dns" in _guard_allowlist.get():
+        return DnsPlugin._original_resolver_resolve(self, qname, rdtype, *args, **kwargs)
     try:
         plugin = _get_dns_plugin()
     except _GuardPassThrough:
@@ -217,6 +226,9 @@ def _patched_module_resolve(
     **kwargs: Any,  # noqa: ANN401
 ) -> Any:  # noqa: ANN401
     """Module-level: dns.resolver.resolve(qname, rdtype)."""
+    # Check allowlist FIRST - bypasses both guard and sandbox
+    if "dns" in _guard_allowlist.get():
+        return DnsPlugin._original_resolve(qname, rdtype, *args, **kwargs)
     try:
         plugin = _get_dns_plugin()
     except _GuardPassThrough:

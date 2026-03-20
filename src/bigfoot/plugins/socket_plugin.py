@@ -4,7 +4,7 @@ import socket
 import threading
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from bigfoot._context import _get_verifier_or_raise, _GuardPassThrough
+from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -146,6 +146,9 @@ class SocketPlugin(StateMachinePlugin):
         SocketPlugin._original_close = socket.socket.close
 
         def _patched_connect(sock_self: socket.socket, address: object) -> None:
+            # Check allowlist FIRST - bypasses both guard and sandbox
+            if "socket" in _guard_allowlist.get():
+                return _SOCKET_CONNECT_ORIGINAL(sock_self, address)  # type: ignore[no-any-return]
             try:
                 plugin = _get_socket_plugin()
             except _GuardPassThrough:
@@ -169,6 +172,9 @@ class SocketPlugin(StateMachinePlugin):
             data: bytes | bytearray | memoryview,
             flags: int = 0,
         ) -> int:
+            # Check allowlist FIRST - bypasses both guard and sandbox
+            if "socket" in _guard_allowlist.get():
+                return _SOCKET_SEND_ORIGINAL(sock_self, data, flags)  # type: ignore[no-any-return]
             try:
                 plugin = _get_socket_plugin()
             except _GuardPassThrough:
@@ -188,6 +194,9 @@ class SocketPlugin(StateMachinePlugin):
             data: bytes | bytearray | memoryview,
             flags: int = 0,
         ) -> None:
+            # Check allowlist FIRST - bypasses both guard and sandbox
+            if "socket" in _guard_allowlist.get():
+                return _SOCKET_SENDALL_ORIGINAL(sock_self, data, flags)  # type: ignore[no-any-return]
             try:
                 plugin = _get_socket_plugin()
             except _GuardPassThrough:
@@ -201,6 +210,9 @@ class SocketPlugin(StateMachinePlugin):
             )
 
         def _patched_recv(sock_self: socket.socket, bufsize: int, flags: int = 0) -> bytes:
+            # Check allowlist FIRST - bypasses both guard and sandbox
+            if "socket" in _guard_allowlist.get():
+                return _SOCKET_RECV_ORIGINAL(sock_self, bufsize, flags)  # type: ignore[no-any-return]
             try:
                 plugin = _get_socket_plugin()
             except _GuardPassThrough:
@@ -218,6 +230,9 @@ class SocketPlugin(StateMachinePlugin):
             return data
 
         def _patched_close(sock_self: socket.socket) -> None:
+            # Check allowlist FIRST - bypasses both guard and sandbox
+            if "socket" in _guard_allowlist.get():
+                return _SOCKET_CLOSE_ORIGINAL(sock_self)  # type: ignore[no-any-return]
             try:
                 plugin = _get_socket_plugin()
             except _GuardPassThrough:

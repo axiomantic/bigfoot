@@ -5,7 +5,7 @@ from __future__ import annotations
 import threading
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from bigfoot._context import _get_verifier_or_raise, _GuardPassThrough
+from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -132,6 +132,9 @@ class _FakeBlockingConnection:
     """Fake pika.BlockingConnection that routes all operations through PikaPlugin."""
 
     def __new__(cls, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        # Check allowlist FIRST - bypasses both guard and sandbox
+        if "pika" in _guard_allowlist.get():
+            return _ORIGINAL_BLOCKING_CONNECTION(*args, **kwargs)
         try:
             _find_pika_plugin()
         except _GuardPassThrough:

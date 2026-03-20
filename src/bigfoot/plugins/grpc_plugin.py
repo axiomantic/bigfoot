@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise, _GuardPassThrough
+from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -235,6 +235,9 @@ class _FakeChannel:
 def _patched_insecure_channel(target: str, *args: Any, **kwargs: Any) -> _FakeChannel:  # noqa: ANN401
     from bigfoot._errors import SandboxNotActiveError  # noqa: PLC0415
 
+    # Check allowlist FIRST - bypasses both guard and sandbox
+    if "grpc" in _guard_allowlist.get():
+        return GrpcPlugin._original_insecure_channel(target, *args, **kwargs)  # type: ignore[no-any-return]
     try:
         _get_verifier_or_raise("grpc:channel")
     except _GuardPassThrough:
@@ -250,6 +253,9 @@ def _patched_secure_channel(  # noqa: ANN401
 ) -> _FakeChannel:
     from bigfoot._errors import SandboxNotActiveError  # noqa: PLC0415
 
+    # Check allowlist FIRST - bypasses both guard and sandbox
+    if "grpc" in _guard_allowlist.get():
+        return GrpcPlugin._original_secure_channel(target, credentials, *args, **kwargs)  # type: ignore[no-any-return]
     try:
         _get_verifier_or_raise("grpc:channel")
     except _GuardPassThrough:
