@@ -66,70 +66,91 @@ def _find_ssh_plugin() -> SshPlugin:
 
 
 class _FakeSFTPClient:
-    """Fake paramiko SFTPClient that routes all operations through SshPlugin."""
+    """Fake paramiko SFTPClient that routes all operations through SshPlugin.
+
+    In pass-through mode (``_real_sftp`` is set), ``__getattr__`` delegates
+    all attribute access to the real SFTPClient. Since ``__getattr__`` is
+    only invoked when normal lookup fails, the explicitly-defined mock
+    methods below are found first in sandbox mode -- but in pass-through
+    mode, ``__init__`` does not set up mock state so callers go straight
+    through the real client.
+    """
 
     def __init__(self, client: _FakeSSHClient, real_sftp: Any = None) -> None:  # noqa: ANN401
         self._client = client
         self._real_sftp = real_sftp
 
-    def get(self, remotepath: str, localpath: str, **kwargs: Any) -> Any:  # noqa: ANN401
+    def __getattr__(self, name: str) -> Any:  # noqa: ANN401
+        """Delegate to the real SFTPClient when in pass-through mode."""
+        real = self.__dict__.get("_real_sftp")
+        if real is not None:
+            return getattr(real, name)
+        raise AttributeError(f"'_FakeSFTPClient' object has no attribute {name!r}")
+
+    def _step(
+        self,
+        method: str,
+        source: str,
+        details: dict[str, Any],
+        real_args: tuple[Any, ...] = (),
+        real_kwargs: dict[str, Any] | None = None,
+    ) -> Any:  # noqa: ANN401
+        """Shared implementation for all SFTP operations.
+
+        In pass-through mode (``_real_sftp`` is set), delegates to the
+        corresponding method on the real SFTPClient using *real_args* and
+        *real_kwargs*.  In sandbox mode, routes through the SshPlugin state
+        machine.
+        """
         if self._real_sftp is not None:
-            return self._real_sftp.get(remotepath, localpath, **kwargs)
+            # method is e.g. "sftp_get" -- strip the "sftp_" prefix to get
+            # the real paramiko SFTPClient method name.
+            real_method = method.removeprefix("sftp_")
+            return getattr(self._real_sftp, real_method)(*real_args, **(real_kwargs or {}))
         plugin = _find_ssh_plugin()
         handle = plugin._lookup_session(self._client)
-        return plugin._execute_step(
-            handle, "sftp_get", (), {}, _SOURCE_SFTP_GET,
-            details={"remotepath": remotepath, "localpath": localpath},
+        return plugin._execute_step(handle, method, (), {}, source, details=details)
+
+    def get(self, remotepath: str, localpath: str, **kwargs: Any) -> Any:  # noqa: ANN401
+        return self._step(
+            "sftp_get", _SOURCE_SFTP_GET,
+            {"remotepath": remotepath, "localpath": localpath},
+            real_args=(remotepath, localpath), real_kwargs=kwargs,
         )
 
     def put(self, localpath: str, remotepath: str, **kwargs: Any) -> Any:  # noqa: ANN401
-        if self._real_sftp is not None:
-            return self._real_sftp.put(localpath, remotepath, **kwargs)
-        plugin = _find_ssh_plugin()
-        handle = plugin._lookup_session(self._client)
-        return plugin._execute_step(
-            handle, "sftp_put", (), {}, _SOURCE_SFTP_PUT,
-            details={"localpath": localpath, "remotepath": remotepath},
+        return self._step(
+            "sftp_put", _SOURCE_SFTP_PUT,
+            {"localpath": localpath, "remotepath": remotepath},
+            real_args=(localpath, remotepath), real_kwargs=kwargs,
         )
 
     def listdir(self, path: str = ".", **kwargs: Any) -> Any:  # noqa: ANN401
-        if self._real_sftp is not None:
-            return self._real_sftp.listdir(path, **kwargs)
-        plugin = _find_ssh_plugin()
-        handle = plugin._lookup_session(self._client)
-        return plugin._execute_step(
-            handle, "sftp_listdir", (), {}, _SOURCE_SFTP_LISTDIR,
-            details={"path": path},
+        return self._step(
+            "sftp_listdir", _SOURCE_SFTP_LISTDIR,
+            {"path": path},
+            real_args=(path,), real_kwargs=kwargs,
         )
 
     def stat(self, path: str, **kwargs: Any) -> Any:  # noqa: ANN401
-        if self._real_sftp is not None:
-            return self._real_sftp.stat(path, **kwargs)
-        plugin = _find_ssh_plugin()
-        handle = plugin._lookup_session(self._client)
-        return plugin._execute_step(
-            handle, "sftp_stat", (), {}, _SOURCE_SFTP_STAT,
-            details={"path": path},
+        return self._step(
+            "sftp_stat", _SOURCE_SFTP_STAT,
+            {"path": path},
+            real_args=(path,), real_kwargs=kwargs,
         )
 
     def mkdir(self, path: str, mode: int = 0o777, **kwargs: Any) -> Any:  # noqa: ANN401
-        if self._real_sftp is not None:
-            return self._real_sftp.mkdir(path, mode, **kwargs)
-        plugin = _find_ssh_plugin()
-        handle = plugin._lookup_session(self._client)
-        return plugin._execute_step(
-            handle, "sftp_mkdir", (), {}, _SOURCE_SFTP_MKDIR,
-            details={"path": path},
+        return self._step(
+            "sftp_mkdir", _SOURCE_SFTP_MKDIR,
+            {"path": path},
+            real_args=(path, mode), real_kwargs=kwargs,
         )
 
     def remove(self, path: str, **kwargs: Any) -> Any:  # noqa: ANN401
-        if self._real_sftp is not None:
-            return self._real_sftp.remove(path, **kwargs)
-        plugin = _find_ssh_plugin()
-        handle = plugin._lookup_session(self._client)
-        return plugin._execute_step(
-            handle, "sftp_remove", (), {}, _SOURCE_SFTP_REMOVE,
-            details={"path": path},
+        return self._step(
+            "sftp_remove", _SOURCE_SFTP_REMOVE,
+            {"path": path},
+            real_args=(path,), real_kwargs=kwargs,
         )
 
 

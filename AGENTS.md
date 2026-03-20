@@ -44,6 +44,7 @@ bigfoot is a deterministic test interaction auditor for Python. It intercepts ex
 Guard mode is enabled by default (`[tool.bigfoot] guard = true`). It installs I/O plugin interceptors at session startup and blocks any real external call that happens outside a sandbox.
 
 - Tests that need real network access (e.g., boto3 setup making DNS/socket calls) should use `@pytest.mark.allow("dns", "socket")` or `with bigfoot.allow("dns", "socket"):`.
+- To narrow the allowlist and re-guard specific plugins, use `@pytest.mark.deny(...)` or `with bigfoot.deny(...)`. Deny removes plugins from the current allowlist; it nests and restores on exit.
 - Non-I/O plugins must set `supports_guard: ClassVar[bool] = False` (e.g., LoggingPlugin, JwtPlugin, CryptoPlugin, CeleryPlugin, MockPlugin).
 - Guard-eligible interceptors must handle `_GuardPassThrough` (catch it and call the original function).
 - Allowed calls are invisible to bigfoot and are not recorded on the timeline.

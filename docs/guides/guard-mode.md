@@ -24,7 +24,7 @@ When an interceptor fires, `_get_verifier_or_raise()` follows this precedence:
 4. **Guard patches installed but guard not active** (fixture setup/teardown): Raise `_GuardPassThrough`. Calls pass through to originals.
 5. **No sandbox, no guard**: Raise `SandboxNotActiveError` (existing behavior for non-guard-eligible plugins).
 
-In short: **sandbox > allow > guard**.
+In short: **sandbox > allow/deny > guard**.
 
 ## Using `allow()`
 
@@ -62,6 +62,44 @@ with bigfoot.allow("dns"):
 
 `allow()` accepts any plugin registry name (e.g., `"http"`, `"redis"`, `"boto3"`) or guard-eligible source-ID prefix (e.g., `"db"`, `"asyncio"`). Passing an unknown name raises `BigfootConfigError` immediately.
 
+## Using `deny()`
+
+The `deny()` context manager narrows the current allowlist by removing specific plugins. It is the inverse of `allow()`: where `allow()` adds plugins to the allowlist, `deny()` removes them.
+
+`deny()` is designed for use inside an `allow()` block when you need to re-guard specific plugins for a section of code:
+
+```python
+import bigfoot
+
+def test_selective_network():
+    with bigfoot.allow("dns", "socket", "http"):
+        # dns, socket, and http all pass through
+        with bigfoot.deny("http"):
+            # dns and socket still pass through
+            # http is guarded again -- calls raise GuardedCallError
+            ...
+        # http is allowed again here
+```
+
+### Nestability
+
+Like `allow()`, `deny()` blocks nest and restore the previous allowlist on exit:
+
+```python
+with bigfoot.allow("dns", "socket"):
+    # dns and socket allowed
+    with bigfoot.deny("socket"):
+        # only dns allowed
+        with bigfoot.deny("dns"):
+            # nothing allowed -- full guard mode
+        # dns allowed again
+    # dns and socket allowed again
+```
+
+### Valid names
+
+`deny()` accepts the same plugin names as `allow()`. Passing an unknown name raises `BigfootConfigError` immediately. Denying a plugin that is not currently allowed is a no-op (no error).
+
 ## Using `@pytest.mark.allow`
 
 For tests that need real calls throughout the entire test body, use the `allow` pytest mark instead of wrapping code in `allow()`:
@@ -81,6 +119,33 @@ Multiple marks combine via union:
 @pytest.mark.allow("dns")
 @pytest.mark.allow("socket")
 def test_also_needs_network():
+    ...
+```
+
+## Using `@pytest.mark.deny`
+
+The `deny` mark removes plugins from the allowlist for the entire test. When combined with `@pytest.mark.allow`, the deny mark narrows the allow mark:
+
+```python
+import pytest
+
+@pytest.mark.allow("dns", "socket", "http")
+@pytest.mark.deny("http")
+def test_network_but_not_http():
+    # DNS and socket pass through, but http is guarded
+    ...
+```
+
+This is useful when a base class or fixture applies a broad `@pytest.mark.allow`, and a specific test needs to re-guard one of the allowed plugins.
+
+Multiple deny marks combine via union, just like allow marks:
+
+```python
+@pytest.mark.allow("dns", "socket", "http")
+@pytest.mark.deny("http")
+@pytest.mark.deny("socket")
+def test_dns_only():
+    # Only DNS passes through
     ...
 ```
 
@@ -189,7 +254,7 @@ Without the `@pytest.mark.allow("dns", "socket")` mark, any DNS or socket calls 
 Guard mode and sandbox mode are complementary:
 
 - **Inside a sandbox** (`with bigfoot:`): All calls are intercepted, mocked, and recorded. Guard mode is irrelevant because the sandbox verifier handles everything.
-- **Outside a sandbox, guard active**: Calls to guard-eligible plugins are blocked unless in an `allow()` block or marked with `@pytest.mark.allow`.
+- **Outside a sandbox, guard active**: Calls to guard-eligible plugins are blocked unless in an `allow()` block or marked with `@pytest.mark.allow`. The `deny()` context manager and `@pytest.mark.deny` can narrow the allowlist to re-guard specific plugins.
 - **Outside a sandbox, guard inactive** (fixture setup/teardown): Interceptors are installed but pass through to originals. This prevents guard from interfering with test infrastructure.
 
 Guard mode does not change how sandboxes work. It only adds protection for the code that runs outside sandboxes during a test.

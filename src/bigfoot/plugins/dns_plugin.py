@@ -68,6 +68,23 @@ def _get_dns_plugin() -> DnsPlugin | None:
     return None
 
 
+def _resolve_dns_plugin() -> DnsPlugin | None:
+    """Return the active DnsPlugin, or ``None`` if the call should pass through.
+
+    Centralises the guard-mode / allowlist check shared by all DNS interceptors:
+    1. If ``"dns"`` is on the context-local allowlist, return ``None``.
+    2. If ``_get_dns_plugin`` raises ``_GuardPassThrough``, return ``None``.
+    3. If no ``DnsPlugin`` is registered on the active verifier, return ``None``.
+    4. Otherwise return the plugin instance.
+    """
+    if "dns" in _guard_allowlist.get():
+        return None
+    try:
+        return _get_dns_plugin()
+    except _GuardPassThrough:
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Sentinel
 # ---------------------------------------------------------------------------
@@ -85,6 +102,47 @@ class _DnsSentinel:
 # ---------------------------------------------------------------------------
 
 
+def _consume_mock(
+    plugin: DnsPlugin,
+    operation: str,
+    key: str,
+    source_id: str,
+    details: dict[str, Any],
+    unmocked_args: tuple[Any, ...],
+) -> Any:  # noqa: ANN401
+    """Shared logic for all DNS interceptors: pop a mock, record, and return.
+
+    1. Look up the mock queue under *key* and pop the next ``DnsMockConfig``.
+    2. Record an ``Interaction`` with the given *source_id* and *details*.
+    3. Raise ``config.raises`` if set, otherwise return ``config.returns``.
+
+    Raises ``UnmockedInteractionError`` if no mock is queued for *key*.
+    """
+    with plugin._registry_lock:
+        queue = plugin._queues.get(key)
+        if not queue:
+            hint = plugin.format_unmocked_hint(source_id, unmocked_args, {})
+            raise UnmockedInteractionError(
+                source_id=source_id,
+                args=unmocked_args,
+                kwargs={},
+                hint=hint,
+            )
+        config = queue.popleft()
+
+    interaction = Interaction(
+        source_id=source_id,
+        sequence=0,
+        details=details,
+        plugin=plugin,
+    )
+    plugin.record(interaction)
+
+    if config.raises is not None:
+        raise config.raises
+    return config.returns
+
+
 def _patched_getaddrinfo(
     host: str,
     port: Any,  # noqa: ANN401
@@ -93,83 +151,31 @@ def _patched_getaddrinfo(
     proto: int = 0,
     flags: int = 0,
 ) -> Any:  # noqa: ANN401
-    # Check allowlist FIRST - bypasses both guard and sandbox
-    if "dns" in _guard_allowlist.get():
-        return DnsPlugin._original_getaddrinfo(host, port, family, type, proto, flags)
-    try:
-        plugin = _get_dns_plugin()
-    except _GuardPassThrough:
-        return DnsPlugin._original_getaddrinfo(host, port, family, type, proto, flags)
+    plugin = _resolve_dns_plugin()
     if plugin is None:
         return DnsPlugin._original_getaddrinfo(host, port, family, type, proto, flags)
-    queue_key = f"getaddrinfo:{host}"
-    with plugin._registry_lock:
-        queue = plugin._queues.get(queue_key)
-        if not queue:
-            source_id = f"dns:getaddrinfo:{host}"
-            hint = plugin.format_unmocked_hint(source_id, (host, port), {})
-            raise UnmockedInteractionError(
-                source_id=source_id,
-                args=(host, port),
-                kwargs={},
-                hint=hint,
-            )
-        config = queue.popleft()
-
-    interaction = Interaction(
+    return _consume_mock(
+        plugin,
+        operation="getaddrinfo",
+        key=f"getaddrinfo:{host}",
         source_id=f"dns:getaddrinfo:{host}",
-        sequence=0,
-        details={
-            "host": host,
-            "port": port,
-            "family": family,
-            "type": type,
-            "proto": proto,
-        },
-        plugin=plugin,
+        details={"host": host, "port": port, "family": family, "type": type, "proto": proto},
+        unmocked_args=(host, port),
     )
-    plugin.record(interaction)
-
-    if config.raises is not None:
-        raise config.raises
-    return config.returns
 
 
 def _patched_gethostbyname(hostname: str) -> Any:  # noqa: ANN401
-    # Check allowlist FIRST - bypasses both guard and sandbox
-    if "dns" in _guard_allowlist.get():
-        return DnsPlugin._original_gethostbyname(hostname)
-    try:
-        plugin = _get_dns_plugin()
-    except _GuardPassThrough:
-        return DnsPlugin._original_gethostbyname(hostname)
+    plugin = _resolve_dns_plugin()
     if plugin is None:
         return DnsPlugin._original_gethostbyname(hostname)
-    queue_key = f"gethostbyname:{hostname}"
-    with plugin._registry_lock:
-        queue = plugin._queues.get(queue_key)
-        if not queue:
-            source_id = f"dns:gethostbyname:{hostname}"
-            hint = plugin.format_unmocked_hint(source_id, (hostname,), {})
-            raise UnmockedInteractionError(
-                source_id=source_id,
-                args=(hostname,),
-                kwargs={},
-                hint=hint,
-            )
-        config = queue.popleft()
-
-    interaction = Interaction(
+    return _consume_mock(
+        plugin,
+        operation="gethostbyname",
+        key=f"gethostbyname:{hostname}",
         source_id=f"dns:gethostbyname:{hostname}",
-        sequence=0,
         details={"hostname": hostname},
-        plugin=plugin,
+        unmocked_args=(hostname,),
     )
-    plugin.record(interaction)
-
-    if config.raises is not None:
-        raise config.raises
-    return config.returns
 
 
 def _patched_resolver_resolve(
@@ -180,43 +186,19 @@ def _patched_resolver_resolve(
     **kwargs: Any,  # noqa: ANN401
 ) -> Any:  # noqa: ANN401
     """Instance method: Resolver().resolve(qname, rdtype)."""
-    # Check allowlist FIRST - bypasses both guard and sandbox
-    if "dns" in _guard_allowlist.get():
-        return DnsPlugin._original_resolver_resolve(self, qname, rdtype, *args, **kwargs)
-    try:
-        plugin = _get_dns_plugin()
-    except _GuardPassThrough:
-        return DnsPlugin._original_resolver_resolve(self, qname, rdtype, *args, **kwargs)
+    plugin = _resolve_dns_plugin()
     if plugin is None:
         return DnsPlugin._original_resolver_resolve(self, qname, rdtype, *args, **kwargs)
     actual_qname = str(qname)
     actual_rdtype = str(rdtype)
-
-    queue_key = f"resolve:{actual_qname}"
-    with plugin._registry_lock:
-        queue = plugin._queues.get(queue_key)
-        if not queue:
-            source_id = f"dns:resolve:{actual_qname}"
-            hint = plugin.format_unmocked_hint(source_id, (actual_qname, actual_rdtype), {})
-            raise UnmockedInteractionError(
-                source_id=source_id,
-                args=(actual_qname, actual_rdtype),
-                kwargs={},
-                hint=hint,
-            )
-        config = queue.popleft()
-
-    interaction = Interaction(
+    return _consume_mock(
+        plugin,
+        operation="resolve",
+        key=f"resolve:{actual_qname}",
         source_id=f"dns:resolve:{actual_qname}",
-        sequence=0,
         details={"qname": actual_qname, "rdtype": actual_rdtype},
-        plugin=plugin,
+        unmocked_args=(actual_qname, actual_rdtype),
     )
-    plugin.record(interaction)
-
-    if config.raises is not None:
-        raise config.raises
-    return config.returns
 
 
 def _patched_module_resolve(
@@ -226,43 +208,19 @@ def _patched_module_resolve(
     **kwargs: Any,  # noqa: ANN401
 ) -> Any:  # noqa: ANN401
     """Module-level: dns.resolver.resolve(qname, rdtype)."""
-    # Check allowlist FIRST - bypasses both guard and sandbox
-    if "dns" in _guard_allowlist.get():
-        return DnsPlugin._original_resolve(qname, rdtype, *args, **kwargs)
-    try:
-        plugin = _get_dns_plugin()
-    except _GuardPassThrough:
-        return DnsPlugin._original_resolve(qname, rdtype, *args, **kwargs)
+    plugin = _resolve_dns_plugin()
     if plugin is None:
         return DnsPlugin._original_resolve(qname, rdtype, *args, **kwargs)
     actual_qname = str(qname)
     actual_rdtype = str(rdtype)
-
-    queue_key = f"resolve:{actual_qname}"
-    with plugin._registry_lock:
-        queue = plugin._queues.get(queue_key)
-        if not queue:
-            source_id = f"dns:resolve:{actual_qname}"
-            hint = plugin.format_unmocked_hint(source_id, (actual_qname, actual_rdtype), {})
-            raise UnmockedInteractionError(
-                source_id=source_id,
-                args=(actual_qname, actual_rdtype),
-                kwargs={},
-                hint=hint,
-            )
-        config = queue.popleft()
-
-    interaction = Interaction(
+    return _consume_mock(
+        plugin,
+        operation="resolve",
+        key=f"resolve:{actual_qname}",
         source_id=f"dns:resolve:{actual_qname}",
-        sequence=0,
         details={"qname": actual_qname, "rdtype": actual_rdtype},
-        plugin=plugin,
+        unmocked_args=(actual_qname, actual_rdtype),
     )
-    plugin.record(interaction)
-
-    if config.raises is not None:
-        raise config.raises
-    return config.returns
 
 
 # ---------------------------------------------------------------------------
