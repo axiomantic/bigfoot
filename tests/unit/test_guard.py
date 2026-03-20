@@ -241,3 +241,58 @@ class TestPublicExports:
         import bigfoot
 
         assert "GuardedCallError" in bigfoot.__all__
+
+
+from bigfoot._context import _get_verifier_or_raise
+from bigfoot._errors import SandboxNotActiveError
+
+
+class TestGetVerifierOrRaiseGuardBranching:
+    """Test the modified _get_verifier_or_raise with guard mode logic."""
+
+    def test_no_sandbox_no_guard_raises_sandbox_not_active(self) -> None:
+        """Without sandbox or guard, raises SandboxNotActiveError (existing behavior)."""
+        with pytest.raises(SandboxNotActiveError):
+            _get_verifier_or_raise("dns:getaddrinfo:example.com")
+
+    def test_guard_active_not_in_allowlist_raises_guarded_call_error(self) -> None:
+        """Guard active + not allowed = GuardedCallError."""
+        token = _guard_active.set(True)
+        try:
+            with pytest.raises(GuardedCallError) as exc_info:
+                _get_verifier_or_raise("dns:getaddrinfo:example.com")
+            assert exc_info.value.plugin_name == "dns"
+            assert exc_info.value.source_id == "dns:getaddrinfo:example.com"
+        finally:
+            _guard_active.reset(token)
+
+    def test_guard_active_in_allowlist_raises_guard_pass_through(self) -> None:
+        """Guard active + allowed = _GuardPassThrough (interceptor should call original)."""
+        guard_token = _guard_active.set(True)
+        allow_token = _guard_allowlist.set(frozenset({"dns"}))
+        try:
+            with pytest.raises(_GuardPassThrough):
+                _get_verifier_or_raise("dns:getaddrinfo:example.com")
+        finally:
+            _guard_allowlist.reset(allow_token)
+            _guard_active.reset(guard_token)
+
+    def test_plugin_name_extraction_from_source_id(self) -> None:
+        """Plugin name is the prefix before the first colon."""
+        token = _guard_active.set(True)
+        try:
+            with pytest.raises(GuardedCallError) as exc_info:
+                _get_verifier_or_raise("http:request")
+            assert exc_info.value.plugin_name == "http"
+        finally:
+            _guard_active.reset(token)
+
+    def test_plugin_name_extraction_multi_colon(self) -> None:
+        """Multi-colon source_id: plugin name is still first segment."""
+        token = _guard_active.set(True)
+        try:
+            with pytest.raises(GuardedCallError) as exc_info:
+                _get_verifier_or_raise("dns:getaddrinfo:example.com")
+            assert exc_info.value.plugin_name == "dns"
+        finally:
+            _guard_active.reset(token)
