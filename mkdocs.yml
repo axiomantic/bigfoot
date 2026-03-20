@@ -1,5 +1,5 @@
 site_name: bigfoot
-site_description: "Every call recorded. Every field asserted. Zero guesswork."
+site_description: "Full-certainty test mocking for Python."
 site_url: https://axiomantic.github.io/bigfoot/
 repo_url: https://github.com/axiomantic/bigfoot
 repo_name: axiomantic/bigfoot
