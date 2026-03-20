@@ -312,8 +312,8 @@ class TestGuardPassThroughInDirectPlugins:
         """Guard blocks dns:getaddrinfo when dns not in allowlist."""
         import socket
 
-        from bigfoot.plugins.dns_plugin import DnsPlugin
         from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.dns_plugin import DnsPlugin
 
         v = StrictVerifier()
         dns = DnsPlugin(v)
@@ -334,8 +334,8 @@ class TestGuardPassThroughInDirectPlugins:
         """Guard allows dns:getaddrinfo when dns is in allowlist (calls original)."""
         import socket
 
-        from bigfoot.plugins.dns_plugin import DnsPlugin
         from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.dns_plugin import DnsPlugin
 
         v = StrictVerifier()
         dns = DnsPlugin(v)
@@ -358,8 +358,8 @@ class TestGuardPassThroughInDirectPlugins:
         """Guard blocks dns:gethostbyname when dns not in allowlist."""
         import socket
 
-        from bigfoot.plugins.dns_plugin import DnsPlugin
         from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.dns_plugin import DnsPlugin
 
         v = StrictVerifier()
         dns = DnsPlugin(v)
@@ -379,8 +379,8 @@ class TestGuardPassThroughInDirectPlugins:
         """Guard allows dns:gethostbyname when dns is in allowlist (calls original)."""
         import socket
 
-        from bigfoot.plugins.dns_plugin import DnsPlugin
         from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.dns_plugin import DnsPlugin
 
         v = StrictVerifier()
         dns = DnsPlugin(v)
@@ -410,8 +410,8 @@ class TestGuardPassThroughInStateMachinePlugins:
         """Guard blocks socket:connect when socket not in allowlist."""
         import socket as socket_mod
 
-        from bigfoot.plugins.socket_plugin import SocketPlugin, _SOCKET_CLOSE_ORIGINAL
         from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
 
         v = StrictVerifier()
         sp = SocketPlugin(v)
@@ -436,8 +436,8 @@ class TestGuardPassThroughInStateMachinePlugins:
         """Guard allows socket:connect when socket is in allowlist (calls real connect)."""
         import socket as socket_mod
 
-        from bigfoot.plugins.socket_plugin import SocketPlugin, _SOCKET_CLOSE_ORIGINAL
         from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
 
         v = StrictVerifier()
         sp = SocketPlugin(v)
@@ -465,8 +465,8 @@ class TestGuardPassThroughInStateMachinePlugins:
         """Guard blocks socket:send when socket not in allowlist."""
         import socket as socket_mod
 
-        from bigfoot.plugins.socket_plugin import SocketPlugin, _SOCKET_CLOSE_ORIGINAL
         from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
 
         v = StrictVerifier()
         sp = SocketPlugin(v)
@@ -492,8 +492,8 @@ class TestGuardPassThroughInStateMachinePlugins:
         """Guard allows socket:close when socket is in allowlist (calls real close)."""
         import socket as socket_mod
 
-        from bigfoot.plugins.socket_plugin import SocketPlugin
         from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.socket_plugin import SocketPlugin
 
         v = StrictVerifier()
         sp = SocketPlugin(v)
@@ -515,8 +515,8 @@ class TestGuardPassThroughInStateMachinePlugins:
         """Guard blocks db:connect when db not in allowlist."""
         import sqlite3
 
-        from bigfoot.plugins.database_plugin import DatabasePlugin
         from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.database_plugin import DatabasePlugin
 
         v = StrictVerifier()
         dp = DatabasePlugin(v)
@@ -537,8 +537,8 @@ class TestGuardPassThroughInStateMachinePlugins:
         """Guard allows db:connect when db is in allowlist (calls real connect)."""
         import sqlite3
 
-        from bigfoot.plugins.database_plugin import DatabasePlugin
         from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.database_plugin import DatabasePlugin
 
         v = StrictVerifier()
         dp = DatabasePlugin(v)
@@ -566,8 +566,8 @@ class TestGuardPassThroughInStateMachinePlugins:
         """Guard blocks smtp:connect when smtp not in allowlist."""
         import smtplib
 
-        from bigfoot.plugins.smtp_plugin import SmtpPlugin
         from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.smtp_plugin import SmtpPlugin
 
         v = StrictVerifier()
         sp = SmtpPlugin(v)
@@ -587,8 +587,8 @@ class TestGuardPassThroughInStateMachinePlugins:
         """Guard blocks subprocess:popen:spawn when subprocess not in allowlist."""
         import subprocess
 
-        from bigfoot.plugins.popen_plugin import PopenPlugin
         from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.popen_plugin import PopenPlugin
 
         v = StrictVerifier()
         pp = PopenPlugin(v)
@@ -617,8 +617,8 @@ class TestGuardPassThroughInRemainingPlugins:
         """Guard blocks subprocess.run when subprocess not in allowlist."""
         import subprocess as subprocess_mod
 
-        from bigfoot.plugins.subprocess import SubprocessPlugin
         from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.subprocess import SubprocessPlugin
 
         v = StrictVerifier()
         sp = SubprocessPlugin(v)
@@ -639,8 +639,8 @@ class TestGuardPassThroughInRemainingPlugins:
         """Guard allows subprocess.run when subprocess is in allowlist."""
         import subprocess as subprocess_mod
 
-        from bigfoot.plugins.subprocess import SubprocessPlugin
         from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.subprocess import SubprocessPlugin
 
         v = StrictVerifier()
         sp = SubprocessPlugin(v)
@@ -664,8 +664,8 @@ class TestGuardPassThroughInRemainingPlugins:
         """Guard blocks shutil.which when subprocess not in allowlist."""
         import shutil as shutil_mod
 
-        from bigfoot.plugins.subprocess import SubprocessPlugin
         from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.subprocess import SubprocessPlugin
 
         v = StrictVerifier()
         sp = SubprocessPlugin(v)
@@ -686,8 +686,8 @@ class TestGuardPassThroughInRemainingPlugins:
         """Guard allows shutil.which when subprocess is in allowlist."""
         import shutil as shutil_mod
 
-        from bigfoot.plugins.subprocess import SubprocessPlugin
         from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.subprocess import SubprocessPlugin
 
         v = StrictVerifier()
         sp = SubprocessPlugin(v)
@@ -709,8 +709,8 @@ class TestGuardPassThroughInRemainingPlugins:
         """Guard blocks httpx sync transport when http not in allowlist."""
         import httpx
 
-        from bigfoot.plugins.http import HttpPlugin
         from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.http import HttpPlugin
 
         v = StrictVerifier()
         hp = HttpPlugin(v)
@@ -726,3 +726,44 @@ class TestGuardPassThroughInRemainingPlugins:
                 _guard_active.reset(guard_token)
         finally:
             hp.deactivate()
+
+
+class TestGuardPytestFixtures:
+    """Test guard mode pytest fixtures and mark."""
+
+    def test_allow_mark_is_registered(self, pytestconfig: pytest.Config) -> None:
+        """The 'allow' mark should be registered to avoid PytestUnknownMarkWarning."""
+        markers: list[str] = pytestconfig.getini("markers")
+        # Check that at least one marker line starts with 'allow'
+        assert any(m.startswith("allow") for m in markers)
+
+    def test_session_guard_patches_fixture_is_registered(self) -> None:
+        """The _bigfoot_guard_patches session fixture should exist in pytest_plugin."""
+        from bigfoot import pytest_plugin
+
+        assert hasattr(pytest_plugin, "_bigfoot_guard_patches")
+
+    def test_session_guard_patches_skips_non_guard_plugins(self) -> None:
+        """Session fixture should not activate plugins with supports_guard=False."""
+        from bigfoot._registry import PLUGIN_REGISTRY, _is_available, get_plugin_class
+
+        for entry in PLUGIN_REGISTRY:
+            if not _is_available(entry):
+                continue
+            plugin_cls = get_plugin_class(entry)
+            if not getattr(plugin_cls, "supports_guard", True):
+                # These plugins should NOT be activated by guard patches
+                assert entry.name in {
+                    "logging", "jwt", "crypto", "celery", "native", "file_io",
+                }, f"Plugin {entry.name} has supports_guard=False but is not in expected set"
+
+    def test_session_guard_patches_skips_opt_in_plugins(self) -> None:
+        """Session fixture should not activate opt-in plugins (default_enabled=False)."""
+        from bigfoot._registry import PLUGIN_REGISTRY
+
+        opt_in = [e for e in PLUGIN_REGISTRY if not e.default_enabled]
+        assert len(opt_in) >= 2  # file_io and native at minimum
+        for entry in opt_in:
+            assert entry.name in {"file_io", "native"}, (
+                f"Unexpected opt-in plugin {entry.name}"
+            )
