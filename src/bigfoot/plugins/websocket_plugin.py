@@ -245,7 +245,7 @@ class AsyncWebSocketPlugin(StateMachinePlugin):
             try:
                 plugin = _get_async_websocket_plugin()
             except _GuardPassThrough:
-                return AsyncWebSocketPlugin._original_connect(*args, **kwargs)
+                return AsyncWebSocketPlugin._original_connect(*args, **kwargs)  # type: ignore[no-any-return]
             uri = args[0] if args else kwargs.get("uri", "")
             # Pop from queue at websockets.connect() call time (FIFO).
             with plugin._registry_lock:
@@ -505,7 +505,7 @@ class SyncWebSocketPlugin(StateMachinePlugin):
             try:
                 plugin = _get_sync_websocket_plugin()
             except _GuardPassThrough:
-                return SyncWebSocketPlugin._original_create_connection(*args, **kwargs)
+                return SyncWebSocketPlugin._original_create_connection(*args, **kwargs)  # type: ignore[no-any-return]
             uri = args[0] if args else kwargs.get("url", "")
             # Pop from queue immediately at create_connection() call time (FIFO).
             with plugin._registry_lock:

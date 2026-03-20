@@ -522,7 +522,7 @@ class HttpPlugin(BasePlugin):
             try:
                 verifier = _get_verifier_or_raise("http:request")
             except _GuardPassThrough:
-                return HttpPlugin._original_httpx_transport_handle(transport_self, request)
+                return HttpPlugin._original_httpx_transport_handle(transport_self, request)  # type: ignore[no-any-return]
             plugin = _find_http_plugin(verifier)
             return plugin._handle_httpx_request(transport_self, request)
 
@@ -534,7 +534,7 @@ class HttpPlugin(BasePlugin):
             try:
                 verifier = _get_verifier_or_raise("http:request")
             except _GuardPassThrough:
-                return await HttpPlugin._original_httpx_async_transport_handle(
+                return await HttpPlugin._original_httpx_async_transport_handle(  # type: ignore[no-any-return]
                     transport_self, request,
                 )
             plugin = _find_http_plugin(verifier)
@@ -549,7 +549,7 @@ class HttpPlugin(BasePlugin):
             try:
                 verifier = _get_verifier_or_raise("http:request")
             except _GuardPassThrough:
-                return HttpPlugin._original_requests_adapter_send(adapter_self, request, **kwargs)
+                return HttpPlugin._original_requests_adapter_send(adapter_self, request, **kwargs)  # type: ignore[no-any-return]
             plugin = _find_http_plugin(verifier)
             return plugin._handle_requests_request(adapter_self, request, **kwargs)
 
@@ -625,7 +625,7 @@ class HttpPlugin(BasePlugin):
                 original_opener = HttpPlugin._original_urllib_opener
                 urllib.request.install_opener(original_opener)
                 try:
-                    return urllib.request.urlopen(req)
+                    return urllib.request.urlopen(req)  # type: ignore[no-any-return]
                 finally:
                     HttpPlugin._reinstall_urllib_opener()
             plugin = _find_http_plugin(verifier)

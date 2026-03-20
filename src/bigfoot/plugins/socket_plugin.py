@@ -152,7 +152,7 @@ class SocketPlugin(StateMachinePlugin):
             try:
                 plugin = _get_socket_plugin()
             except _GuardPassThrough:
-                return _SOCKET_CONNECT_ORIGINAL(sock_self, address)
+                return _SOCKET_CONNECT_ORIGINAL(sock_self, address)  # type: ignore[no-any-return]
             handle = plugin._bind_connection(sock_self)
             if isinstance(address, tuple) and len(address) >= 2:
                 host = str(address[0])
@@ -173,7 +173,7 @@ class SocketPlugin(StateMachinePlugin):
             try:
                 plugin = _get_socket_plugin()
             except _GuardPassThrough:
-                return _SOCKET_SEND_ORIGINAL(sock_self, data, flags)
+                return _SOCKET_SEND_ORIGINAL(sock_self, data, flags)  # type: ignore[no-any-return]
             handle = plugin._lookup_session(sock_self)
             return int(
                 plugin._execute_step(
@@ -190,7 +190,7 @@ class SocketPlugin(StateMachinePlugin):
             try:
                 plugin = _get_socket_plugin()
             except _GuardPassThrough:
-                return _SOCKET_SENDALL_ORIGINAL(sock_self, data, flags)
+                return _SOCKET_SENDALL_ORIGINAL(sock_self, data, flags)  # type: ignore[no-any-return]
             handle = plugin._lookup_session(sock_self)
             plugin._execute_step(
                 handle, "sendall", (data,), {"flags": flags}, _SOURCE_SENDALL,
@@ -201,7 +201,7 @@ class SocketPlugin(StateMachinePlugin):
             try:
                 plugin = _get_socket_plugin()
             except _GuardPassThrough:
-                return _SOCKET_RECV_ORIGINAL(sock_self, bufsize, flags)
+                return _SOCKET_RECV_ORIGINAL(sock_self, bufsize, flags)  # type: ignore[no-any-return]
             handle = plugin._lookup_session(sock_self)
             result, interaction = plugin._execute_step(
                 handle, "recv", (bufsize,), {"flags": flags}, _SOURCE_RECV,
@@ -216,7 +216,7 @@ class SocketPlugin(StateMachinePlugin):
             try:
                 plugin = _get_socket_plugin()
             except _GuardPassThrough:
-                return _SOCKET_CLOSE_ORIGINAL(sock_self)
+                return _SOCKET_CLOSE_ORIGINAL(sock_self)  # type: ignore[no-any-return]
             handle = plugin._lookup_session(sock_self)
             plugin._execute_step(
                 handle, "close", (), {}, _SOURCE_CLOSE,

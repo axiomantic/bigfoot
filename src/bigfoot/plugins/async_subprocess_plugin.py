@@ -184,7 +184,7 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
                     try:
                         plugin = _find_async_subprocess_plugin()
                     except _GuardPassThrough:
-                        return await _ORIGINAL_CREATE_SUBPROCESS_EXEC(program, *args, **kwargs)
+                        return await _ORIGINAL_CREATE_SUBPROCESS_EXEC(program, *args, **kwargs)  # type: ignore[no-any-return]
                     proc = _AsyncFakeProcess()
                     proc._plugin = plugin
                     plugin._bind_connection(proc)
@@ -207,7 +207,7 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
                     try:
                         plugin = _find_async_subprocess_plugin()
                     except _GuardPassThrough:
-                        return await _ORIGINAL_CREATE_SUBPROCESS_SHELL(cmd, **kwargs)
+                        return await _ORIGINAL_CREATE_SUBPROCESS_SHELL(cmd, **kwargs)  # type: ignore[no-any-return]
                     proc = _AsyncFakeProcess()
                     proc._plugin = plugin
                     plugin._bind_connection(proc)

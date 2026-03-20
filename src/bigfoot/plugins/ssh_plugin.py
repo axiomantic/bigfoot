@@ -68,7 +68,7 @@ def _find_ssh_plugin() -> SshPlugin:
 class _FakeSFTPClient:
     """Fake paramiko SFTPClient that routes all operations through SshPlugin."""
 
-    def __init__(self, client: _FakeSSHClient, real_sftp: object = None) -> None:
+    def __init__(self, client: _FakeSSHClient, real_sftp: Any = None) -> None:  # noqa: ANN401
         self._client = client
         self._real_sftp = real_sftp
 

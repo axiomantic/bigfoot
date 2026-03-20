@@ -238,7 +238,7 @@ def _patched_insecure_channel(target: str, *args: Any, **kwargs: Any) -> _FakeCh
     try:
         _get_verifier_or_raise("grpc:channel")
     except _GuardPassThrough:
-        return GrpcPlugin._original_insecure_channel(target, *args, **kwargs)
+        return GrpcPlugin._original_insecure_channel(target, *args, **kwargs)  # type: ignore[no-any-return]
     except SandboxNotActiveError:
         pass  # No sandbox, no guard: proceed with fake channel
     # GuardedCallError propagates naturally (not caught here)
@@ -253,7 +253,7 @@ def _patched_secure_channel(  # noqa: ANN401
     try:
         _get_verifier_or_raise("grpc:channel")
     except _GuardPassThrough:
-        return GrpcPlugin._original_secure_channel(target, credentials, *args, **kwargs)
+        return GrpcPlugin._original_secure_channel(target, credentials, *args, **kwargs)  # type: ignore[no-any-return]
     except SandboxNotActiveError:
         pass  # No sandbox, no guard: proceed with fake channel
     # GuardedCallError propagates naturally (not caught here)

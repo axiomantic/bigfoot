@@ -321,7 +321,7 @@ class SubprocessPlugin(BasePlugin):
             try:
                 verifier = _get_verifier_or_raise(_SOURCE_WHICH)
             except _GuardPassThrough:
-                return SubprocessPlugin._original_shutil_which(name, **kwargs)
+                return SubprocessPlugin._original_shutil_which(name, **kwargs)  # type: ignore[no-any-return]
             plugin = _find_subprocess_plugin(verifier)
             return plugin._handle_which(name, **kwargs)
 
