@@ -1957,3 +1957,65 @@ def test_find_matching_config_returns_http_error_config() -> None:
     result = p._find_matching_config("GET", "https://api.example.com/data")
     assert isinstance(result, HttpErrorConfig)
     assert result.raises is exc
+
+
+# ---------------------------------------------------------------------------
+# mock_error tests
+# ---------------------------------------------------------------------------
+
+
+def test_mock_error_appends_to_unified_queue() -> None:
+    """mock_error() appends an HttpErrorConfig to the unified _mock_queue."""
+    from bigfoot.plugins.http import HttpErrorConfig
+
+    v, p = _make_verifier_with_plugin()
+    exc = ConnectionError("refused")
+    p.mock_error("GET", "https://api.example.com/data", raises=exc)
+
+    assert len(p._mock_queue) == 1
+    assert isinstance(p._mock_queue[0], HttpErrorConfig)
+    assert p._mock_queue[0].raises is exc
+    assert p._mock_queue[0].method == "GET"
+    assert p._mock_queue[0].url == "https://api.example.com/data"
+
+
+def test_mock_error_uppercases_method() -> None:
+    """mock_error() uppercases the HTTP method."""
+    from bigfoot.plugins.http import HttpErrorConfig
+
+    v, p = _make_verifier_with_plugin()
+    p.mock_error("get", "https://api.example.com/data", raises=ConnectionError("x"))
+
+    assert p._mock_queue[0].method == "GET"
+
+
+def test_mock_error_default_required_true() -> None:
+    """mock_error() defaults required to True."""
+    v, p = _make_verifier_with_plugin()
+    p.mock_error("GET", "https://api.example.com/data", raises=ConnectionError("x"))
+
+    assert p._mock_queue[0].required is True
+
+
+def test_mock_error_required_false() -> None:
+    """mock_error() accepts required=False."""
+    v, p = _make_verifier_with_plugin()
+    p.mock_error(
+        "GET", "https://api.example.com/data",
+        raises=ConnectionError("x"),
+        required=False,
+    )
+
+    assert p._mock_queue[0].required is False
+
+
+def test_mock_error_with_params() -> None:
+    """mock_error() accepts params for URL matching."""
+    v, p = _make_verifier_with_plugin()
+    p.mock_error(
+        "GET", "https://api.example.com/search",
+        raises=ConnectionError("x"),
+        params={"q": "test"},
+    )
+
+    assert p._mock_queue[0].params == {"q": "test"}

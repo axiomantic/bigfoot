@@ -420,6 +420,35 @@ class HttpPlugin(BasePlugin):
             )
         )
 
+    def mock_error(
+        self,
+        method: str,
+        url: str,
+        *,
+        raises: BaseException,
+        params: dict[str, str] | None = None,
+        required: bool = True,
+    ) -> None:
+        """Register a mock error for the given method + URL pair.
+
+        When the interceptor matches this mock, the interaction is recorded
+        with request fields + raised, then the exception is re-raised into
+        the code under test.
+
+        The error config is appended to the unified mock queue alongside
+        HttpMockConfig entries, preserving FIFO ordering for mixed
+        success/error sequences.
+        """
+        self._mock_queue.append(
+            HttpErrorConfig(
+                method=method.upper(),
+                url=url,
+                params=params,
+                raises=raises,
+                required=required,
+            )
+        )
+
     def pass_through(self, method: str, url: str) -> None:
         """Register a permanent pass-through rule for the given method + URL.
 
@@ -780,6 +809,29 @@ class HttpPlugin(BasePlugin):
             plugin=self,
         )
         self.verifier._timeline.append(interaction)
+
+    def _record_http_error_interaction(
+        self,
+        method: str,
+        url: str,
+        request_headers: dict[str, str],
+        request_body: str,
+        raised: BaseException,
+    ) -> None:
+        """Record an error interaction: request fields + raised, no response fields."""
+        interaction = Interaction(
+            source_id="http:request",
+            sequence=0,
+            details={
+                "method": method.upper(),
+                "url": url,
+                "request_headers": dict(request_headers),
+                "request_body": request_body,
+                "raised": raised,
+            },
+            plugin=self,
+        )
+        self.record(interaction)
 
     # ------------------------------------------------------------------
     # Request handlers — one per backend
