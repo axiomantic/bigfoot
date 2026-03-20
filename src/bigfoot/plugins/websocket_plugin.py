@@ -5,7 +5,7 @@ from __future__ import annotations
 import threading
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import _GuardPassThrough, _get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._state_machine_plugin import SessionHandle, StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
@@ -242,7 +242,10 @@ class AsyncWebSocketPlugin(StateMachinePlugin):
         AsyncWebSocketPlugin._original_connect = _ws.connect
 
         def _patched_websockets_connect(*args: Any, **kwargs: Any) -> _FakeAsyncWebSocketCM:  # noqa: ANN401
-            plugin = _get_async_websocket_plugin()
+            try:
+                plugin = _get_async_websocket_plugin()
+            except _GuardPassThrough:
+                return AsyncWebSocketPlugin._original_connect(*args, **kwargs)
             uri = args[0] if args else kwargs.get("uri", "")
             # Pop from queue at websockets.connect() call time (FIFO).
             with plugin._registry_lock:
@@ -499,7 +502,10 @@ class SyncWebSocketPlugin(StateMachinePlugin):
         SyncWebSocketPlugin._original_create_connection = _wsc.create_connection
 
         def _patched_create_connection(*args: Any, **kwargs: Any) -> _FakeSyncWebSocket:  # noqa: ANN401
-            plugin = _get_sync_websocket_plugin()
+            try:
+                plugin = _get_sync_websocket_plugin()
+            except _GuardPassThrough:
+                return SyncWebSocketPlugin._original_create_connection(*args, **kwargs)
             uri = args[0] if args else kwargs.get("url", "")
             # Pop from queue immediately at create_connection() call time (FIFO).
             with plugin._registry_lock:

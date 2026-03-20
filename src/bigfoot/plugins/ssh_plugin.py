@@ -5,7 +5,7 @@ from __future__ import annotations
 import threading
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import _GuardPassThrough, _get_verifier_or_raise
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -68,10 +68,13 @@ def _find_ssh_plugin() -> SshPlugin:
 class _FakeSFTPClient:
     """Fake paramiko SFTPClient that routes all operations through SshPlugin."""
 
-    def __init__(self, client: _FakeSSHClient) -> None:
+    def __init__(self, client: _FakeSSHClient, real_sftp: Any = None) -> None:
         self._client = client
+        self._real_sftp = real_sftp
 
     def get(self, remotepath: str, localpath: str, **kwargs: Any) -> Any:  # noqa: ANN401
+        if self._real_sftp is not None:
+            return self._real_sftp.get(remotepath, localpath, **kwargs)
         plugin = _find_ssh_plugin()
         handle = plugin._lookup_session(self._client)
         return plugin._execute_step(
@@ -80,6 +83,8 @@ class _FakeSFTPClient:
         )
 
     def put(self, localpath: str, remotepath: str, **kwargs: Any) -> Any:  # noqa: ANN401
+        if self._real_sftp is not None:
+            return self._real_sftp.put(localpath, remotepath, **kwargs)
         plugin = _find_ssh_plugin()
         handle = plugin._lookup_session(self._client)
         return plugin._execute_step(
@@ -88,6 +93,8 @@ class _FakeSFTPClient:
         )
 
     def listdir(self, path: str = ".", **kwargs: Any) -> Any:  # noqa: ANN401
+        if self._real_sftp is not None:
+            return self._real_sftp.listdir(path, **kwargs)
         plugin = _find_ssh_plugin()
         handle = plugin._lookup_session(self._client)
         return plugin._execute_step(
@@ -96,6 +103,8 @@ class _FakeSFTPClient:
         )
 
     def stat(self, path: str, **kwargs: Any) -> Any:  # noqa: ANN401
+        if self._real_sftp is not None:
+            return self._real_sftp.stat(path, **kwargs)
         plugin = _find_ssh_plugin()
         handle = plugin._lookup_session(self._client)
         return plugin._execute_step(
@@ -104,6 +113,8 @@ class _FakeSFTPClient:
         )
 
     def mkdir(self, path: str, mode: int = 0o777, **kwargs: Any) -> Any:  # noqa: ANN401
+        if self._real_sftp is not None:
+            return self._real_sftp.mkdir(path, mode, **kwargs)
         plugin = _find_ssh_plugin()
         handle = plugin._lookup_session(self._client)
         return plugin._execute_step(
@@ -112,6 +123,8 @@ class _FakeSFTPClient:
         )
 
     def remove(self, path: str, **kwargs: Any) -> Any:  # noqa: ANN401
+        if self._real_sftp is not None:
+            return self._real_sftp.remove(path, **kwargs)
         plugin = _find_ssh_plugin()
         handle = plugin._lookup_session(self._client)
         return plugin._execute_step(
@@ -130,10 +143,12 @@ class _FakeSSHClient:
 
     def __init__(self, **kwargs: Any) -> None:  # noqa: ANN401
         # SSHClient() does NOT connect on construction -- connect() is separate.
-        pass
+        self._real_client: Any = None
 
     def set_missing_host_key_policy(self, policy: Any) -> None:  # noqa: ANN401
-        """No-op: accept any host key policy silently."""
+        """No-op (or delegate to real client if in pass-through mode)."""
+        if self._real_client is not None:
+            self._real_client.set_missing_host_key_policy(policy)
 
     def connect(
         self,
@@ -145,7 +160,14 @@ class _FakeSSHClient:
         key_filename: Any = None,  # noqa: ANN401
         **kwargs: Any,  # noqa: ANN401
     ) -> Any:  # noqa: ANN401
-        plugin = _find_ssh_plugin()
+        try:
+            plugin = _find_ssh_plugin()
+        except _GuardPassThrough:
+            self._real_client = SshPlugin._original_ssh_client()
+            return self._real_client.connect(
+                hostname, port=port, username=username, password=password,
+                pkey=pkey, key_filename=key_filename, **kwargs,
+            )
         plugin._bind_connection(self)
         handle = plugin._lookup_session(self)
 
@@ -167,6 +189,8 @@ class _FakeSSHClient:
         command: str,
         **kwargs: Any,  # noqa: ANN401
     ) -> Any:  # noqa: ANN401
+        if self._real_client is not None:
+            return self._real_client.exec_command(command, **kwargs)
         plugin = _find_ssh_plugin()
         handle = plugin._lookup_session(self)
         return plugin._execute_step(
@@ -175,6 +199,9 @@ class _FakeSSHClient:
         )
 
     def open_sftp(self) -> _FakeSFTPClient:
+        if self._real_client is not None:
+            real_sftp = self._real_client.open_sftp()
+            return _FakeSFTPClient(self, real_sftp=real_sftp)
         plugin = _find_ssh_plugin()
         handle = plugin._lookup_session(self)
         plugin._execute_step(
@@ -184,6 +211,8 @@ class _FakeSSHClient:
         return _FakeSFTPClient(self)
 
     def close(self, **kwargs: Any) -> Any:  # noqa: ANN401
+        if self._real_client is not None:
+            return self._real_client.close(**kwargs)
         plugin = _find_ssh_plugin()
         handle = plugin._lookup_session(self)
         result = plugin._execute_step(
