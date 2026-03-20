@@ -63,6 +63,24 @@ pytestmark = pytest.mark.allow("dns", "socket")
 
 
 @pytest.fixture(autouse=True)
+def _remove_network_plugins_from_auto_verifier(bigfoot_verifier: StrictVerifier) -> None:
+    """Remove DNS/Socket from the auto-verifier's plugin list.
+
+    boto3 client creation triggers credential resolution (DNS to 169.254.169.254)
+    and socket connections. Guard mode's @pytest.mark.allow handles calls outside
+    sandbox, but inside sandbox the plugins would still intercept. Removing them
+    from the verifier prevents sandbox-mode interception of boto3 internals.
+    """
+    from bigfoot.plugins.dns_plugin import DnsPlugin
+    from bigfoot.plugins.socket_plugin import SocketPlugin
+
+    bigfoot_verifier._plugins = [
+        p for p in bigfoot_verifier._plugins
+        if not isinstance(p, (DnsPlugin, SocketPlugin))
+    ]
+
+
+@pytest.fixture(autouse=True)
 def clean_plugin_counts() -> None:
     """Ensure plugin install count starts and ends at 0 for every test."""
     _reset_plugin_count()
