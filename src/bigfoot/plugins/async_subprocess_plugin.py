@@ -11,7 +11,7 @@ import asyncio.subprocess
 import threading
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import _GuardPassThrough, _get_verifier_or_raise
 from bigfoot._errors import ConflictError
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
@@ -181,7 +181,10 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
                     *args: Any,  # noqa: ANN401
                     **kwargs: Any,  # noqa: ANN401
                 ) -> _AsyncFakeProcess:
-                    plugin = _find_async_subprocess_plugin()
+                    try:
+                        plugin = _find_async_subprocess_plugin()
+                    except _GuardPassThrough:
+                        return await _ORIGINAL_CREATE_SUBPROCESS_EXEC(program, *args, **kwargs)
                     proc = _AsyncFakeProcess()
                     proc._plugin = plugin
                     plugin._bind_connection(proc)
@@ -201,7 +204,10 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
                     cmd: str,
                     **kwargs: Any,  # noqa: ANN401
                 ) -> _AsyncFakeProcess:
-                    plugin = _find_async_subprocess_plugin()
+                    try:
+                        plugin = _find_async_subprocess_plugin()
+                    except _GuardPassThrough:
+                        return await _ORIGINAL_CREATE_SUBPROCESS_SHELL(cmd, **kwargs)
                     proc = _AsyncFakeProcess()
                     proc._plugin = plugin
                     plugin._bind_connection(proc)

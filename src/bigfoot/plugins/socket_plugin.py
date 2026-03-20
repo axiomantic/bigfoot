@@ -4,7 +4,7 @@ import socket
 import threading
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import _GuardPassThrough, _get_verifier_or_raise
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -149,7 +149,10 @@ class SocketPlugin(StateMachinePlugin):
         SocketPlugin._original_close = socket.socket.close
 
         def _patched_connect(sock_self: socket.socket, address: object) -> None:
-            plugin = _get_socket_plugin()
+            try:
+                plugin = _get_socket_plugin()
+            except _GuardPassThrough:
+                return _SOCKET_CONNECT_ORIGINAL(sock_self, address)
             handle = plugin._bind_connection(sock_self)
             if isinstance(address, tuple) and len(address) >= 2:
                 host = str(address[0])
@@ -167,7 +170,10 @@ class SocketPlugin(StateMachinePlugin):
             data: bytes | bytearray | memoryview,
             flags: int = 0,
         ) -> int:
-            plugin = _get_socket_plugin()
+            try:
+                plugin = _get_socket_plugin()
+            except _GuardPassThrough:
+                return _SOCKET_SEND_ORIGINAL(sock_self, data, flags)
             handle = plugin._lookup_session(sock_self)
             return int(
                 plugin._execute_step(
@@ -181,7 +187,10 @@ class SocketPlugin(StateMachinePlugin):
             data: bytes | bytearray | memoryview,
             flags: int = 0,
         ) -> None:
-            plugin = _get_socket_plugin()
+            try:
+                plugin = _get_socket_plugin()
+            except _GuardPassThrough:
+                return _SOCKET_SENDALL_ORIGINAL(sock_self, data, flags)
             handle = plugin._lookup_session(sock_self)
             plugin._execute_step(
                 handle, "sendall", (data,), {"flags": flags}, _SOURCE_SENDALL,
@@ -189,7 +198,10 @@ class SocketPlugin(StateMachinePlugin):
             )
 
         def _patched_recv(sock_self: socket.socket, bufsize: int, flags: int = 0) -> bytes:
-            plugin = _get_socket_plugin()
+            try:
+                plugin = _get_socket_plugin()
+            except _GuardPassThrough:
+                return _SOCKET_RECV_ORIGINAL(sock_self, bufsize, flags)
             handle = plugin._lookup_session(sock_self)
             result, interaction = plugin._execute_step(
                 handle, "recv", (bufsize,), {"flags": flags}, _SOURCE_RECV,
@@ -201,7 +213,10 @@ class SocketPlugin(StateMachinePlugin):
             return data
 
         def _patched_close(sock_self: socket.socket) -> None:
-            plugin = _get_socket_plugin()
+            try:
+                plugin = _get_socket_plugin()
+            except _GuardPassThrough:
+                return _SOCKET_CLOSE_ORIGINAL(sock_self)
             handle = plugin._lookup_session(sock_self)
             plugin._execute_step(
                 handle, "close", (), {}, _SOURCE_CLOSE,

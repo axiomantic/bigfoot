@@ -3,7 +3,7 @@
 import threading
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import _GuardPassThrough, _get_verifier_or_raise
 from bigfoot._state_machine_plugin import SessionHandle, StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -111,7 +111,10 @@ class _FakeAsyncpgConnection:
 async def _patched_asyncpg_connect(
     dsn: str | None = None, **kwargs: object
 ) -> _FakeAsyncpgConnection:
-    plugin = _get_asyncpg_plugin()
+    try:
+        plugin = _get_asyncpg_plugin()
+    except _GuardPassThrough:
+        return await AsyncpgPlugin._original_connect(dsn, **kwargs)  # type: ignore[no-any-return]
     fake_conn = _FakeAsyncpgConnection(plugin)
     plugin._bind_connection(fake_conn)
     handle = plugin._lookup_session(fake_conn)
