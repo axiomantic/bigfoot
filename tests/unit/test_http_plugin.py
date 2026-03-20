@@ -2354,3 +2354,65 @@ def test_format_unmocked_hint_suggests_both_options() -> None:
     result = p.format_unmocked_hint("http:request", ("GET", "https://api.example.com/data"), {})
     assert "mock_response" in result
     assert "mock_error" in result
+
+
+# ---------------------------------------------------------------------------
+# get_unused_mocks and format_unused_mock_hint for error mocks
+# ---------------------------------------------------------------------------
+
+
+def test_get_unused_mocks_returns_error_configs() -> None:
+    """get_unused_mocks returns HttpErrorConfig entries from the unified queue."""
+    from bigfoot.plugins.http import HttpErrorConfig
+
+    v, p = _make_verifier_with_plugin()
+    p.mock_error("GET", "https://api.example.com/data", raises=ConnectionError("x"))
+
+    unused = p.get_unused_mocks()
+    assert len(unused) == 1
+    assert isinstance(unused[0], HttpErrorConfig)
+
+
+def test_get_unused_mocks_excludes_optional_error_configs() -> None:
+    """get_unused_mocks excludes HttpErrorConfig entries with required=False."""
+    v, p = _make_verifier_with_plugin()
+    p.mock_error(
+        "GET", "https://api.example.com/data",
+        raises=ConnectionError("x"),
+        required=False,
+    )
+
+    unused = p.get_unused_mocks()
+    assert len(unused) == 0
+
+
+def test_format_unused_mock_hint_for_error_config() -> None:
+    """format_unused_mock_hint handles HttpErrorConfig entries."""
+    from bigfoot.plugins.http import HttpErrorConfig
+
+    v, p = _make_verifier_with_plugin()
+    exc = ConnectionError("refused")
+    p.mock_error("GET", "https://api.example.com/data", raises=exc)
+
+    unused = p.get_unused_mocks()
+    assert len(unused) == 1
+
+    result = p.format_unused_mock_hint(unused[0])
+    assert "error mock" in result
+    assert "GET" in result
+    assert "https://api.example.com/data" in result
+    assert isinstance(result, str)
+
+
+def test_unused_error_mock_raises_at_verify_all() -> None:
+    """An unused required error mock causes verify_all() to raise."""
+    from bigfoot._errors import UnusedMocksError, VerificationError
+
+    v, p = _make_verifier_with_plugin()
+    p.mock_error("GET", "https://api.example.com/data", raises=ConnectionError("x"))
+
+    with v.sandbox():
+        pass  # Never trigger the error mock
+
+    with pytest.raises((UnusedMocksError, VerificationError)):
+        v.verify_all()

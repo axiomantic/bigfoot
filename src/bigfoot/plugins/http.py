@@ -1461,10 +1461,23 @@ class HttpPlugin(BasePlugin):
             }
         )
 
-    def get_unused_mocks(self) -> list[HttpMockConfig]:
+    def get_unused_mocks(self) -> list[HttpMockEntry]:
         return [c for c in self._mock_queue if c.required]
 
     def format_unused_mock_hint(self, mock_config: object) -> str:
+        if isinstance(mock_config, HttpErrorConfig):
+            config = mock_config
+            raised = config.raises
+            return (
+                f"http:{config.method} {config.url} error mock was registered but never called.\n"
+                f"    Configured to raise: {raised!r}\n"
+                f"    Mock registered at:\n"
+                f"{config.registration_traceback}\n"
+                f"    Options:\n"
+                f"      - Remove this mock if it's not needed\n"
+                f'      - Mark it optional: http.mock_error("{config.method}", '
+                f'"{config.url}", raises=..., required=False)'
+            )
         assert isinstance(mock_config, HttpMockConfig)
         return (
             f"http:{mock_config.method} {mock_config.url} was registered but never called.\n"
