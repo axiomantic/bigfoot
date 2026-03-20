@@ -158,22 +158,31 @@ class MethodProxy:
                     kwargs=kwargs,
                     hint=self._plugin.format_unmocked_hint(self.source_id, args, kwargs),
                 )
-            # Wraps delegation: call the real object, record interaction regardless
+            # Wraps delegation: call the real object, record with returned/raised
             result: Any = _SENTINEL
+            raised_exc: BaseException | None = None
             try:
                 real_method = getattr(wraps_obj, self._method_name)
                 result = real_method(*args, **kwargs)
+            except BaseException as exc:
+                raised_exc = exc
+                raise
             finally:
-                # Record even if the real method raised — result stays as _SENTINEL
+                details: dict[str, Any] = {
+                    "mock_name": self._mock_name,
+                    "method_name": self._method_name,
+                    "args": args,
+                    "kwargs": kwargs,
+                }
+                if raised_exc is not None:
+                    details["raised"] = raised_exc
+                elif result is not _SENTINEL:
+                    details["returned"] = result
+
                 interaction = Interaction(
                     source_id=self.source_id,
                     sequence=0,
-                    details={
-                        "mock_name": self._mock_name,
-                        "method_name": self._method_name,
-                        "args": args,
-                        "kwargs": kwargs,
-                    },
+                    details=details,
                     plugin=self._plugin,
                 )
                 self._plugin.record(interaction)

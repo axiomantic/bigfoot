@@ -1550,3 +1550,103 @@ def test_method_proxy_returns_does_not_store_raised_in_details() -> None:
     interactions = v._timeline.all_unasserted()
     assert len(interactions) == 1
     assert "raised" not in interactions[0].details
+
+
+# ---------------------------------------------------------------------------
+# Spy observability: returned and raised in details
+# ---------------------------------------------------------------------------
+
+
+def test_wraps_delegation_stores_returned_in_details() -> None:
+    """When wraps delegates to real and it returns, details['returned'] is set."""
+
+    class _Real:
+        def compute(self, x: int) -> int:
+            return x * 2
+
+    v = StrictVerifier()
+    p = MockPlugin(v)
+    real = _Real()
+    proxy = p.get_or_create_proxy("Svc", wraps=real)
+
+    with v.sandbox():
+        result = proxy.compute(5)
+
+    assert result == 10
+    unasserted = v._timeline.all_unasserted()
+    assert len(unasserted) == 1
+    assert unasserted[0].details["returned"] == 10
+
+
+def test_wraps_delegation_stores_raised_in_details() -> None:
+    """When wraps delegates to real and it raises, details['raised'] is set."""
+
+    class _Real:
+        def fail(self) -> None:
+            raise ValueError("real error")
+
+    v = StrictVerifier()
+    p = MockPlugin(v)
+    real = _Real()
+    proxy = p.get_or_create_proxy("Svc", wraps=real)
+
+    with v.sandbox():
+        with pytest.raises(ValueError, match="real error"):
+            proxy.fail()
+
+    unasserted = v._timeline.all_unasserted()
+    assert len(unasserted) == 1
+    assert isinstance(unasserted[0].details["raised"], ValueError)
+    assert str(unasserted[0].details["raised"]) == "real error"
+
+
+def test_wraps_delegation_returned_none_is_distinct_from_no_return() -> None:
+    """When wraps real method returns None explicitly, details['returned'] is None."""
+
+    class _Real:
+        def do_nothing(self) -> None:
+            return None
+
+    v = StrictVerifier()
+    p = MockPlugin(v)
+    real = _Real()
+    proxy = p.get_or_create_proxy("Svc", wraps=real)
+
+    with v.sandbox():
+        result = proxy.do_nothing()
+
+    assert result is None
+    unasserted = v._timeline.all_unasserted()
+    assert len(unasserted) == 1
+    assert "returned" in unasserted[0].details
+    assert unasserted[0].details["returned"] is None
+
+
+def test_wraps_delegation_returned_and_raised_mutually_exclusive() -> None:
+    """A wraps interaction never has both 'returned' and 'raised' in details."""
+
+    class _Real:
+        def compute(self, x: int) -> int:
+            return x * 2
+
+        def fail(self) -> None:
+            raise ValueError("boom")
+
+    v = StrictVerifier()
+    p = MockPlugin(v)
+    real = _Real()
+    proxy = p.get_or_create_proxy("Svc", wraps=real)
+
+    with v.sandbox():
+        proxy.compute(3)
+        with pytest.raises(ValueError):
+            proxy.fail()
+
+    unasserted = v._timeline.all_unasserted()
+    assert len(unasserted) == 2
+    # First: returned, no raised
+    assert "returned" in unasserted[0].details
+    assert "raised" not in unasserted[0].details
+    # Second: raised, no returned
+    assert "raised" in unasserted[1].details
+    assert "returned" not in unasserted[1].details
