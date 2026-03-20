@@ -128,18 +128,31 @@ class MethodProxy:
         self,
         args: tuple[Any, ...] = (),
         kwargs: dict[str, Any] | None = None,
+        raised: Any = _ABSENT,  # noqa: ANN401
+        returned: Any = _ABSENT,  # noqa: ANN401
     ) -> None:
         """Assert the next call to this mock method with the given arguments.
 
         Convenience wrapper around verifier.assert_interaction().
+
+        Args:
+            args: Expected positional arguments.
+            kwargs: Expected keyword arguments (defaults to {}).
+            raised: Expected exception (required when .raises() was used or spy raised).
+            returned: Expected return value (required for spy mode when real method returned).
         """
         from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
 
-        _get_test_verifier_or_raise().assert_interaction(
-            self,
-            args=args,
-            kwargs=kwargs if kwargs is not None else {},
-        )
+        expected: dict[str, Any] = {
+            "args": args,
+            "kwargs": kwargs if kwargs is not None else {},
+        }
+        if raised is not _ABSENT:
+            expected["raised"] = raised
+        if returned is not _ABSENT:
+            expected["returned"] = returned
+
+        _get_test_verifier_or_raise().assert_interaction(self, **expected)
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
         """Called when the mock is invoked. Routes through bigfoot interceptor."""

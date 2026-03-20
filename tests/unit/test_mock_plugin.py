@@ -1717,3 +1717,97 @@ def test_mock_plugin_assertable_fields_plain_call_unchanged() -> None:
     )
     result = p.assertable_fields(interaction)
     assert result == frozenset({"args", "kwargs"})
+
+
+# ---------------------------------------------------------------------------
+# assert_call with raised and returned
+# ---------------------------------------------------------------------------
+
+
+def test_assert_call_with_raised_parameter() -> None:
+    """assert_call(raised=...) passes raised to assert_interaction."""
+    from bigfoot._context import _current_test_verifier
+
+    v = StrictVerifier()
+    p = MockPlugin(v)
+    proxy = p.get_or_create_proxy("Svc")
+    exc = ValueError("boom")
+    proxy.do_thing.raises(exc)
+
+    token = _current_test_verifier.set(v)
+    try:
+        with v.sandbox():
+            with pytest.raises(ValueError):
+                proxy.do_thing("arg1")
+
+        proxy.do_thing.assert_call(
+            args=("arg1",),
+            kwargs={},
+            raised=exc,
+        )
+    finally:
+        _current_test_verifier.reset(token)
+
+
+def test_assert_call_with_returned_parameter() -> None:
+    """assert_call(returned=...) passes returned to assert_interaction for spy mode."""
+    from bigfoot._context import _current_test_verifier
+
+    class _Real:
+        def compute(self, x: int) -> int:
+            return x * 2
+
+    v = StrictVerifier()
+    p = MockPlugin(v)
+    real = _Real()
+    proxy = p.get_or_create_proxy("Svc", wraps=real)
+
+    token = _current_test_verifier.set(v)
+    try:
+        with v.sandbox():
+            result = proxy.compute(5)
+
+        assert result == 10
+        proxy.compute.assert_call(
+            args=(5,),
+            kwargs={},
+            returned=10,
+        )
+    finally:
+        _current_test_verifier.reset(token)
+
+
+def test_assert_call_missing_raised_raises_missing_fields_error() -> None:
+    """Omitting raised= when details has 'raised' triggers MissingAssertionFieldsError.
+
+    NOTE: This test passes even before Task 5's assert_call implementation because
+    the enforcement comes from assertable_fields (Task 4), not from assert_call itself.
+    assertable_fields requires 'raised' when it is present in interaction.details, and
+    the existing assert_call (without the raised= parameter) cannot pass it, so
+    assert_interaction raises MissingAssertionFieldsError. This is by design: the
+    certainty contract enforcement is in assertable_fields, and assert_call is just a
+    convenience wrapper that constructs the expected dict.
+    """
+    from bigfoot._context import _current_test_verifier
+    from bigfoot._errors import MissingAssertionFieldsError
+
+    v = StrictVerifier()
+    p = MockPlugin(v)
+    proxy = p.get_or_create_proxy("Svc")
+    proxy.do_thing.raises(ValueError("boom"))
+
+    token = _current_test_verifier.set(v)
+    try:
+        with v.sandbox():
+            with pytest.raises(ValueError):
+                proxy.do_thing()
+
+        with pytest.raises(MissingAssertionFieldsError) as exc_info:
+            proxy.do_thing.assert_call(
+                args=(),
+                kwargs={},
+                # raised= intentionally omitted
+            )
+        assert "raised" in exc_info.value.missing_fields
+    finally:
+        _current_test_verifier.reset(token)
