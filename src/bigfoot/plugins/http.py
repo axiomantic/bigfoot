@@ -62,6 +62,9 @@ _bigfoot_requests_send: Any = None
 _bigfoot_aiohttp_request: Any = None
 
 
+# Sentinel: distinguishes "parameter not passed" from None in assert_request().
+_ABSENT = object()
+
 # ---------------------------------------------------------------------------
 # HttpMockConfig
 # ---------------------------------------------------------------------------
@@ -346,19 +349,36 @@ class HttpPlugin(BasePlugin):
         url: str,
         headers: dict[str, Any] | None = None,
         body: str = "",
+        raised: Any = _ABSENT,  # noqa: ANN401
         require_response: bool | None = None,
     ) -> "HttpAssertionBuilder | None":
         """Assert an HTTP request interaction, optionally requiring a chained response assertion.
 
-        When ``require_response`` is False (the default, or when the instance was
-        constructed with ``require_response=False``), this method is terminal: it
-        asserts only the four request fields and returns ``None``.
+        When ``raised`` is provided, the assertion is always terminal (error
+        interactions have no response to chain). Returns ``None``.
 
-        When ``require_response`` is True (either via the per-call argument or the
-        instance default), this method returns an ``HttpAssertionBuilder``.  The
-        caller must chain ``.assert_response()`` on the builder to complete the
-        assertion with all seven fields.
+        When ``require_response`` is False (the default), this method is terminal:
+        it asserts only the four request fields and returns ``None``.
+
+        When ``require_response`` is True, this method returns an
+        ``HttpAssertionBuilder``.
         """
+        if raised is not _ABSENT:
+            # Error assertion: always request-only (no response to assert)
+            self._asserting_request_only = True
+            try:
+                self.verifier.assert_interaction(
+                    self._sentinel,
+                    method=method,
+                    url=url,
+                    request_headers=headers if headers is not None else {},
+                    request_body=body,
+                    raised=raised,
+                )
+            finally:
+                self._asserting_request_only = False
+            return None
+
         effective = require_response if require_response is not None else self._require_response
         if not effective:
             self._asserting_request_only = True

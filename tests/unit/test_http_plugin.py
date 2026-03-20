@@ -2187,3 +2187,83 @@ def test_http_plugin_assertable_fields_success_interaction_unchanged() -> None:
     result = p.assertable_fields(interaction)
     assert result == frozenset({"method", "url", "request_headers", "request_body"})
     p._asserting_request_only = False
+
+
+# ---------------------------------------------------------------------------
+# assert_request with raised
+# ---------------------------------------------------------------------------
+
+
+def test_assert_request_with_raised_full_roundtrip() -> None:
+    """assert_request(raised=...) asserts an error interaction end-to-end."""
+    v, p = _make_verifier_with_plugin()
+    exc = httpx.ConnectError("Connection refused")
+    p.mock_error("GET", "https://api.example.com/data", raises=exc)
+
+    with v.sandbox():
+        with pytest.raises(httpx.ConnectError):
+            httpx.get("https://api.example.com/data")
+
+    interactions = v._timeline.all_unasserted()
+    assert len(interactions) == 1
+    recorded_headers = interactions[0].details["request_headers"]
+
+    p.assert_request(
+        "GET",
+        "https://api.example.com/data",
+        headers=recorded_headers,
+        body="",
+        raised=exc,
+    )
+
+    assert len(v._timeline.all_unasserted()) == 0
+    v.verify_all()
+
+
+def test_assert_request_with_raised_returns_none() -> None:
+    """assert_request(raised=...) always returns None (never HttpAssertionBuilder)."""
+    v, p = _make_verifier_with_plugin()
+    exc = httpx.ConnectError("Connection refused")
+    p.mock_error("GET", "https://api.example.com/data", raises=exc)
+
+    with v.sandbox():
+        with pytest.raises(httpx.ConnectError):
+            httpx.get("https://api.example.com/data")
+
+    interactions = v._timeline.all_unasserted()
+    recorded_headers = interactions[0].details["request_headers"]
+
+    result = p.assert_request(
+        "GET",
+        "https://api.example.com/data",
+        headers=recorded_headers,
+        body="",
+        raised=exc,
+    )
+    assert result is None
+
+
+def test_assert_request_missing_raised_triggers_missing_fields_error() -> None:
+    """Omitting raised= on an error interaction triggers MissingAssertionFieldsError."""
+    from bigfoot._errors import MissingAssertionFieldsError
+
+    v, p = _make_verifier_with_plugin()
+    exc = httpx.ConnectError("Connection refused")
+    p.mock_error("GET", "https://api.example.com/data", raises=exc)
+
+    with v.sandbox():
+        with pytest.raises(httpx.ConnectError):
+            httpx.get("https://api.example.com/data")
+
+    interactions = v._timeline.all_unasserted()
+    recorded_headers = interactions[0].details["request_headers"]
+
+    with pytest.raises(MissingAssertionFieldsError) as exc_info:
+        p.assert_request(
+            "GET",
+            "https://api.example.com/data",
+            headers=recorded_headers,
+            body="",
+            # raised= intentionally omitted
+        )
+    assert "raised" in exc_info.value.missing_fields
