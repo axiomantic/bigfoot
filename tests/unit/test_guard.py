@@ -120,3 +120,62 @@ class TestGuardedCallError:
             "    2. Add try/except _GuardPassThrough to each interceptor",
             "    3. On _GuardPassThrough, call the original function",
         ])
+
+
+class TestSupportsGuard:
+    """Test supports_guard ClassVar on plugins."""
+
+    def test_base_plugin_default_is_true(self) -> None:
+        from bigfoot._base_plugin import BasePlugin
+
+        assert BasePlugin.supports_guard is True
+
+    def test_mock_plugin_is_false(self) -> None:
+        from bigfoot._mock_plugin import MockPlugin
+
+        assert MockPlugin.supports_guard is False
+
+    def test_logging_plugin_is_false(self) -> None:
+        from bigfoot.plugins.logging_plugin import LoggingPlugin
+
+        assert LoggingPlugin.supports_guard is False
+
+    def test_jwt_plugin_is_false(self) -> None:
+        from bigfoot.plugins.jwt_plugin import JwtPlugin
+
+        assert JwtPlugin.supports_guard is False
+
+    def test_crypto_plugin_is_false(self) -> None:
+        from bigfoot.plugins.crypto_plugin import CryptoPlugin
+
+        assert CryptoPlugin.supports_guard is False
+
+    def test_native_plugin_is_false(self) -> None:
+        from bigfoot.plugins.native_plugin import NativePlugin
+
+        assert NativePlugin.supports_guard is False
+
+    def test_celery_plugin_is_false(self) -> None:
+        from bigfoot.plugins.celery_plugin import CeleryPlugin
+
+        assert CeleryPlugin.supports_guard is False
+
+    def test_file_io_plugin_is_false(self) -> None:
+        from bigfoot.plugins.file_io_plugin import FileIoPlugin
+
+        assert FileIoPlugin.supports_guard is False
+
+    def test_dns_plugin_inherits_true(self) -> None:
+        from bigfoot.plugins.dns_plugin import DnsPlugin
+
+        assert DnsPlugin.supports_guard is True
+
+    def test_http_plugin_inherits_true(self) -> None:
+        from bigfoot.plugins.http import HttpPlugin
+
+        assert HttpPlugin.supports_guard is True
+
+    def test_socket_plugin_inherits_true(self) -> None:
+        from bigfoot.plugins.socket_plugin import SocketPlugin
+
+        assert SocketPlugin.supports_guard is True
