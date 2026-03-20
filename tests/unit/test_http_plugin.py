@@ -2138,3 +2138,52 @@ def test_mixed_mock_response_and_mock_error_fifo() -> None:
     assert "status" in interactions[0].details  # success
     assert "raised" in interactions[1].details  # error
     assert "status" in interactions[2].details  # success
+
+
+# ---------------------------------------------------------------------------
+# assertable_fields for error interactions
+# ---------------------------------------------------------------------------
+
+
+def test_http_plugin_assertable_fields_error_interaction() -> None:
+    """assertable_fields returns request fields + raised for error interactions."""
+    v, p = _make_verifier_with_plugin()
+
+    interaction = Interaction(
+        source_id="http:request",
+        sequence=0,
+        details={
+            "method": "GET",
+            "url": "https://example.com",
+            "request_headers": {},
+            "request_body": "",
+            "raised": ConnectionError("refused"),
+        },
+        plugin=p,
+    )
+    result = p.assertable_fields(interaction)
+    assert result == frozenset({"method", "url", "request_headers", "request_body", "raised"})
+
+
+def test_http_plugin_assertable_fields_success_interaction_unchanged() -> None:
+    """assertable_fields for success interaction (request-only mode) is unchanged."""
+    v, p = _make_verifier_with_plugin()
+    p._asserting_request_only = True
+
+    interaction = Interaction(
+        source_id="http:request",
+        sequence=0,
+        details={
+            "method": "GET",
+            "url": "https://example.com",
+            "request_headers": {},
+            "request_body": "",
+            "status": 200,
+            "response_headers": {},
+            "response_body": "",
+        },
+        plugin=p,
+    )
+    result = p.assertable_fields(interaction)
+    assert result == frozenset({"method", "url", "request_headers", "request_body"})
+    p._asserting_request_only = False

@@ -1404,10 +1404,12 @@ class HttpPlugin(BasePlugin):
     def assertable_fields(self, interaction: Interaction) -> frozenset[str]:
         """Return the field names required in **expected when asserting an HTTP interaction.
 
-        When ``_asserting_request_only`` is True (set by the terminal path of
-        ``assert_request()``), only the four request fields are required.
-        Otherwise all seven fields are required.
+        Error interactions (raised in details): request fields + raised.
+        Request-only mode: four request fields.
+        Full mode: all seven fields.
         """
+        if "raised" in interaction.details:
+            return frozenset({"method", "url", "request_headers", "request_body", "raised"})
         if self._asserting_request_only:
             return frozenset({"method", "url", "request_headers", "request_body"})
         return frozenset(
