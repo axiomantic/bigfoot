@@ -2019,3 +2019,122 @@ def test_mock_error_with_params() -> None:
     )
 
     assert p._mock_queue[0].params == {"q": "test"}
+
+
+# ---------------------------------------------------------------------------
+# Handler error dispatch tests
+# ---------------------------------------------------------------------------
+
+
+def test_httpx_sync_handler_raises_error_config() -> None:
+    """httpx sync handler raises the configured exception for HttpErrorConfig."""
+    v, p = _make_verifier_with_plugin()
+    exc = httpx.ConnectError("Connection refused")
+    p.mock_error("GET", "https://api.example.com/data", raises=exc)
+
+    with v.sandbox():
+        with pytest.raises(httpx.ConnectError, match="Connection refused"):
+            httpx.get("https://api.example.com/data")
+
+    # Interaction should be recorded with request fields + raised
+    interactions = v._timeline.all_unasserted()
+    assert len(interactions) == 1
+    assert interactions[0].details["method"] == "GET"
+    assert interactions[0].details["url"] == "https://api.example.com/data"
+    assert interactions[0].details["raised"] is exc
+    assert "status" not in interactions[0].details
+    assert "response_headers" not in interactions[0].details
+    assert "response_body" not in interactions[0].details
+
+
+def test_requests_handler_raises_error_config() -> None:
+    """requests handler raises the configured exception for HttpErrorConfig."""
+    v, p = _make_verifier_with_plugin()
+    exc = requests.ConnectionError("DNS resolution failed")
+    p.mock_error("GET", "https://api.example.com/data", raises=exc)
+
+    with v.sandbox():
+        with pytest.raises(requests.ConnectionError, match="DNS resolution failed"):
+            requests.get("https://api.example.com/data")
+
+    interactions = v._timeline.all_unasserted()
+    assert len(interactions) == 1
+    assert interactions[0].details["raised"] is exc
+
+
+def test_urllib_handler_raises_error_config() -> None:
+    """urllib handler raises the configured exception for HttpErrorConfig."""
+    import urllib.request
+
+    v, p = _make_verifier_with_plugin()
+    exc = ConnectionError("refused")
+    p.mock_error("GET", "http://api.example.com/data", raises=exc)
+
+    with v.sandbox():
+        with pytest.raises(ConnectionError, match="refused"):
+            urllib.request.urlopen("http://api.example.com/data")
+
+    interactions = v._timeline.all_unasserted()
+    assert len(interactions) == 1
+    assert interactions[0].details["raised"] is exc
+
+
+@pytest.mark.asyncio
+async def test_httpx_async_handler_raises_error_config() -> None:
+    """httpx async handler raises the configured exception for HttpErrorConfig."""
+    v, p = _make_verifier_with_plugin()
+    exc = httpx.ConnectError("Connection refused")
+    p.mock_error("GET", "https://api.example.com/data", raises=exc)
+
+    async with v.sandbox():
+        async with httpx.AsyncClient() as client:
+            with pytest.raises(httpx.ConnectError, match="Connection refused"):
+                await client.get("https://api.example.com/data")
+
+    interactions = v._timeline.all_unasserted()
+    assert len(interactions) == 1
+    assert interactions[0].details["raised"] is exc
+
+
+@pytest.mark.asyncio
+async def test_aiohttp_handler_raises_error_config() -> None:
+    """aiohttp handler raises the configured exception for HttpErrorConfig."""
+    v, p = _make_verifier_with_plugin()
+    exc = ConnectionError("aiohttp refused")
+    p.mock_error("GET", "https://api.example.com/data", raises=exc)
+
+    token = _active_verifier.set(v)
+    try:
+        async with v.sandbox():
+            with pytest.raises(ConnectionError, match="aiohttp refused"):
+                await _aiohttp_get("https://api.example.com/data")
+    finally:
+        _active_verifier.reset(token)
+
+    interactions = v._timeline.all_unasserted()
+    assert len(interactions) == 1
+    assert interactions[0].details["raised"] is exc
+
+
+def test_mixed_mock_response_and_mock_error_fifo() -> None:
+    """mock_response and mock_error are served in FIFO order from unified queue."""
+    v, p = _make_verifier_with_plugin()
+    p.mock_response("GET", "https://api.example.com/data", json={"ok": True})
+    exc = httpx.ConnectError("Connection refused")
+    p.mock_error("GET", "https://api.example.com/data", raises=exc)
+    p.mock_response("GET", "https://api.example.com/data", json={"retry": True})
+
+    with v.sandbox():
+        r1 = httpx.get("https://api.example.com/data")
+        with pytest.raises(httpx.ConnectError):
+            httpx.get("https://api.example.com/data")
+        r3 = httpx.get("https://api.example.com/data")
+
+    assert r1.json() == {"ok": True}
+    assert r3.json() == {"retry": True}
+
+    interactions = v._timeline.all_unasserted()
+    assert len(interactions) == 3
+    assert "status" in interactions[0].details  # success
+    assert "raised" in interactions[1].details  # error
+    assert "status" in interactions[2].details  # success

@@ -857,6 +857,17 @@ class HttpPlugin(BasePlugin):
                 hint=hint,
             )
 
+        if isinstance(config, HttpErrorConfig):
+            body_str = request.content.decode("utf-8", errors="replace")
+            self._record_http_error_interaction(
+                method=method,
+                url=url,
+                request_headers=dict(request.headers),
+                request_body=body_str,
+                raised=config.raises,
+            )
+            raise config.raises
+
         body_str = request.content.decode("utf-8", errors="replace")
         resp_body_str = config.response_body.decode("utf-8", errors="replace")
         self._record_http_interaction(
@@ -912,6 +923,17 @@ class HttpPlugin(BasePlugin):
                 kwargs={},
                 hint=hint,
             )
+
+        if isinstance(config, HttpErrorConfig):
+            body_str = request.content.decode("utf-8", errors="replace")
+            self._record_http_error_interaction(
+                method=method,
+                url=url,
+                request_headers=dict(request.headers),
+                request_body=body_str,
+                raised=config.raises,
+            )
+            raise config.raises
 
         body_str = request.content.decode("utf-8", errors="replace")
         resp_body_str = config.response_body.decode("utf-8", errors="replace")
@@ -970,6 +992,22 @@ class HttpPlugin(BasePlugin):
                 kwargs={},
                 hint=hint,
             )
+
+        if isinstance(config, HttpErrorConfig):
+            body_str = ""
+            if request.body:
+                if isinstance(request.body, bytes):
+                    body_str = request.body.decode("utf-8", errors="replace")
+                else:
+                    body_str = str(request.body)
+            self._record_http_error_interaction(
+                method=method,
+                url=url,
+                request_headers=dict(request.headers),
+                request_body=body_str,
+                raised=config.raises,
+            )
+            raise config.raises
 
         body_str = ""
         if request.body:
@@ -1043,6 +1081,25 @@ class HttpPlugin(BasePlugin):
                 kwargs={},
                 hint=hint,
             )
+
+        if isinstance(config, HttpErrorConfig):
+            headers_dict = dict(req.headers)
+            data = req.data
+            body_str = ""
+            if data:
+                body_str = (
+                    data.decode("utf-8", errors="replace")
+                    if isinstance(data, bytes)
+                    else str(data)
+                )
+            self._record_http_error_interaction(
+                method=method,
+                url=url,
+                request_headers=headers_dict,
+                request_body=body_str,
+                raised=config.raises,
+            )
+            raise config.raises
 
         headers_dict = dict(req.headers)
         data = req.data
@@ -1135,6 +1192,30 @@ class HttpPlugin(BasePlugin):
                 hint=hint,
             )
 
+        if isinstance(config, HttpErrorConfig):
+            body_str = ""
+            if "data" in kwargs and kwargs["data"] is not None:
+                data = kwargs["data"]
+                if isinstance(data, bytes):
+                    body_str = data.decode("utf-8", errors="replace")
+                elif isinstance(data, str):
+                    body_str = data
+                else:
+                    body_str = str(data)
+            elif "json" in kwargs and kwargs["json"] is not None:
+                body_str = json_module.dumps(kwargs["json"])
+            req_headers: dict[str, str] = {}
+            if "headers" in kwargs and kwargs["headers"] is not None:
+                req_headers = dict(kwargs["headers"])
+            self._record_http_error_interaction(
+                method=method,
+                url=url,
+                request_headers=req_headers,
+                request_body=body_str,
+                raised=config.raises,
+            )
+            raise config.raises
+
         # Extract request body from kwargs
         body_str = ""
         if "data" in kwargs and kwargs["data"] is not None:
@@ -1149,15 +1230,15 @@ class HttpPlugin(BasePlugin):
             body_str = json_module.dumps(kwargs["json"])
 
         # Extract request headers from kwargs
-        req_headers: dict[str, str] = {}
+        req_headers_success: dict[str, str] = {}
         if "headers" in kwargs and kwargs["headers"] is not None:
-            req_headers = dict(kwargs["headers"])
+            req_headers_success = dict(kwargs["headers"])
 
         resp_body_str = config.response_body.decode("utf-8", errors="replace")
         self._record_http_interaction(
             method=method,
             url=url,
-            request_headers=req_headers,
+            request_headers=req_headers_success,
             request_body=body_str,
             status=config.response_status,
             response_headers=dict(config.response_headers),
