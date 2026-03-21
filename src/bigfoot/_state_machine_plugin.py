@@ -319,6 +319,10 @@ class StateMachinePlugin(BasePlugin):
                 else {"method": method, "args": args, "kwargs": kwargs}
             )
 
+            # Store raised exception in details when step.raises is set
+            if step.raises is not None:
+                resolved_details["raised"] = step.raises
+
             # Record interaction on the timeline — test authors must assert explicitly
             interaction = Interaction(
                 source_id=source_id,

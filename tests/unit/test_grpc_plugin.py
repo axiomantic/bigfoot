@@ -560,6 +560,7 @@ def test_exception_propagation(bigfoot_verifier: StrictVerifier) -> None:
         method="/pkg.Svc/Fail",
         request=b"req",
         metadata=None,
+        raised=err,
     )
 
 
@@ -709,6 +710,7 @@ def test_mid_stream_error(bigfoot_verifier: StrictVerifier) -> None:
         method="/pkg.Svc/PartialFail",
         request=b"req",
         metadata=None,
+        raised=err,
     )
 
 

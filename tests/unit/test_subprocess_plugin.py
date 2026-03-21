@@ -257,6 +257,7 @@ def test_mock_run_raises_exception() -> None:
         "returncode": 0,
         "stdout": "",
         "stderr": "",
+        "raised": timeout_error,
     }
 
 

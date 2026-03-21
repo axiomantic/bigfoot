@@ -541,14 +541,18 @@ async def test_mock_call_tool_raises_exception(bigfoot_verifier: StrictVerifier)
 
     import bigfoot
 
-    bigfoot.mcp_mock.mock_call_tool("failing_tool", returns=None, raises=RuntimeError("boom"))
+    err = RuntimeError("boom")
+    bigfoot.mcp_mock.mock_call_tool("failing_tool", returns=None, raises=err)
 
     with bigfoot.sandbox():
         session = object.__new__(ClientSession)
         with pytest.raises(RuntimeError, match="boom"):
             await ClientSession.call_tool(session, "failing_tool")
 
-    bigfoot.mcp_mock.assert_call_tool("failing_tool", arguments={}, direction="client")
+    bigfoot.mcp_mock.assert_call_tool(
+        "failing_tool", arguments={}, direction="client",
+        raised=err,
+    )
 
 
 # ---------------------------------------------------------------------------
