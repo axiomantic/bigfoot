@@ -59,24 +59,18 @@ def _make_sync_verifier_with_plugin() -> tuple[StrictVerifier, SyncWebSocketPlug
 
 def _reset_async_plugin_count() -> None:
     """Force-reset the class-level install count to 0 and restore patches if leaked."""
-    import websockets as _ws
-
     with AsyncWebSocketPlugin._install_lock:
         AsyncWebSocketPlugin._install_count = 0
-        if AsyncWebSocketPlugin._original_connect is not None:
-            _ws.connect = AsyncWebSocketPlugin._original_connect
-            AsyncWebSocketPlugin._original_connect = None
+        # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
+        AsyncWebSocketPlugin.__new__(AsyncWebSocketPlugin)._restore_patches()
 
 
 def _reset_sync_plugin_count() -> None:
     """Force-reset the class-level install count to 0 and restore patches if leaked."""
-    import websocket as _wsc
-
     with SyncWebSocketPlugin._install_lock:
         SyncWebSocketPlugin._install_count = 0
-        if SyncWebSocketPlugin._original_create_connection is not None:
-            _wsc.create_connection = SyncWebSocketPlugin._original_create_connection
-            SyncWebSocketPlugin._original_create_connection = None
+        # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
+        SyncWebSocketPlugin.__new__(SyncWebSocketPlugin)._restore_patches()
 
 
 @pytest.fixture(autouse=True)

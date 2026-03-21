@@ -50,16 +50,10 @@ def _make_verifier_with_plugin() -> tuple[StrictVerifier, CeleryPlugin]:
 
 def _reset_plugin_count() -> None:
     """Force-reset the class-level install count to 0 and restore patches if leaked."""
-    from celery.app.task import Task
-
     with CeleryPlugin._install_lock:
         CeleryPlugin._install_count = 0
-        if CeleryPlugin._original_delay is not None:
-            Task.delay = CeleryPlugin._original_delay
-            CeleryPlugin._original_delay = None
-        if CeleryPlugin._original_apply_async is not None:
-            Task.apply_async = CeleryPlugin._original_apply_async
-            CeleryPlugin._original_apply_async = None
+        # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
+        CeleryPlugin.__new__(CeleryPlugin)._restore_patches()
 
 
 @pytest.fixture(autouse=True)

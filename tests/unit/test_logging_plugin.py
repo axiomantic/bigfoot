@@ -45,13 +45,8 @@ def _reset_install_count() -> None:
     """Force-reset the class-level install count to 0 and restore patches if leaked."""
     with LoggingPlugin._install_lock:
         LoggingPlugin._install_count = 0
-        if LoggingPlugin._original_logger_log is not None:
-            logging.Logger._log = LoggingPlugin._original_logger_log  # type: ignore[method-assign]
-            LoggingPlugin._original_logger_log = None
-        # Reset module-level interceptor reference
-        import bigfoot.plugins.logging_plugin as _lp_mod
-
-        _lp_mod._bigfoot_logger_log = None
+        # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
+        LoggingPlugin.__new__(LoggingPlugin)._restore_patches()
 
 
 @pytest.fixture(autouse=True)

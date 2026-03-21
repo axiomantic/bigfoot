@@ -40,23 +40,10 @@ def _make_verifier_with_plugin() -> tuple[StrictVerifier, McpPlugin]:
 
 def _reset_plugin_count() -> None:
     """Force-reset the class-level install count to 0 and restore patches if leaked."""
-    from mcp.client.session import ClientSession
-    from mcp.server.lowlevel.server import Server
-
     with McpPlugin._install_lock:
         McpPlugin._install_count = 0
-        if McpPlugin._original_call_tool is not None:
-            ClientSession.call_tool = McpPlugin._original_call_tool
-            McpPlugin._original_call_tool = None
-        if McpPlugin._original_read_resource is not None:
-            ClientSession.read_resource = McpPlugin._original_read_resource
-            McpPlugin._original_read_resource = None
-        if McpPlugin._original_get_prompt is not None:
-            ClientSession.get_prompt = McpPlugin._original_get_prompt
-            McpPlugin._original_get_prompt = None
-        if McpPlugin._original_handle_request is not None:
-            Server._handle_request = McpPlugin._original_handle_request
-            McpPlugin._original_handle_request = None
+        # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
+        McpPlugin.__new__(McpPlugin)._restore_patches()
 
 
 @pytest.fixture(autouse=True)

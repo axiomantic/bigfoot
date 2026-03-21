@@ -43,21 +43,8 @@ def _reset_install_count() -> None:
     """Force-reset the class-level install count to 0 and restore patches if leaked."""
     with SocketPlugin._install_lock:
         SocketPlugin._install_count = 0
-        if SocketPlugin._original_connect is not None:
-            socket.socket.connect = SocketPlugin._original_connect
-            SocketPlugin._original_connect = None
-        if SocketPlugin._original_send is not None:
-            socket.socket.send = SocketPlugin._original_send
-            SocketPlugin._original_send = None
-        if SocketPlugin._original_sendall is not None:
-            socket.socket.sendall = SocketPlugin._original_sendall
-            SocketPlugin._original_sendall = None
-        if SocketPlugin._original_recv is not None:
-            socket.socket.recv = SocketPlugin._original_recv
-            SocketPlugin._original_recv = None
-        if SocketPlugin._original_close is not None:
-            socket.socket.close = SocketPlugin._original_close
-            SocketPlugin._original_close = None
+        # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
+        SocketPlugin.__new__(SocketPlugin)._restore_patches()
 
 
 @pytest.fixture(autouse=True)

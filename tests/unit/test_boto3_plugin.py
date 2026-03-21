@@ -42,13 +42,10 @@ def _make_verifier_with_plugin() -> tuple[StrictVerifier, Boto3Plugin]:
 
 def _reset_plugin_count() -> None:
     """Force-reset the class-level install count to 0 and restore patches if leaked."""
-    import botocore.client
-
     with Boto3Plugin._install_lock:
         Boto3Plugin._install_count = 0
-        if Boto3Plugin._original_make_api_call is not None:
-            botocore.client.BaseClient._make_api_call = Boto3Plugin._original_make_api_call
-            Boto3Plugin._original_make_api_call = None
+        # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
+        Boto3Plugin.__new__(Boto3Plugin)._restore_patches()
 
 
 pytestmark = pytest.mark.allow("dns", "socket")

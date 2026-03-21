@@ -38,9 +38,8 @@ def _reset_install_count() -> None:
 
     with DatabasePlugin._install_lock:
         DatabasePlugin._install_count = 0
-        if DatabasePlugin._original_connect is not None:
-            sqlite3.connect = DatabasePlugin._original_connect  # type: ignore[assignment]
-            DatabasePlugin._original_connect = None
+        # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
+        DatabasePlugin.__new__(DatabasePlugin)._restore_patches()
 
 
 @pytest.fixture(autouse=True)

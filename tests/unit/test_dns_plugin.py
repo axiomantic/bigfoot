@@ -38,22 +38,8 @@ def _reset_plugin_count() -> None:
     """Force-reset the class-level install count to 0 and restore patches if leaked."""
     with DnsPlugin._install_lock:
         DnsPlugin._install_count = 0
-        if DnsPlugin._original_getaddrinfo is not None:
-            socket.getaddrinfo = DnsPlugin._original_getaddrinfo
-            DnsPlugin._original_getaddrinfo = None
-        if DnsPlugin._original_gethostbyname is not None:
-            socket.gethostbyname = DnsPlugin._original_gethostbyname
-            DnsPlugin._original_gethostbyname = None
-        if DnsPlugin._original_resolve is not None:
-            try:
-                import dns.resolver
-
-                dns.resolver.resolve = DnsPlugin._original_resolve
-                dns.resolver.Resolver.resolve = DnsPlugin._original_resolver_resolve
-            except ImportError:
-                pass
-            DnsPlugin._original_resolve = None
-            DnsPlugin._original_resolver_resolve = None
+        # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
+        DnsPlugin.__new__(DnsPlugin)._restore_patches()
 
 
 @pytest.fixture(autouse=True)

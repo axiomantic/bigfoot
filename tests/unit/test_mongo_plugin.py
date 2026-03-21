@@ -61,10 +61,8 @@ def _reset_plugin_count() -> None:
     """Force-reset the class-level install count to 0 and restore patches if leaked."""
     with MongoPlugin._install_lock:
         MongoPlugin._install_count = 0
-        if MongoPlugin._original_methods is not None:
-            for method_name, original in MongoPlugin._original_methods.items():
-                setattr(pymongo.collection.Collection, method_name, original)
-            MongoPlugin._original_methods = None
+        # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
+        MongoPlugin.__new__(MongoPlugin)._restore_patches()
 
 
 @pytest.fixture(autouse=True)

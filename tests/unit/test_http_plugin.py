@@ -48,25 +48,8 @@ def _reset_install_count() -> None:
     """Force-reset the class-level install count to 0 after a test leak."""
     with HttpPlugin._install_lock:
         HttpPlugin._install_count = 0
-        if HttpPlugin._original_httpx_transport_handle is not None:
-            httpx.HTTPTransport.handle_request = HttpPlugin._original_httpx_transport_handle
-            HttpPlugin._original_httpx_transport_handle = None
-        if HttpPlugin._original_httpx_async_transport_handle is not None:
-            httpx.AsyncHTTPTransport.handle_async_request = (
-                HttpPlugin._original_httpx_async_transport_handle
-            )
-            HttpPlugin._original_httpx_async_transport_handle = None
-        if HttpPlugin._original_requests_adapter_send is not None:
-            requests.adapters.HTTPAdapter.send = HttpPlugin._original_requests_adapter_send
-            HttpPlugin._original_requests_adapter_send = None
-        if HttpPlugin._original_aiohttp_request is not None:
-            from bigfoot.plugins.http import _AIOHTTP_AVAILABLE
-
-            if _AIOHTTP_AVAILABLE:
-                import aiohttp as _aiohttp
-
-                _aiohttp.ClientSession._request = HttpPlugin._original_aiohttp_request
-            HttpPlugin._original_aiohttp_request = None
+        # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
+        HttpPlugin.__new__(HttpPlugin)._restore_patches()
 
 
 @pytest.fixture(autouse=True)

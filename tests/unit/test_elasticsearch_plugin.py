@@ -36,11 +36,8 @@ def _make_verifier_with_plugin() -> tuple[StrictVerifier, ElasticsearchPlugin]:
 def _reset_plugin_count() -> None:
     with ElasticsearchPlugin._install_lock:
         ElasticsearchPlugin._install_count = 0
-        if ElasticsearchPlugin._originals:
-            es_cls = elasticsearch.Elasticsearch
-            for method_name, original in ElasticsearchPlugin._originals.items():
-                setattr(es_cls, method_name, original)
-            ElasticsearchPlugin._originals.clear()
+        # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
+        ElasticsearchPlugin.__new__(ElasticsearchPlugin)._restore_patches()
 
 
 @pytest.fixture(autouse=True)

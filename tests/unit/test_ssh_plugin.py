@@ -40,9 +40,8 @@ def _reset_install_count() -> None:
     """Force-reset the class-level install count to 0 and restore paramiko if leaked."""
     with SshPlugin._install_lock:
         SshPlugin._install_count = 0
-        if SshPlugin._original_ssh_client is not None:
-            paramiko.SSHClient = SshPlugin._original_ssh_client  # type: ignore[misc]
-            SshPlugin._original_ssh_client = None
+        # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
+        SshPlugin.__new__(SshPlugin)._restore_patches()
 
 
 @pytest.fixture(autouse=True)

@@ -49,17 +49,8 @@ def _reset_install_count() -> None:
     """Force-reset the class-level install count to 0 and restore patches if leaked."""
     with SubprocessPlugin._install_lock:
         SubprocessPlugin._install_count = 0
-        if SubprocessPlugin._original_subprocess_run is not None:
-            subprocess.run = SubprocessPlugin._original_subprocess_run
-            SubprocessPlugin._original_subprocess_run = None
-        if SubprocessPlugin._original_shutil_which is not None:
-            shutil.which = SubprocessPlugin._original_shutil_which
-            SubprocessPlugin._original_shutil_which = None
-        # Reset module-level interceptor references
-        import bigfoot.plugins.subprocess as _sp_mod
-
-        _sp_mod._bigfoot_subprocess_run = None
-        _sp_mod._bigfoot_shutil_which = None
+        # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
+        SubprocessPlugin.__new__(SubprocessPlugin)._restore_patches()
 
 
 @pytest.fixture(autouse=True)

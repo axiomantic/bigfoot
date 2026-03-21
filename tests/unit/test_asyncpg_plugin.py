@@ -36,9 +36,8 @@ def _reset_install_count() -> None:
     """Force-reset the class-level install count to 0 and restore patches if leaked."""
     with AsyncpgPlugin._install_lock:
         AsyncpgPlugin._install_count = 0
-        if AsyncpgPlugin._original_connect is not None:
-            asyncpg.connect = AsyncpgPlugin._original_connect  # type: ignore[assignment]
-            AsyncpgPlugin._original_connect = None
+        # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
+        AsyncpgPlugin.__new__(AsyncpgPlugin)._restore_patches()
 
 
 @pytest.fixture(autouse=True)

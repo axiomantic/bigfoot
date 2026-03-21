@@ -34,16 +34,10 @@ def _make_verifier_with_plugin() -> tuple[StrictVerifier, JwtPlugin]:
 
 
 def _reset_plugin_count() -> None:
-    import jwt as jwt_mod
-
     with JwtPlugin._install_lock:
         JwtPlugin._install_count = 0
-        if JwtPlugin._original_encode is not None:
-            jwt_mod.encode = JwtPlugin._original_encode
-            JwtPlugin._original_encode = None
-        if JwtPlugin._original_decode is not None:
-            jwt_mod.decode = JwtPlugin._original_decode
-            JwtPlugin._original_decode = None
+        # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
+        JwtPlugin.__new__(JwtPlugin)._restore_patches()
 
 
 @pytest.fixture(autouse=True)

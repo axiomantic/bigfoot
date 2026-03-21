@@ -36,9 +36,8 @@ def _reset_install_count() -> None:
     """Force-reset the class-level install count to 0 and restore patches if leaked."""
     with Psycopg2Plugin._install_lock:
         Psycopg2Plugin._install_count = 0
-        if Psycopg2Plugin._original_connect is not None:
-            psycopg2.connect = Psycopg2Plugin._original_connect  # type: ignore[assignment]
-            Psycopg2Plugin._original_connect = None
+        # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
+        Psycopg2Plugin.__new__(Psycopg2Plugin)._restore_patches()
 
 
 @pytest.fixture(autouse=True)

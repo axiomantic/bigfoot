@@ -42,12 +42,8 @@ def _reset_plugin_count() -> None:
     """Force-reset the class-level install count to 0 and restore patches if leaked."""
     with GrpcPlugin._install_lock:
         GrpcPlugin._install_count = 0
-        if GrpcPlugin._original_insecure_channel is not None:
-            grpc.insecure_channel = GrpcPlugin._original_insecure_channel
-            GrpcPlugin._original_insecure_channel = None
-        if GrpcPlugin._original_secure_channel is not None:
-            grpc.secure_channel = GrpcPlugin._original_secure_channel
-            GrpcPlugin._original_secure_channel = None
+        # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
+        GrpcPlugin.__new__(GrpcPlugin)._restore_patches()
 
 
 @pytest.fixture(autouse=True)
