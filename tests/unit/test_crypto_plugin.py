@@ -34,21 +34,10 @@ def _make_verifier_with_plugin() -> tuple[StrictVerifier, CryptoPlugin]:
 
 
 def _reset_plugin_count() -> None:
-    from cryptography.fernet import Fernet
-
     with CryptoPlugin._install_lock:
         CryptoPlugin._install_count = 0
-        if CryptoPlugin._original_encrypt is not None:
-            Fernet.encrypt = CryptoPlugin._original_encrypt  # type: ignore[method-assign]
-            CryptoPlugin._original_encrypt = None
-        if CryptoPlugin._original_decrypt is not None:
-            Fernet.decrypt = CryptoPlugin._original_decrypt  # type: ignore[method-assign]
-            CryptoPlugin._original_decrypt = None
-        if CryptoPlugin._original_generate_private_key is not None:
-            from cryptography.hazmat.primitives.asymmetric import rsa
-
-            rsa.generate_private_key = CryptoPlugin._original_generate_private_key  # type: ignore[assignment]
-            CryptoPlugin._original_generate_private_key = None
+        # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
+        CryptoPlugin.__new__(CryptoPlugin)._restore_patches()
 
 
 @pytest.fixture(autouse=True)

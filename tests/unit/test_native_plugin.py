@@ -44,17 +44,8 @@ def _reset_plugin_count() -> None:
     """Force-reset the class-level install count to 0 and restore patches if leaked."""
     with NativePlugin._install_lock:
         NativePlugin._install_count = 0
-        if NativePlugin._original_cdll_init is not None:
-            ctypes.CDLL.__init__ = NativePlugin._original_cdll_init
-            NativePlugin._original_cdll_init = None
-        if NativePlugin._original_ffi_dlopen is not None:
-            try:
-                import cffi
-
-                cffi.FFI.dlopen = NativePlugin._original_ffi_dlopen
-            except ImportError:
-                pass
-            NativePlugin._original_ffi_dlopen = None
+        # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
+        NativePlugin.__new__(NativePlugin)._restore_patches()
 
 
 @pytest.fixture(autouse=True)

@@ -41,12 +41,8 @@ def _reset_install_count() -> None:
     """Force-reset the class-level install count to 0 and restore originals if leaked."""
     with AsyncSubprocessPlugin._install_lock:
         AsyncSubprocessPlugin._install_count = 0
-        if AsyncSubprocessPlugin._original_exec is not None:
-            asyncio.create_subprocess_exec = AsyncSubprocessPlugin._original_exec  # type: ignore[assignment]
-            AsyncSubprocessPlugin._original_exec = None
-        if AsyncSubprocessPlugin._original_shell is not None:
-            asyncio.create_subprocess_shell = AsyncSubprocessPlugin._original_shell  # type: ignore[assignment]
-            AsyncSubprocessPlugin._original_shell = None
+        # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
+        AsyncSubprocessPlugin.__new__(AsyncSubprocessPlugin)._restore_patches()
 
 
 @pytest.fixture(autouse=True)

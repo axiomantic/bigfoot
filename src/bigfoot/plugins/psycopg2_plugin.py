@@ -1,6 +1,5 @@
 """Psycopg2Plugin: intercepts psycopg2.connect() and returns _FakePsycopg2Connection."""
 
-import threading
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
@@ -199,10 +198,6 @@ class Psycopg2Plugin(StateMachinePlugin):
     States: disconnected -> connected -> in_transaction -> connected/closed
     """
 
-    # Class-level reference counting -- shared across all instances/verifiers.
-    _install_count: ClassVar[int] = 0
-    _install_lock: ClassVar[threading.Lock] = threading.Lock()
-
     # Saved original, restored when count reaches 0.
     _original_connect: ClassVar[Any] = None  # noqa: ANN401
 
@@ -256,19 +251,6 @@ class Psycopg2Plugin(StateMachinePlugin):
     # ------------------------------------------------------------------
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
-
-    def activate(self) -> None:
-        """Reference-counted module-level patch installation."""
-        with Psycopg2Plugin._install_lock:
-            if Psycopg2Plugin._install_count == 0:
-                self._install_patches()
-            Psycopg2Plugin._install_count += 1
-
-    def deactivate(self) -> None:
-        with Psycopg2Plugin._install_lock:
-            Psycopg2Plugin._install_count = max(0, Psycopg2Plugin._install_count - 1)
-            if Psycopg2Plugin._install_count == 0:
-                self._restore_patches()
 
     # ------------------------------------------------------------------
     # Patch installation / restoration

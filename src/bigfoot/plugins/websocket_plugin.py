@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import threading
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
@@ -158,10 +157,6 @@ class AsyncWebSocketPlugin(StateMachinePlugin):
     States: connecting -> open -> closed
     """
 
-    # Class-level reference counting -- shared across all instances/verifiers.
-    _install_count: ClassVar[int] = 0
-    _install_lock: ClassVar[threading.Lock] = threading.Lock()
-
     # Saved original, restored when count reaches 0.
     _original_connect: ClassVar[Any] = None
 
@@ -214,29 +209,16 @@ class AsyncWebSocketPlugin(StateMachinePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def activate(self) -> None:
-        """Reference-counted class-level patch installation."""
-        if not _WEBSOCKETS_AVAILABLE:
-            raise ImportError(
-                "Install bigfoot[websockets] to use AsyncWebSocketPlugin: "
-                "pip install bigfoot[websockets]"
-            )
-        with AsyncWebSocketPlugin._install_lock:
-            if AsyncWebSocketPlugin._install_count == 0:
-                self._install_patches()
-            AsyncWebSocketPlugin._install_count += 1
-
-    def deactivate(self) -> None:
-        with AsyncWebSocketPlugin._install_lock:
-            AsyncWebSocketPlugin._install_count = max(0, AsyncWebSocketPlugin._install_count - 1)
-            if AsyncWebSocketPlugin._install_count == 0:
-                self._restore_patches()
-
     # ------------------------------------------------------------------
     # Patch installation / restoration
     # ------------------------------------------------------------------
 
     def _install_patches(self) -> None:
+        if not _WEBSOCKETS_AVAILABLE:
+            raise ImportError(
+                "Install bigfoot[websockets] to use AsyncWebSocketPlugin: "
+                "pip install bigfoot[websockets]"
+            )
         import websockets as _ws
 
         AsyncWebSocketPlugin._original_connect = _ws.connect
@@ -421,10 +403,6 @@ class SyncWebSocketPlugin(StateMachinePlugin):
     States: connecting -> open -> closed
     """
 
-    # Class-level reference counting -- shared across all instances/verifiers.
-    _install_count: ClassVar[int] = 0
-    _install_lock: ClassVar[threading.Lock] = threading.Lock()
-
     # Saved original, restored when count reaches 0.
     _original_create_connection: ClassVar[Any] = None
 
@@ -477,29 +455,16 @@ class SyncWebSocketPlugin(StateMachinePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def activate(self) -> None:
-        """Reference-counted class-level patch installation."""
-        if not _WEBSOCKET_CLIENT_AVAILABLE:
-            raise ImportError(
-                "Install bigfoot[websocket-client] to use SyncWebSocketPlugin: "
-                "pip install bigfoot[websocket-client]"
-            )
-        with SyncWebSocketPlugin._install_lock:
-            if SyncWebSocketPlugin._install_count == 0:
-                self._install_patches()
-            SyncWebSocketPlugin._install_count += 1
-
-    def deactivate(self) -> None:
-        with SyncWebSocketPlugin._install_lock:
-            SyncWebSocketPlugin._install_count = max(0, SyncWebSocketPlugin._install_count - 1)
-            if SyncWebSocketPlugin._install_count == 0:
-                self._restore_patches()
-
     # ------------------------------------------------------------------
     # Patch installation / restoration
     # ------------------------------------------------------------------
 
     def _install_patches(self) -> None:
+        if not _WEBSOCKET_CLIENT_AVAILABLE:
+            raise ImportError(
+                "Install bigfoot[websocket-client] to use SyncWebSocketPlugin: "
+                "pip install bigfoot[websocket-client]"
+            )
         import websocket as _wsc
 
         SyncWebSocketPlugin._original_create_connection = _wsc.create_connection

@@ -3,7 +3,6 @@
 import functools
 import io
 import json as json_module
-import threading
 import traceback
 import urllib.request
 import urllib.response
@@ -62,6 +61,9 @@ _bigfoot_requests_send: Any = None
 _bigfoot_aiohttp_request: Any = None
 
 
+# Sentinel: distinguishes "parameter not passed" from None in assert_request().
+_ABSENT = object()
+
 # ---------------------------------------------------------------------------
 # HttpMockConfig
 # ---------------------------------------------------------------------------
@@ -81,6 +83,24 @@ class HttpMockConfig:
     registration_traceback: str = field(
         default_factory=lambda: "".join(traceback.format_stack()[:-2])
     )
+
+
+@dataclass
+class HttpErrorConfig:
+    """Internal record of a registered mock error."""
+
+    method: str
+    url: str
+    params: dict[str, str] | None
+    raises: BaseException
+    required: bool = True
+    registration_traceback: str = field(
+        default_factory=lambda: "".join(traceback.format_stack()[:-2])
+    )
+
+
+# Union type for the unified mock queue
+HttpMockEntry = HttpMockConfig | HttpErrorConfig
 
 
 # ---------------------------------------------------------------------------
@@ -269,10 +289,6 @@ class HttpPlugin(BasePlugin):
     at the class level. Uses reference counting so nested sandboxes work correctly.
     """
 
-    # Class-level reference counting — shared across all instances/verifiers.
-    _install_count: int = 0
-    _install_lock: threading.Lock = threading.Lock()
-
     # Saved originals, restored when count reaches 0.
     _original_httpx_transport_handle: Any = None
     _original_httpx_async_transport_handle: Any = None
@@ -283,7 +299,7 @@ class HttpPlugin(BasePlugin):
 
     def __init__(self, verifier: "StrictVerifier", require_response: bool = False) -> None:
         super().__init__(verifier)
-        self._mock_queue: list[HttpMockConfig] = []
+        self._mock_queue: list[HttpMockEntry] = []
         self._sentinel = HttpRequestSentinel(self)
         self._pass_through_rules: list[tuple[str, str]] = []
         self._asserting_request_only: bool = False
@@ -328,19 +344,36 @@ class HttpPlugin(BasePlugin):
         url: str,
         headers: dict[str, Any] | None = None,
         body: str = "",
+        raised: Any = _ABSENT,  # noqa: ANN401
         require_response: bool | None = None,
     ) -> "HttpAssertionBuilder | None":
         """Assert an HTTP request interaction, optionally requiring a chained response assertion.
 
-        When ``require_response`` is False (the default, or when the instance was
-        constructed with ``require_response=False``), this method is terminal: it
-        asserts only the four request fields and returns ``None``.
+        When ``raised`` is provided, the assertion is always terminal (error
+        interactions have no response to chain). Returns ``None``.
 
-        When ``require_response`` is True (either via the per-call argument or the
-        instance default), this method returns an ``HttpAssertionBuilder``.  The
-        caller must chain ``.assert_response()`` on the builder to complete the
-        assertion with all seven fields.
+        When ``require_response`` is False (the default), this method is terminal:
+        it asserts only the four request fields and returns ``None``.
+
+        When ``require_response`` is True, this method returns an
+        ``HttpAssertionBuilder``.
         """
+        if raised is not _ABSENT:
+            # Error assertion: always request-only (no response to assert)
+            self._asserting_request_only = True
+            try:
+                self.verifier.assert_interaction(
+                    self._sentinel,
+                    method=method,
+                    url=url,
+                    request_headers=headers if headers is not None else {},
+                    request_body=body,
+                    raised=raised,
+                )
+            finally:
+                self._asserting_request_only = False
+            return None
+
         effective = require_response if require_response is not None else self._require_response
         if not effective:
             self._asserting_request_only = True
@@ -402,6 +435,35 @@ class HttpPlugin(BasePlugin):
             )
         )
 
+    def mock_error(
+        self,
+        method: str,
+        url: str,
+        *,
+        raises: BaseException,
+        params: dict[str, str] | None = None,
+        required: bool = True,
+    ) -> None:
+        """Register a mock error for the given method + URL pair.
+
+        When the interceptor matches this mock, the interaction is recorded
+        with request fields + raised, then the exception is re-raised into
+        the code under test.
+
+        The error config is appended to the unified mock queue alongside
+        HttpMockConfig entries, preserving FIFO ordering for mixed
+        success/error sequences.
+        """
+        self._mock_queue.append(
+            HttpErrorConfig(
+                method=method.upper(),
+                url=url,
+                params=params,
+                raises=raises,
+                required=required,
+            )
+        )
+
     def pass_through(self, method: str, url: str) -> None:
         """Register a permanent pass-through rule for the given method + URL.
 
@@ -432,20 +494,6 @@ class HttpPlugin(BasePlugin):
     # ------------------------------------------------------------------
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
-
-    def activate(self) -> None:
-        """Reference-counted class-level patch installation."""
-        with HttpPlugin._install_lock:
-            if HttpPlugin._install_count == 0:
-                self._check_conflicts()
-                self._install_patches()
-            HttpPlugin._install_count += 1
-
-    def deactivate(self) -> None:
-        with HttpPlugin._install_lock:
-            HttpPlugin._install_count = max(0, HttpPlugin._install_count - 1)
-            if HttpPlugin._install_count == 0:
-                self._restore_patches()
 
     # ------------------------------------------------------------------
     # Conflict detection
@@ -707,14 +755,14 @@ class HttpPlugin(BasePlugin):
     # Mock config lookup
     # ------------------------------------------------------------------
 
-    def _find_matching_config(self, method: str, url: str) -> HttpMockConfig | None:
+    def _find_matching_config(self, method: str, url: str) -> HttpMockEntry | None:
         for i, config in enumerate(self._mock_queue):
             if config.method == method.upper() and self._url_matches(config, url):
                 self._mock_queue.pop(i)
                 return config
         return None
 
-    def _url_matches(self, config: HttpMockConfig, actual_url: str) -> bool:
+    def _url_matches(self, config: HttpMockEntry, actual_url: str) -> bool:
         config_parsed = urlparse(config.url)
         actual_parsed = urlparse(actual_url)
 
@@ -761,7 +809,30 @@ class HttpPlugin(BasePlugin):
             },
             plugin=self,
         )
-        self.verifier._timeline.append(interaction)
+        self.record(interaction)
+
+    def _record_http_error_interaction(
+        self,
+        method: str,
+        url: str,
+        request_headers: dict[str, str],
+        request_body: str,
+        raised: BaseException,
+    ) -> None:
+        """Record an error interaction: request fields + raised, no response fields."""
+        interaction = Interaction(
+            source_id="http:request",
+            sequence=0,
+            details={
+                "method": method.upper(),
+                "url": url,
+                "request_headers": dict(request_headers),
+                "request_body": request_body,
+                "raised": raised,
+            },
+            plugin=self,
+        )
+        self.record(interaction)
 
     # ------------------------------------------------------------------
     # Request handlers — one per backend
@@ -786,6 +857,17 @@ class HttpPlugin(BasePlugin):
                 kwargs={},
                 hint=hint,
             )
+
+        if isinstance(config, HttpErrorConfig):
+            body_str = request.content.decode("utf-8", errors="replace")
+            self._record_http_error_interaction(
+                method=method,
+                url=url,
+                request_headers=dict(request.headers),
+                request_body=body_str,
+                raised=config.raises,
+            )
+            raise config.raises
 
         body_str = request.content.decode("utf-8", errors="replace")
         resp_body_str = config.response_body.decode("utf-8", errors="replace")
@@ -842,6 +924,17 @@ class HttpPlugin(BasePlugin):
                 kwargs={},
                 hint=hint,
             )
+
+        if isinstance(config, HttpErrorConfig):
+            body_str = request.content.decode("utf-8", errors="replace")
+            self._record_http_error_interaction(
+                method=method,
+                url=url,
+                request_headers=dict(request.headers),
+                request_body=body_str,
+                raised=config.raises,
+            )
+            raise config.raises
 
         body_str = request.content.decode("utf-8", errors="replace")
         resp_body_str = config.response_body.decode("utf-8", errors="replace")
@@ -900,6 +993,22 @@ class HttpPlugin(BasePlugin):
                 kwargs={},
                 hint=hint,
             )
+
+        if isinstance(config, HttpErrorConfig):
+            body_str = ""
+            if request.body:
+                if isinstance(request.body, bytes):
+                    body_str = request.body.decode("utf-8", errors="replace")
+                else:
+                    body_str = str(request.body)
+            self._record_http_error_interaction(
+                method=method,
+                url=url,
+                request_headers=dict(request.headers),
+                request_body=body_str,
+                raised=config.raises,
+            )
+            raise config.raises
 
         body_str = ""
         if request.body:
@@ -973,6 +1082,25 @@ class HttpPlugin(BasePlugin):
                 kwargs={},
                 hint=hint,
             )
+
+        if isinstance(config, HttpErrorConfig):
+            headers_dict = dict(req.headers)
+            data = req.data
+            body_str = ""
+            if data:
+                body_str = (
+                    data.decode("utf-8", errors="replace")
+                    if isinstance(data, bytes)
+                    else str(data)
+                )
+            self._record_http_error_interaction(
+                method=method,
+                url=url,
+                request_headers=headers_dict,
+                request_body=body_str,
+                raised=config.raises,
+            )
+            raise config.raises
 
         headers_dict = dict(req.headers)
         data = req.data
@@ -1065,6 +1193,30 @@ class HttpPlugin(BasePlugin):
                 hint=hint,
             )
 
+        if isinstance(config, HttpErrorConfig):
+            body_str = ""
+            if "data" in kwargs and kwargs["data"] is not None:
+                data = kwargs["data"]
+                if isinstance(data, bytes):
+                    body_str = data.decode("utf-8", errors="replace")
+                elif isinstance(data, str):
+                    body_str = data
+                else:
+                    body_str = str(data)
+            elif "json" in kwargs and kwargs["json"] is not None:
+                body_str = json_module.dumps(kwargs["json"])
+            req_headers: dict[str, str] = {}
+            if "headers" in kwargs and kwargs["headers"] is not None:
+                req_headers = dict(kwargs["headers"])
+            self._record_http_error_interaction(
+                method=method,
+                url=url,
+                request_headers=req_headers,
+                request_body=body_str,
+                raised=config.raises,
+            )
+            raise config.raises
+
         # Extract request body from kwargs
         body_str = ""
         if "data" in kwargs and kwargs["data"] is not None:
@@ -1079,15 +1231,15 @@ class HttpPlugin(BasePlugin):
             body_str = json_module.dumps(kwargs["json"])
 
         # Extract request headers from kwargs
-        req_headers: dict[str, str] = {}
+        req_headers_success: dict[str, str] = {}
         if "headers" in kwargs and kwargs["headers"] is not None:
-            req_headers = dict(kwargs["headers"])
+            req_headers_success = dict(kwargs["headers"])
 
         resp_body_str = config.response_body.decode("utf-8", errors="replace")
         self._record_http_interaction(
             method=method,
             url=url,
-            request_headers=req_headers,
+            request_headers=req_headers_success,
             request_body=body_str,
             status=config.response_status,
             response_headers=dict(config.response_headers),
@@ -1198,12 +1350,19 @@ class HttpPlugin(BasePlugin):
     def format_interaction(self, interaction: Interaction) -> str:
         method = interaction.details.get("method", "?")
         url = interaction.details.get("url", "?")
+        if "raised" in interaction.details:
+            raised = interaction.details["raised"]
+            exc_type = type(raised).__module__ + "." + type(raised).__qualname__
+            return f"[HttpPlugin] {method} {url} -> raised {exc_type}({raised!s})"
         status = interaction.details.get("status", "?")
         return f"[HttpPlugin] {method} {url} (status={status})"
 
     def format_mock_hint(self, interaction: Interaction) -> str:
         method = interaction.details.get("method", "GET")
         url = interaction.details.get("url", "https://example.com/path")
+        if "raised" in interaction.details:
+            raised = interaction.details["raised"]
+            return f'http.mock_error("{method}", "{url}", raises={raised!r})'
         return f'http.mock_response("{method}", "{url}", json={{...}})'
 
     def format_unmocked_hint(
@@ -1215,6 +1374,8 @@ class HttpPlugin(BasePlugin):
             f"Unexpected HTTP request: {method} {url}\n\n"
             f"  To mock this request, add before your sandbox:\n"
             f'    http.mock_response("{method}", "{url}", json={{...}})\n\n'
+            f"  Or to mock an error:\n"
+            f'    http.mock_error("{method}", "{url}", raises=ConnectionError(...))\n\n'
             f"  Or to mark it optional:\n"
             f'    http.mock_response("{method}", "{url}", json={{...}}, required=False)'
         )
@@ -1224,6 +1385,19 @@ class HttpPlugin(BasePlugin):
         url = interaction.details.get("url", "?")
         request_headers = interaction.details.get("request_headers", {})
         request_body = interaction.details.get("request_body", "")
+
+        if "raised" in interaction.details:
+            raised = interaction.details["raised"]
+            return (
+                f"http.assert_request(\n"
+                f'    "{method}",\n'
+                f'    "{url}",\n'
+                f"    headers={request_headers!r},\n"
+                f"    body={request_body!r},\n"
+                f"    raised={raised!r},\n"
+                f")"
+            )
+
         if self._require_response:
             status = interaction.details.get("status", 200)
             response_headers = interaction.details.get("response_headers", {})
@@ -1253,10 +1427,12 @@ class HttpPlugin(BasePlugin):
     def assertable_fields(self, interaction: Interaction) -> frozenset[str]:
         """Return the field names required in **expected when asserting an HTTP interaction.
 
-        When ``_asserting_request_only`` is True (set by the terminal path of
-        ``assert_request()``), only the four request fields are required.
-        Otherwise all seven fields are required.
+        Error interactions (raised in details): request fields + raised.
+        Request-only mode: four request fields.
+        Full mode: all seven fields.
         """
+        if "raised" in interaction.details:
+            return frozenset({"method", "url", "request_headers", "request_body", "raised"})
         if self._asserting_request_only:
             return frozenset({"method", "url", "request_headers", "request_body"})
         return frozenset(
@@ -1266,10 +1442,23 @@ class HttpPlugin(BasePlugin):
             }
         )
 
-    def get_unused_mocks(self) -> list[HttpMockConfig]:
+    def get_unused_mocks(self) -> list[HttpMockEntry]:
         return [c for c in self._mock_queue if c.required]
 
     def format_unused_mock_hint(self, mock_config: object) -> str:
+        if isinstance(mock_config, HttpErrorConfig):
+            config = mock_config
+            raised = config.raises
+            return (
+                f"http:{config.method} {config.url} error mock was registered but never called.\n"
+                f"    Configured to raise: {raised!r}\n"
+                f"    Mock registered at:\n"
+                f"{config.registration_traceback}\n"
+                f"    Options:\n"
+                f"      - Remove this mock if it's not needed\n"
+                f'      - Mark it optional: http.mock_error("{config.method}", '
+                f'"{config.url}", raises=..., required=False)'
+            )
         assert isinstance(mock_config, HttpMockConfig)
         return (
             f"http:{mock_config.method} {mock_config.url} was registered but never called.\n"

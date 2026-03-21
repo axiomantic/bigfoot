@@ -45,51 +45,8 @@ def _reset_plugin_count() -> None:
     """Force-reset the class-level install count to 0 and restore patches if leaked."""
     with FileIoPlugin._install_lock:
         FileIoPlugin._install_count = 0
-        if FileIoPlugin._original_open is not None:
-            builtins.open = FileIoPlugin._original_open
-            FileIoPlugin._original_open = None
-        if FileIoPlugin._original_read_text is not None:
-            pathlib.Path.read_text = FileIoPlugin._original_read_text
-            FileIoPlugin._original_read_text = None
-        if FileIoPlugin._original_read_bytes is not None:
-            pathlib.Path.read_bytes = FileIoPlugin._original_read_bytes
-            FileIoPlugin._original_read_bytes = None
-        if FileIoPlugin._original_write_text is not None:
-            pathlib.Path.write_text = FileIoPlugin._original_write_text
-            FileIoPlugin._original_write_text = None
-        if FileIoPlugin._original_write_bytes is not None:
-            pathlib.Path.write_bytes = FileIoPlugin._original_write_bytes
-            FileIoPlugin._original_write_bytes = None
-        if FileIoPlugin._original_remove is not None:
-            os.remove = FileIoPlugin._original_remove
-            FileIoPlugin._original_remove = None
-        if FileIoPlugin._original_unlink is not None:
-            os.unlink = FileIoPlugin._original_unlink
-            FileIoPlugin._original_unlink = None
-        if FileIoPlugin._original_rename is not None:
-            os.rename = FileIoPlugin._original_rename
-            FileIoPlugin._original_rename = None
-        if FileIoPlugin._original_replace is not None:
-            os.replace = FileIoPlugin._original_replace
-            FileIoPlugin._original_replace = None
-        if FileIoPlugin._original_makedirs is not None:
-            os.makedirs = FileIoPlugin._original_makedirs
-            FileIoPlugin._original_makedirs = None
-        if FileIoPlugin._original_mkdir is not None:
-            os.mkdir = FileIoPlugin._original_mkdir
-            FileIoPlugin._original_mkdir = None
-        if FileIoPlugin._original_copy is not None:
-            shutil.copy = FileIoPlugin._original_copy
-            FileIoPlugin._original_copy = None
-        if FileIoPlugin._original_copy2 is not None:
-            shutil.copy2 = FileIoPlugin._original_copy2
-            FileIoPlugin._original_copy2 = None
-        if FileIoPlugin._original_copytree is not None:
-            shutil.copytree = FileIoPlugin._original_copytree
-            FileIoPlugin._original_copytree = None
-        if FileIoPlugin._original_rmtree is not None:
-            shutil.rmtree = FileIoPlugin._original_rmtree
-            FileIoPlugin._original_rmtree = None
+        # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
+        FileIoPlugin.__new__(FileIoPlugin)._restore_patches()
 
 
 @pytest.fixture(autouse=True)

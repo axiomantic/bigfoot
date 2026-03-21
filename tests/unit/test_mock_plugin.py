@@ -6,9 +6,40 @@ import pytest
 
 from bigfoot._context import _active_verifier
 from bigfoot._errors import SandboxNotActiveError, UnmockedInteractionError
-from bigfoot._mock_plugin import MethodProxy, MockConfig, MockPlugin, MockProxy
+from bigfoot._mock_plugin import (
+    _ABSENT,
+    MethodProxy,
+    MockConfig,
+    MockPlugin,
+    MockProxy,
+)
 from bigfoot._timeline import Interaction
 from bigfoot._verifier import StrictVerifier
+
+# ---------------------------------------------------------------------------
+# _ABSENT sentinel
+# ---------------------------------------------------------------------------
+
+
+def test_absent_sentinel_is_unique_object() -> None:
+    """_ABSENT is a unique object sentinel distinct from None, True, False, and _SENTINEL."""
+    # ESCAPE: test_absent_sentinel_is_unique_object
+    #   CLAIM: _ABSENT is a module-level sentinel that is distinct from common values.
+    #   PATH: Module-level `_ABSENT = object()` creates a unique identity.
+    #   CHECK: `_ABSENT is not None`, `_ABSENT is not True`, `_ABSENT is not False`,
+    #          `isinstance(_ABSENT, object)`, and identity comparison with _SENTINEL.
+    #   MUTATION: Setting `_ABSENT = None` would fail `_ABSENT is not None`.
+    #            Setting `_ABSENT = _SENTINEL` would fail the identity check vs _SENTINEL.
+    #   ESCAPE: Nothing reasonable -- exact identity checks against all common confusions.
+    #   IMPACT: assert_call() could not distinguish "parameter not passed" from None.
+    from bigfoot._mock_plugin import _SENTINEL
+
+    assert _ABSENT is not None
+    assert _ABSENT is not True
+    assert _ABSENT is not False
+    assert isinstance(_ABSENT, object)
+    assert _ABSENT is not _SENTINEL
+
 
 # ---------------------------------------------------------------------------
 # MockPlugin registration
@@ -1476,3 +1507,414 @@ def test_mock_plugin_format_assert_hint_includes_args_and_kwargs() -> None:
         "    kwargs={'level': 'info'},\n"
         ")"
     )
+
+
+# ---------------------------------------------------------------------------
+# MethodProxy __call__ -- raised stored in details
+# ---------------------------------------------------------------------------
+
+
+def test_method_proxy_raises_stores_raised_in_details() -> None:
+    """When .raises() is configured, the exception instance is stored in details['raised']."""
+    v = StrictVerifier()
+    p = MockPlugin(v)
+    proxy = p.get_or_create_proxy("Service")
+    exc = ValueError("payment failed")
+    proxy.charge.raises(exc)
+
+    token = _active_verifier.set(v)
+    try:
+        with pytest.raises(ValueError):
+            proxy.charge("arg1")
+    finally:
+        _active_verifier.reset(token)
+
+    interactions = v._timeline.all_unasserted()
+    assert len(interactions) == 1
+    assert interactions[0].details["raised"] is exc
+
+
+def test_method_proxy_returns_does_not_store_raised_in_details() -> None:
+    """When .returns() is configured, no 'raised' key appears in details."""
+    v = StrictVerifier()
+    p = MockPlugin(v)
+    proxy = p.get_or_create_proxy("Service")
+    proxy.charge.returns("ok")
+
+    token = _active_verifier.set(v)
+    try:
+        proxy.charge()
+    finally:
+        _active_verifier.reset(token)
+
+    interactions = v._timeline.all_unasserted()
+    assert len(interactions) == 1
+    assert "raised" not in interactions[0].details
+
+
+# ---------------------------------------------------------------------------
+# Spy observability: returned and raised in details
+# ---------------------------------------------------------------------------
+
+
+def test_wraps_delegation_stores_returned_in_details() -> None:
+    """When wraps delegates to real and it returns, details['returned'] is set."""
+
+    class _Real:
+        def compute(self, x: int) -> int:
+            return x * 2
+
+    v = StrictVerifier()
+    p = MockPlugin(v)
+    real = _Real()
+    proxy = p.get_or_create_proxy("Svc", wraps=real)
+
+    with v.sandbox():
+        result = proxy.compute(5)
+
+    assert result == 10
+    unasserted = v._timeline.all_unasserted()
+    assert len(unasserted) == 1
+    assert unasserted[0].details["returned"] == 10
+
+
+def test_wraps_delegation_stores_raised_in_details() -> None:
+    """When wraps delegates to real and it raises, details['raised'] is set."""
+
+    class _Real:
+        def fail(self) -> None:
+            raise ValueError("real error")
+
+    v = StrictVerifier()
+    p = MockPlugin(v)
+    real = _Real()
+    proxy = p.get_or_create_proxy("Svc", wraps=real)
+
+    with v.sandbox():
+        with pytest.raises(ValueError, match="real error"):
+            proxy.fail()
+
+    unasserted = v._timeline.all_unasserted()
+    assert len(unasserted) == 1
+    assert isinstance(unasserted[0].details["raised"], ValueError)
+    assert str(unasserted[0].details["raised"]) == "real error"
+
+
+def test_wraps_delegation_returned_none_is_distinct_from_no_return() -> None:
+    """When wraps real method returns None explicitly, details['returned'] is None."""
+
+    class _Real:
+        def do_nothing(self) -> None:
+            return None
+
+    v = StrictVerifier()
+    p = MockPlugin(v)
+    real = _Real()
+    proxy = p.get_or_create_proxy("Svc", wraps=real)
+
+    with v.sandbox():
+        result = proxy.do_nothing()
+
+    assert result is None
+    unasserted = v._timeline.all_unasserted()
+    assert len(unasserted) == 1
+    assert "returned" in unasserted[0].details
+    assert unasserted[0].details["returned"] is None
+
+
+def test_wraps_delegation_returned_and_raised_mutually_exclusive() -> None:
+    """A wraps interaction never has both 'returned' and 'raised' in details."""
+
+    class _Real:
+        def compute(self, x: int) -> int:
+            return x * 2
+
+        def fail(self) -> None:
+            raise ValueError("boom")
+
+    v = StrictVerifier()
+    p = MockPlugin(v)
+    real = _Real()
+    proxy = p.get_or_create_proxy("Svc", wraps=real)
+
+    with v.sandbox():
+        proxy.compute(3)
+        with pytest.raises(ValueError):
+            proxy.fail()
+
+    unasserted = v._timeline.all_unasserted()
+    assert len(unasserted) == 2
+    # First: returned, no raised
+    assert "returned" in unasserted[0].details
+    assert "raised" not in unasserted[0].details
+    # Second: raised, no returned
+    assert "raised" in unasserted[1].details
+    assert "returned" not in unasserted[1].details
+
+
+# ---------------------------------------------------------------------------
+# assertable_fields adapts to raised/returned
+# ---------------------------------------------------------------------------
+
+
+def test_mock_plugin_assertable_fields_includes_raised_when_present() -> None:
+    """assertable_fields includes 'raised' when interaction.details has 'raised'."""
+    v = StrictVerifier()
+    p = MockPlugin(v)
+
+    interaction = Interaction(
+        source_id="mock:Svc.method",
+        sequence=0,
+        details={
+            "mock_name": "Svc",
+            "method_name": "method",
+            "args": (),
+            "kwargs": {},
+            "raised": ValueError("err"),
+        },
+        plugin=p,
+    )
+    result = p.assertable_fields(interaction)
+    assert result == frozenset({"args", "kwargs", "raised"})
+
+
+def test_mock_plugin_assertable_fields_includes_returned_when_present() -> None:
+    """assertable_fields includes 'returned' when interaction.details has 'returned'."""
+    v = StrictVerifier()
+    p = MockPlugin(v)
+
+    interaction = Interaction(
+        source_id="mock:Svc.method",
+        sequence=0,
+        details={
+            "mock_name": "Svc",
+            "method_name": "method",
+            "args": (),
+            "kwargs": {},
+            "returned": 42,
+        },
+        plugin=p,
+    )
+    result = p.assertable_fields(interaction)
+    assert result == frozenset({"args", "kwargs", "returned"})
+
+
+def test_mock_plugin_assertable_fields_plain_call_unchanged() -> None:
+    """assertable_fields for a plain mock call (no raised/returned) is still {args, kwargs}."""
+    v = StrictVerifier()
+    p = MockPlugin(v)
+
+    interaction = Interaction(
+        source_id="mock:Svc.method",
+        sequence=0,
+        details={
+            "mock_name": "Svc",
+            "method_name": "method",
+            "args": (),
+            "kwargs": {},
+        },
+        plugin=p,
+    )
+    result = p.assertable_fields(interaction)
+    assert result == frozenset({"args", "kwargs"})
+
+
+# ---------------------------------------------------------------------------
+# assert_call with raised and returned
+# ---------------------------------------------------------------------------
+
+
+def test_assert_call_with_raised_parameter() -> None:
+    """assert_call(raised=...) passes raised to assert_interaction."""
+    from bigfoot._context import _current_test_verifier
+
+    v = StrictVerifier()
+    p = MockPlugin(v)
+    proxy = p.get_or_create_proxy("Svc")
+    exc = ValueError("boom")
+    proxy.do_thing.raises(exc)
+
+    token = _current_test_verifier.set(v)
+    try:
+        with v.sandbox():
+            with pytest.raises(ValueError):
+                proxy.do_thing("arg1")
+
+        proxy.do_thing.assert_call(
+            args=("arg1",),
+            kwargs={},
+            raised=exc,
+        )
+    finally:
+        _current_test_verifier.reset(token)
+
+
+def test_assert_call_with_returned_parameter() -> None:
+    """assert_call(returned=...) passes returned to assert_interaction for spy mode."""
+    from bigfoot._context import _current_test_verifier
+
+    class _Real:
+        def compute(self, x: int) -> int:
+            return x * 2
+
+    v = StrictVerifier()
+    p = MockPlugin(v)
+    real = _Real()
+    proxy = p.get_or_create_proxy("Svc", wraps=real)
+
+    token = _current_test_verifier.set(v)
+    try:
+        with v.sandbox():
+            result = proxy.compute(5)
+
+        assert result == 10
+        proxy.compute.assert_call(
+            args=(5,),
+            kwargs={},
+            returned=10,
+        )
+    finally:
+        _current_test_verifier.reset(token)
+
+
+def test_assert_call_missing_raised_raises_missing_fields_error() -> None:
+    """Omitting raised= when details has 'raised' triggers MissingAssertionFieldsError.
+
+    NOTE: This test passes even before Task 5's assert_call implementation because
+    the enforcement comes from assertable_fields (Task 4), not from assert_call itself.
+    assertable_fields requires 'raised' when it is present in interaction.details, and
+    the existing assert_call (without the raised= parameter) cannot pass it, so
+    assert_interaction raises MissingAssertionFieldsError. This is by design: the
+    certainty contract enforcement is in assertable_fields, and assert_call is just a
+    convenience wrapper that constructs the expected dict.
+    """
+    from bigfoot._context import _current_test_verifier
+    from bigfoot._errors import MissingAssertionFieldsError
+
+    v = StrictVerifier()
+    p = MockPlugin(v)
+    proxy = p.get_or_create_proxy("Svc")
+    proxy.do_thing.raises(ValueError("boom"))
+
+    token = _current_test_verifier.set(v)
+    try:
+        with v.sandbox():
+            with pytest.raises(ValueError):
+                proxy.do_thing()
+
+        with pytest.raises(MissingAssertionFieldsError) as exc_info:
+            proxy.do_thing.assert_call(
+                args=(),
+                kwargs={},
+                # raised= intentionally omitted
+            )
+        assert "raised" in exc_info.value.missing_fields
+    finally:
+        _current_test_verifier.reset(token)
+
+
+# ---------------------------------------------------------------------------
+# format_assert_hint with raised/returned
+# ---------------------------------------------------------------------------
+
+
+def test_format_assert_hint_includes_raised_when_present() -> None:
+    """format_assert_hint includes raised= line when details has 'raised'."""
+    v = StrictVerifier()
+    p = MockPlugin(v)
+
+    exc = ValueError("boom")
+    interaction = Interaction(
+        source_id="mock:Svc.method",
+        sequence=0,
+        details={
+            "mock_name": "Svc",
+            "method_name": "method",
+            "args": ("a",),
+            "kwargs": {},
+            "raised": exc,
+        },
+        plugin=p,
+    )
+    result = p.format_assert_hint(interaction)
+    assert result == (
+        'verifier.mock("Svc").method.assert_call(\n'
+        "    args=('a',),\n"
+        "    kwargs={},\n"
+        f"    raised={exc!r},\n"
+        ")"
+    )
+
+
+def test_format_assert_hint_includes_returned_when_present() -> None:
+    """format_assert_hint includes returned= line when details has 'returned'."""
+    v = StrictVerifier()
+    p = MockPlugin(v)
+
+    interaction = Interaction(
+        source_id="mock:Svc.method",
+        sequence=0,
+        details={
+            "mock_name": "Svc",
+            "method_name": "method",
+            "args": (),
+            "kwargs": {},
+            "returned": {"data": "value"},
+        },
+        plugin=p,
+    )
+    result = p.format_assert_hint(interaction)
+    assert result == (
+        'verifier.mock("Svc").method.assert_call(\n'
+        "    args=(),\n"
+        "    kwargs={},\n"
+        "    returned={'data': 'value'},\n"
+        ")"
+    )
+
+
+def test_format_assert_hint_plain_call_unchanged() -> None:
+    """format_assert_hint for a plain call (no raised/returned) is unchanged."""
+    v = StrictVerifier()
+    p = MockPlugin(v)
+
+    interaction = Interaction(
+        source_id="mock:Svc.method",
+        sequence=0,
+        details={
+            "mock_name": "Svc",
+            "method_name": "method",
+            "args": (),
+            "kwargs": {},
+        },
+        plugin=p,
+    )
+    result = p.format_assert_hint(interaction)
+    assert result == (
+        'verifier.mock("Svc").method.assert_call(\n'
+        "    args=(),\n"
+        "    kwargs={},\n"
+        ")"
+    )
+
+
+def test_format_mock_hint_includes_raises_when_raised_in_details() -> None:
+    """format_mock_hint suggests .raises() when interaction has 'raised'."""
+    v = StrictVerifier()
+    p = MockPlugin(v)
+
+    exc = ValueError("boom")
+    interaction = Interaction(
+        source_id="mock:Svc.method",
+        sequence=0,
+        details={
+            "mock_name": "Svc",
+            "method_name": "method",
+            "args": (),
+            "kwargs": {},
+            "raised": exc,
+        },
+        plugin=p,
+    )
+    result = p.format_mock_hint(interaction)
+    assert result == f'verifier.mock("Svc").method.raises({exc!r})'

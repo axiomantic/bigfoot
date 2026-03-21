@@ -40,9 +40,8 @@ def _reset_install_count() -> None:
     """Force-reset the class-level install count to 0 and restore SMTP if leaked."""
     with SmtpPlugin._install_lock:
         SmtpPlugin._install_count = 0
-        if SmtpPlugin._original_smtp is not None:
-            smtplib.SMTP = SmtpPlugin._original_smtp  # type: ignore[misc]
-            SmtpPlugin._original_smtp = None
+        # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
+        SmtpPlugin.__new__(SmtpPlugin)._restore_patches()
 
 
 @pytest.fixture(autouse=True)

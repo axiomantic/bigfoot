@@ -1,6 +1,5 @@
 """AsyncpgPlugin: intercepts asyncpg.connect() and returns _FakeAsyncpgConnection."""
 
-import threading
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
@@ -149,10 +148,6 @@ class AsyncpgPlugin(StateMachinePlugin):
     States: disconnected -> connected -> closed
     """
 
-    # Class-level reference counting -- shared across all instances/verifiers.
-    _install_count: ClassVar[int] = 0
-    _install_lock: ClassVar[threading.Lock] = threading.Lock()
-
     # Saved original, restored when count reaches 0.
     _original_connect: ClassVar[Any] = None  # noqa: ANN401
 
@@ -212,19 +207,6 @@ class AsyncpgPlugin(StateMachinePlugin):
     # ------------------------------------------------------------------
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
-
-    def activate(self) -> None:
-        """Reference-counted module-level patch installation."""
-        with AsyncpgPlugin._install_lock:
-            if AsyncpgPlugin._install_count == 0:
-                self._install_patches()
-            AsyncpgPlugin._install_count += 1
-
-    def deactivate(self) -> None:
-        with AsyncpgPlugin._install_lock:
-            AsyncpgPlugin._install_count = max(0, AsyncpgPlugin._install_count - 1)
-            if AsyncpgPlugin._install_count == 0:
-                self._restore_patches()
 
     # ------------------------------------------------------------------
     # Patch installation / restoration

@@ -156,7 +156,7 @@ bigfoot.log_mock.assert_info("User logged in", "myapp")
 
 **Mock (general)**
 ```python
-svc = bigfoot.mock("PaymentService")
+svc = bigfoot.mock("myapp.payments:PaymentService")
 svc.charge.returns({"status": "ok"})
 ```
 
@@ -172,10 +172,53 @@ with bigfoot.in_any_order():
     bigfoot.http.assert_request(method="GET", url=".../b", headers=IsInstance(dict), body=None)
 ```
 
-**Spy / pass-through** -- delegate to the real object, still record and require assertion:
+**Mock / spy** -- composable mocks with import-site patching:
 
 ```python
-bigfoot.spy("Name", real_obj)
+# Mock a module-level attribute
+cache_mock = bigfoot.mock("myapp.services:cache")
+cache_mock.get.returns("cached_value")
+
+# Mock an attribute on a specific object
+mock = bigfoot.mock.object(my_module, "service")
+
+# Spy on real implementation
+spy = bigfoot.spy("myapp.services:cache")
+```
+
+**Context managers** -- sandbox activates all mocks and enforces assertions:
+
+```python
+# Sandbox activates all mocks, enforces assertions
+with bigfoot.sandbox():
+    result = code_under_test()
+
+# Individual activation (no assertion enforcement)
+with cache_mock:
+    setup_code()
+```
+
+**Error mocking** -- mock exceptions and assert error interactions:
+
+```python
+# Mock errors
+bigfoot.http.mock_error("GET", url, raises=httpx.ConnectError("refused"))
+
+# Assert errors
+bigfoot.http.assert_request("GET", url, headers=..., body="",
+                            raised=IsInstance(httpx.ConnectError))
+```
+
+**Spy observability** -- assert return values and raised exceptions:
+
+```python
+spy.assert_call(args=("key",), kwargs={}, returned="value")
+spy.assert_call(args=("bad",), kwargs={}, raised=IsInstance(KeyError))
+```
+
+**Pass-through** -- delegate to the real service, still record and require assertion:
+
+```python
 bigfoot.http.pass_through("GET", url)
 ```
 

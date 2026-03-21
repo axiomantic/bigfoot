@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     import contextvars
 
     from bigfoot._base_plugin import BasePlugin
-    from bigfoot._mock_plugin import MockProxy
+    from bigfoot._mock_plugin import ImportSiteMock, MockPlugin
 
 
 class _HasSourceId(Protocol):
@@ -104,33 +104,31 @@ class StrictVerifier:
                 return
         self._plugins.append(plugin)
 
-    def mock(self, name: str, wraps: object = None) -> "MockProxy":
-        """Create or retrieve a named MockProxy. Lazily creates MockPlugin.
+    def mock(self, path: str) -> "ImportSiteMock":
+        """Create an import-site mock. Path format: 'module:attr'.
 
-        If wraps is provided, method calls on the proxy with an empty queue
-        are delegated to the wrapped object instead of raising
-        UnmockedInteractionError. The interaction is still recorded.
+        Lazily creates MockPlugin if not already registered.
         """
-        from bigfoot._mock_plugin import MockPlugin
 
-        # Find existing MockPlugin or create one
-        mock_plugin: MockPlugin | None = None
+        mock_plugin = self._get_or_create_mock_plugin()
+        return mock_plugin.create_import_site_mock(path, spy=False)
+
+    def spy(self, path: str) -> "ImportSiteMock":
+        """Create an import-site spy. Path format: 'module:attr'.
+
+        Lazily creates MockPlugin if not already registered.
+        """
+        mock_plugin = self._get_or_create_mock_plugin()
+        return mock_plugin.create_import_site_mock(path, spy=True)
+
+    def _get_or_create_mock_plugin(self) -> "MockPlugin":
+        """Return the existing MockPlugin or create one."""
+        from bigfoot._mock_plugin import MockPlugin  # noqa: PLC0415
+
         for plugin in self._plugins:
             if isinstance(plugin, MockPlugin):
-                mock_plugin = plugin
-                break
-        if mock_plugin is None:
-            mock_plugin = MockPlugin(self)
-
-        return mock_plugin.get_or_create_proxy(name, wraps=wraps)
-
-    def spy(self, name: str, real: object) -> "MockProxy":
-        """Syntactic sugar for mock(name, wraps=real).
-
-        Creates a MockProxy that always delegates to real, recording every
-        call on the timeline without requiring mock configurations.
-        """
-        return self.mock(name, wraps=real)
+                return plugin
+        return MockPlugin(self)
 
     def _assert_no_active_sandbox(self) -> None:
         """Raise AssertionInsideSandboxError if this verifier's sandbox is currently active."""
@@ -227,9 +225,14 @@ class StrictVerifier:
         return InAnyOrderContext()
 
     def verify_all(self) -> None:
-        """Run Enforcement 2 and 3. Called at teardown."""
+        """Run Enforcement 2 and 3. Called at teardown.
+
+        Only interactions with enforce=True are checked. Interactions recorded
+        during individual mock activation (enforce=False) are not required to
+        be asserted.
+        """
         self._assert_no_active_sandbox()
-        unasserted = self._timeline.all_unasserted()
+        unasserted = [i for i in self._timeline.all_unasserted() if i.enforce]
         unused: list[tuple[BasePlugin, Any]] = []
 
         for plugin in self._plugins:
@@ -316,11 +319,12 @@ class StrictVerifier:
 
 
 class SandboxContext:
-    """Activates all plugins. Supports both sync (with) and async (async with)."""
+    """Activates all plugins and mocks. Supports both sync (with) and async (async with)."""
 
     def __init__(self, verifier: StrictVerifier) -> None:
         self._verifier = verifier
         self._token: contextvars.Token[Any] | None = None
+        self._activated_mocks: list[Any] = []  # list[_BaseMock]
 
     def _enter(self) -> StrictVerifier:
         self._token = _active_verifier.set(self._verifier)
@@ -335,7 +339,31 @@ class SandboxContext:
                 errors.append(e)
                 break
 
+        # Activate all registered mocks with enforce=True
+        if not errors:
+            from bigfoot._mock_plugin import MockPlugin as _MP  # noqa: PLC0415, N814
+
+            mock_plugin = next(
+                (p for p in self._verifier._plugins if isinstance(p, _MP)), None
+            )
+            if mock_plugin is not None:
+                for mock_obj in mock_plugin._mocks:
+                    try:
+                        mock_obj._activate(enforce=True)
+                        self._activated_mocks.append(mock_obj)
+                    except Exception as e:
+                        errors.append(e)
+                        break
+
         if errors:
+            # Deactivate mocks in reverse order first
+            for mock_obj in reversed(self._activated_mocks):
+                try:
+                    mock_obj._deactivate()
+                except Exception as cleanup_e:
+                    errors.append(cleanup_e)
+            self._activated_mocks.clear()
+            # Then deactivate plugins
             for plugin in reversed(activated_so_far):
                 try:
                     plugin.deactivate()
@@ -349,6 +377,16 @@ class SandboxContext:
 
     def _exit(self) -> None:
         errors: list[BaseException] = []
+
+        # Deactivate mocks in reverse order FIRST (before plugins)
+        for mock_obj in reversed(self._activated_mocks):
+            try:
+                mock_obj._deactivate()
+            except Exception as e:
+                errors.append(e)
+        self._activated_mocks.clear()
+
+        # Then deactivate plugins (existing behavior)
         for plugin in reversed(self._verifier._plugins):
             try:
                 plugin.deactivate()

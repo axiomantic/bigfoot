@@ -1,7 +1,6 @@
 """SmtpPlugin: intercepts smtplib.SMTP via class replacement."""
 
 import smtplib
-import threading
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
@@ -152,10 +151,6 @@ class SmtpPlugin(StateMachinePlugin):
     login transitions greeted -> authenticated.
     """
 
-    # Class-level reference counting -- shared across all instances/verifiers.
-    _install_count: ClassVar[int] = 0
-    _install_lock: ClassVar[threading.Lock] = threading.Lock()
-
     # Saved original, restored when count reaches 0.
     _original_smtp: ClassVar[Any] = None
 
@@ -240,21 +235,16 @@ class SmtpPlugin(StateMachinePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def activate(self) -> None:
-        """Reference-counted class-level patch installation."""
-        with SmtpPlugin._install_lock:
-            if SmtpPlugin._install_count == 0:
-                SmtpPlugin._original_smtp = smtplib.SMTP
-                smtplib.SMTP = _FakeSMTP  # type: ignore[assignment, misc]
-            SmtpPlugin._install_count += 1
+    def _install_patches(self) -> None:
+        """Install smtplib.SMTP patch."""
+        SmtpPlugin._original_smtp = smtplib.SMTP
+        smtplib.SMTP = _FakeSMTP  # type: ignore[assignment, misc]
 
-    def deactivate(self) -> None:
-        with SmtpPlugin._install_lock:
-            SmtpPlugin._install_count = max(0, SmtpPlugin._install_count - 1)
-            if SmtpPlugin._install_count == 0:
-                if SmtpPlugin._original_smtp is not None:
-                    smtplib.SMTP = SmtpPlugin._original_smtp  # type: ignore[misc]
-                    SmtpPlugin._original_smtp = None
+    def _restore_patches(self) -> None:
+        """Restore original smtplib.SMTP."""
+        if SmtpPlugin._original_smtp is not None:
+            smtplib.SMTP = SmtpPlugin._original_smtp  # type: ignore[misc]
+            SmtpPlugin._original_smtp = None
 
     # ------------------------------------------------------------------
     # BasePlugin abstract method implementations

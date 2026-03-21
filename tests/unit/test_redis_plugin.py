@@ -37,13 +37,10 @@ def _make_verifier_with_plugin() -> tuple[StrictVerifier, RedisPlugin]:
 
 def _reset_plugin_count() -> None:
     """Force-reset the class-level install count to 0 and restore patches if leaked."""
-    import redis as redis_lib
-
     with RedisPlugin._install_lock:
         RedisPlugin._install_count = 0
-        if RedisPlugin._original_execute_command is not None:
-            redis_lib.Redis.execute_command = RedisPlugin._original_execute_command
-            RedisPlugin._original_execute_command = None
+        # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
+        RedisPlugin.__new__(RedisPlugin)._restore_patches()
 
 
 @pytest.fixture(autouse=True)

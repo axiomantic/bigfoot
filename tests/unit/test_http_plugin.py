@@ -48,25 +48,8 @@ def _reset_install_count() -> None:
     """Force-reset the class-level install count to 0 after a test leak."""
     with HttpPlugin._install_lock:
         HttpPlugin._install_count = 0
-        if HttpPlugin._original_httpx_transport_handle is not None:
-            httpx.HTTPTransport.handle_request = HttpPlugin._original_httpx_transport_handle
-            HttpPlugin._original_httpx_transport_handle = None
-        if HttpPlugin._original_httpx_async_transport_handle is not None:
-            httpx.AsyncHTTPTransport.handle_async_request = (
-                HttpPlugin._original_httpx_async_transport_handle
-            )
-            HttpPlugin._original_httpx_async_transport_handle = None
-        if HttpPlugin._original_requests_adapter_send is not None:
-            requests.adapters.HTTPAdapter.send = HttpPlugin._original_requests_adapter_send
-            HttpPlugin._original_requests_adapter_send = None
-        if HttpPlugin._original_aiohttp_request is not None:
-            from bigfoot.plugins.http import _AIOHTTP_AVAILABLE
-
-            if _AIOHTTP_AVAILABLE:
-                import aiohttp as _aiohttp
-
-                _aiohttp.ClientSession._request = HttpPlugin._original_aiohttp_request
-            HttpPlugin._original_aiohttp_request = None
+        # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
+        HttpPlugin.__new__(HttpPlugin)._restore_patches()
 
 
 @pytest.fixture(autouse=True)
@@ -1912,3 +1895,505 @@ async def test_aiohttp_response_as_context_manager() -> None:
         response_headers={"content-type": "application/json"},
         response_body='{"ctx": true}',
     )
+
+
+# ---------------------------------------------------------------------------
+# HttpErrorConfig tests
+# ---------------------------------------------------------------------------
+
+
+def test_http_error_config_exists_and_has_expected_fields() -> None:
+    """HttpErrorConfig dataclass has method, url, params, raises, required fields."""
+    from bigfoot.plugins.http import HttpErrorConfig
+
+    exc = ConnectionError("refused")
+    config = HttpErrorConfig(
+        method="GET",
+        url="https://api.example.com/data",
+        params=None,
+        raises=exc,
+        required=True,
+    )
+    assert config.method == "GET"
+    assert config.url == "https://api.example.com/data"
+    assert config.params is None
+    assert config.raises is exc
+    assert config.required is True
+    assert isinstance(config.registration_traceback, str)
+    assert len(config.registration_traceback) > 0
+
+
+def test_find_matching_config_returns_http_error_config() -> None:
+    """_find_matching_config returns HttpErrorConfig when an error mock matches."""
+    from bigfoot.plugins.http import HttpErrorConfig
+
+    v, p = _make_verifier_with_plugin()
+    exc = ConnectionError("refused")
+    error_config = HttpErrorConfig(
+        method="GET",
+        url="https://api.example.com/data",
+        params=None,
+        raises=exc,
+    )
+    p._mock_queue.append(error_config)
+
+    result = p._find_matching_config("GET", "https://api.example.com/data")
+    assert isinstance(result, HttpErrorConfig)
+    assert result.raises is exc
+
+
+# ---------------------------------------------------------------------------
+# mock_error tests
+# ---------------------------------------------------------------------------
+
+
+def test_mock_error_appends_to_unified_queue() -> None:
+    """mock_error() appends an HttpErrorConfig to the unified _mock_queue."""
+    from bigfoot.plugins.http import HttpErrorConfig
+
+    v, p = _make_verifier_with_plugin()
+    exc = ConnectionError("refused")
+    p.mock_error("GET", "https://api.example.com/data", raises=exc)
+
+    assert len(p._mock_queue) == 1
+    assert isinstance(p._mock_queue[0], HttpErrorConfig)
+    assert p._mock_queue[0].raises is exc
+    assert p._mock_queue[0].method == "GET"
+    assert p._mock_queue[0].url == "https://api.example.com/data"
+
+
+def test_mock_error_uppercases_method() -> None:
+    """mock_error() uppercases the HTTP method."""
+
+    v, p = _make_verifier_with_plugin()
+    p.mock_error("get", "https://api.example.com/data", raises=ConnectionError("x"))
+
+    assert p._mock_queue[0].method == "GET"
+
+
+def test_mock_error_default_required_true() -> None:
+    """mock_error() defaults required to True."""
+    v, p = _make_verifier_with_plugin()
+    p.mock_error("GET", "https://api.example.com/data", raises=ConnectionError("x"))
+
+    assert p._mock_queue[0].required is True
+
+
+def test_mock_error_required_false() -> None:
+    """mock_error() accepts required=False."""
+    v, p = _make_verifier_with_plugin()
+    p.mock_error(
+        "GET", "https://api.example.com/data",
+        raises=ConnectionError("x"),
+        required=False,
+    )
+
+    assert p._mock_queue[0].required is False
+
+
+def test_mock_error_with_params() -> None:
+    """mock_error() accepts params for URL matching."""
+    v, p = _make_verifier_with_plugin()
+    p.mock_error(
+        "GET", "https://api.example.com/search",
+        raises=ConnectionError("x"),
+        params={"q": "test"},
+    )
+
+    assert p._mock_queue[0].params == {"q": "test"}
+
+
+# ---------------------------------------------------------------------------
+# Handler error dispatch tests
+# ---------------------------------------------------------------------------
+
+
+def test_httpx_sync_handler_raises_error_config() -> None:
+    """httpx sync handler raises the configured exception for HttpErrorConfig."""
+    v, p = _make_verifier_with_plugin()
+    exc = httpx.ConnectError("Connection refused")
+    p.mock_error("GET", "https://api.example.com/data", raises=exc)
+
+    with v.sandbox():
+        with pytest.raises(httpx.ConnectError, match="Connection refused"):
+            httpx.get("https://api.example.com/data")
+
+    # Interaction should be recorded with request fields + raised
+    interactions = v._timeline.all_unasserted()
+    assert len(interactions) == 1
+    assert interactions[0].details["method"] == "GET"
+    assert interactions[0].details["url"] == "https://api.example.com/data"
+    assert interactions[0].details["raised"] is exc
+    assert "status" not in interactions[0].details
+    assert "response_headers" not in interactions[0].details
+    assert "response_body" not in interactions[0].details
+
+
+def test_requests_handler_raises_error_config() -> None:
+    """requests handler raises the configured exception for HttpErrorConfig."""
+    v, p = _make_verifier_with_plugin()
+    exc = requests.ConnectionError("DNS resolution failed")
+    p.mock_error("GET", "https://api.example.com/data", raises=exc)
+
+    with v.sandbox():
+        with pytest.raises(requests.ConnectionError, match="DNS resolution failed"):
+            requests.get("https://api.example.com/data")
+
+    interactions = v._timeline.all_unasserted()
+    assert len(interactions) == 1
+    assert interactions[0].details["raised"] is exc
+
+
+def test_urllib_handler_raises_error_config() -> None:
+    """urllib handler raises the configured exception for HttpErrorConfig."""
+    import urllib.request
+
+    v, p = _make_verifier_with_plugin()
+    exc = ConnectionError("refused")
+    p.mock_error("GET", "http://api.example.com/data", raises=exc)
+
+    with v.sandbox():
+        with pytest.raises(ConnectionError, match="refused"):
+            urllib.request.urlopen("http://api.example.com/data")
+
+    interactions = v._timeline.all_unasserted()
+    assert len(interactions) == 1
+    assert interactions[0].details["raised"] is exc
+
+
+@pytest.mark.asyncio
+async def test_httpx_async_handler_raises_error_config() -> None:
+    """httpx async handler raises the configured exception for HttpErrorConfig."""
+    v, p = _make_verifier_with_plugin()
+    exc = httpx.ConnectError("Connection refused")
+    p.mock_error("GET", "https://api.example.com/data", raises=exc)
+
+    async with v.sandbox():
+        async with httpx.AsyncClient() as client:
+            with pytest.raises(httpx.ConnectError, match="Connection refused"):
+                await client.get("https://api.example.com/data")
+
+    interactions = v._timeline.all_unasserted()
+    assert len(interactions) == 1
+    assert interactions[0].details["raised"] is exc
+
+
+@pytest.mark.asyncio
+async def test_aiohttp_handler_raises_error_config() -> None:
+    """aiohttp handler raises the configured exception for HttpErrorConfig."""
+    v, p = _make_verifier_with_plugin()
+    exc = ConnectionError("aiohttp refused")
+    p.mock_error("GET", "https://api.example.com/data", raises=exc)
+
+    token = _active_verifier.set(v)
+    try:
+        async with v.sandbox():
+            with pytest.raises(ConnectionError, match="aiohttp refused"):
+                await _aiohttp_get("https://api.example.com/data")
+    finally:
+        _active_verifier.reset(token)
+
+    interactions = v._timeline.all_unasserted()
+    assert len(interactions) == 1
+    assert interactions[0].details["raised"] is exc
+
+
+def test_mixed_mock_response_and_mock_error_fifo() -> None:
+    """mock_response and mock_error are served in FIFO order from unified queue."""
+    v, p = _make_verifier_with_plugin()
+    p.mock_response("GET", "https://api.example.com/data", json={"ok": True})
+    exc = httpx.ConnectError("Connection refused")
+    p.mock_error("GET", "https://api.example.com/data", raises=exc)
+    p.mock_response("GET", "https://api.example.com/data", json={"retry": True})
+
+    with v.sandbox():
+        r1 = httpx.get("https://api.example.com/data")
+        with pytest.raises(httpx.ConnectError):
+            httpx.get("https://api.example.com/data")
+        r3 = httpx.get("https://api.example.com/data")
+
+    assert r1.json() == {"ok": True}
+    assert r3.json() == {"retry": True}
+
+    interactions = v._timeline.all_unasserted()
+    assert len(interactions) == 3
+    assert "status" in interactions[0].details  # success
+    assert "raised" in interactions[1].details  # error
+    assert "status" in interactions[2].details  # success
+
+
+# ---------------------------------------------------------------------------
+# assertable_fields for error interactions
+# ---------------------------------------------------------------------------
+
+
+def test_http_plugin_assertable_fields_error_interaction() -> None:
+    """assertable_fields returns request fields + raised for error interactions."""
+    v, p = _make_verifier_with_plugin()
+
+    interaction = Interaction(
+        source_id="http:request",
+        sequence=0,
+        details={
+            "method": "GET",
+            "url": "https://example.com",
+            "request_headers": {},
+            "request_body": "",
+            "raised": ConnectionError("refused"),
+        },
+        plugin=p,
+    )
+    result = p.assertable_fields(interaction)
+    assert result == frozenset({"method", "url", "request_headers", "request_body", "raised"})
+
+
+def test_http_plugin_assertable_fields_success_interaction_unchanged() -> None:
+    """assertable_fields for success interaction (request-only mode) is unchanged."""
+    v, p = _make_verifier_with_plugin()
+    p._asserting_request_only = True
+
+    interaction = Interaction(
+        source_id="http:request",
+        sequence=0,
+        details={
+            "method": "GET",
+            "url": "https://example.com",
+            "request_headers": {},
+            "request_body": "",
+            "status": 200,
+            "response_headers": {},
+            "response_body": "",
+        },
+        plugin=p,
+    )
+    result = p.assertable_fields(interaction)
+    assert result == frozenset({"method", "url", "request_headers", "request_body"})
+    p._asserting_request_only = False
+
+
+# ---------------------------------------------------------------------------
+# assert_request with raised
+# ---------------------------------------------------------------------------
+
+
+def test_assert_request_with_raised_full_roundtrip() -> None:
+    """assert_request(raised=...) asserts an error interaction end-to-end."""
+    v, p = _make_verifier_with_plugin()
+    exc = httpx.ConnectError("Connection refused")
+    p.mock_error("GET", "https://api.example.com/data", raises=exc)
+
+    with v.sandbox():
+        with pytest.raises(httpx.ConnectError):
+            httpx.get("https://api.example.com/data")
+
+    interactions = v._timeline.all_unasserted()
+    assert len(interactions) == 1
+    recorded_headers = interactions[0].details["request_headers"]
+
+    p.assert_request(
+        "GET",
+        "https://api.example.com/data",
+        headers=recorded_headers,
+        body="",
+        raised=exc,
+    )
+
+    assert len(v._timeline.all_unasserted()) == 0
+    v.verify_all()
+
+
+def test_assert_request_with_raised_returns_none() -> None:
+    """assert_request(raised=...) always returns None (never HttpAssertionBuilder)."""
+    v, p = _make_verifier_with_plugin()
+    exc = httpx.ConnectError("Connection refused")
+    p.mock_error("GET", "https://api.example.com/data", raises=exc)
+
+    with v.sandbox():
+        with pytest.raises(httpx.ConnectError):
+            httpx.get("https://api.example.com/data")
+
+    interactions = v._timeline.all_unasserted()
+    recorded_headers = interactions[0].details["request_headers"]
+
+    result = p.assert_request(
+        "GET",
+        "https://api.example.com/data",
+        headers=recorded_headers,
+        body="",
+        raised=exc,
+    )
+    assert result is None
+
+
+def test_assert_request_missing_raised_triggers_missing_fields_error() -> None:
+    """Omitting raised= on an error interaction triggers MissingAssertionFieldsError."""
+    from bigfoot._errors import MissingAssertionFieldsError
+
+    v, p = _make_verifier_with_plugin()
+    exc = httpx.ConnectError("Connection refused")
+    p.mock_error("GET", "https://api.example.com/data", raises=exc)
+
+    with v.sandbox():
+        with pytest.raises(httpx.ConnectError):
+            httpx.get("https://api.example.com/data")
+
+    interactions = v._timeline.all_unasserted()
+    recorded_headers = interactions[0].details["request_headers"]
+
+    with pytest.raises(MissingAssertionFieldsError) as exc_info:
+        p.assert_request(
+            "GET",
+            "https://api.example.com/data",
+            headers=recorded_headers,
+            body="",
+            # raised= intentionally omitted
+        )
+    assert "raised" in exc_info.value.missing_fields
+
+
+# ---------------------------------------------------------------------------
+# Format helpers for error interactions
+# ---------------------------------------------------------------------------
+
+
+def test_format_interaction_error_shows_raised() -> None:
+    """format_interaction for error interaction shows raised exception type."""
+    v, p = _make_verifier_with_plugin()
+
+    exc = httpx.ConnectError("Connection refused")
+    interaction = Interaction(
+        source_id="http:request",
+        sequence=0,
+        details={
+            "method": "GET",
+            "url": "https://api.example.com/data",
+            "request_headers": {},
+            "request_body": "",
+            "raised": exc,
+        },
+        plugin=p,
+    )
+    result = p.format_interaction(interaction)
+    assert result == (
+        f"[HttpPlugin] GET https://api.example.com/data"
+        f" -> raised {type(exc).__module__}.{type(exc).__qualname__}({exc!s})"
+    )
+
+
+def test_format_assert_hint_error_includes_raised() -> None:
+    """format_assert_hint for error interaction includes raised= parameter."""
+    v, p = _make_verifier_with_plugin()
+
+    exc = httpx.ConnectError("Connection refused")
+    interaction = Interaction(
+        source_id="http:request",
+        sequence=0,
+        details={
+            "method": "GET",
+            "url": "https://api.example.com/data",
+            "request_headers": {},
+            "request_body": "",
+            "raised": exc,
+        },
+        plugin=p,
+    )
+    result = p.format_assert_hint(interaction)
+    assert result == (
+        "http.assert_request(\n"
+        '    "GET",\n'
+        '    "https://api.example.com/data",\n'
+        "    headers={},\n"
+        "    body='',\n"
+        f"    raised={exc!r},\n"
+        ")"
+    )
+
+
+def test_format_mock_hint_error_shows_mock_error() -> None:
+    """format_mock_hint for error interaction shows mock_error() call."""
+    v, p = _make_verifier_with_plugin()
+
+    exc = httpx.ConnectError("Connection refused")
+    interaction = Interaction(
+        source_id="http:request",
+        sequence=0,
+        details={
+            "method": "GET",
+            "url": "https://api.example.com/data",
+            "request_headers": {},
+            "request_body": "",
+            "raised": exc,
+        },
+        plugin=p,
+    )
+    result = p.format_mock_hint(interaction)
+    assert result == f'http.mock_error("GET", "https://api.example.com/data", raises={exc!r})'
+
+
+def test_format_unmocked_hint_suggests_both_options() -> None:
+    """format_unmocked_hint suggests both mock_response() and mock_error()."""
+    v, p = _make_verifier_with_plugin()
+    result = p.format_unmocked_hint("http:request", ("GET", "https://api.example.com/data"), {})
+    assert "mock_response" in result
+    assert "mock_error" in result
+
+
+# ---------------------------------------------------------------------------
+# get_unused_mocks and format_unused_mock_hint for error mocks
+# ---------------------------------------------------------------------------
+
+
+def test_get_unused_mocks_returns_error_configs() -> None:
+    """get_unused_mocks returns HttpErrorConfig entries from the unified queue."""
+    from bigfoot.plugins.http import HttpErrorConfig
+
+    v, p = _make_verifier_with_plugin()
+    p.mock_error("GET", "https://api.example.com/data", raises=ConnectionError("x"))
+
+    unused = p.get_unused_mocks()
+    assert len(unused) == 1
+    assert isinstance(unused[0], HttpErrorConfig)
+
+
+def test_get_unused_mocks_excludes_optional_error_configs() -> None:
+    """get_unused_mocks excludes HttpErrorConfig entries with required=False."""
+    v, p = _make_verifier_with_plugin()
+    p.mock_error(
+        "GET", "https://api.example.com/data",
+        raises=ConnectionError("x"),
+        required=False,
+    )
+
+    unused = p.get_unused_mocks()
+    assert len(unused) == 0
+
+
+def test_format_unused_mock_hint_for_error_config() -> None:
+    """format_unused_mock_hint handles HttpErrorConfig entries."""
+
+    v, p = _make_verifier_with_plugin()
+    exc = ConnectionError("refused")
+    p.mock_error("GET", "https://api.example.com/data", raises=exc)
+
+    unused = p.get_unused_mocks()
+    assert len(unused) == 1
+
+    result = p.format_unused_mock_hint(unused[0])
+    assert "error mock" in result
+    assert "GET" in result
+    assert "https://api.example.com/data" in result
+    assert isinstance(result, str)
+
+
+def test_unused_error_mock_raises_at_verify_all() -> None:
+    """An unused required error mock causes verify_all() to raise."""
+    from bigfoot._errors import UnusedMocksError, VerificationError
+
+    v, p = _make_verifier_with_plugin()
+    p.mock_error("GET", "https://api.example.com/data", raises=ConnectionError("x"))
+
+    with v.sandbox():
+        pass  # Never trigger the error mock
+
+    with pytest.raises((UnusedMocksError, VerificationError)):
+        v.verify_all()

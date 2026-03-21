@@ -36,14 +36,10 @@ def _make_verifier_with_plugin() -> tuple[StrictVerifier, MemcachePlugin]:
 
 def _reset_plugin_count() -> None:
     """Force-reset the class-level install count to 0 and restore patches if leaked."""
-    from pymemcache.client.base import Client
-
     with MemcachePlugin._install_lock:
         MemcachePlugin._install_count = 0
-        for method_name, original in MemcachePlugin._originals.items():
-            if original is not None:
-                setattr(Client, method_name, original)
-        MemcachePlugin._originals = {k: None for k in MemcachePlugin._originals}
+        # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
+        MemcachePlugin.__new__(MemcachePlugin)._restore_patches()
 
 
 @pytest.fixture(autouse=True)

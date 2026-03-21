@@ -41,9 +41,8 @@ def _reset_install_count() -> None:
     """Force-reset the class-level install count to 0 and restore Popen if leaked."""
     with PopenPlugin._install_lock:
         PopenPlugin._install_count = 0
-        if PopenPlugin._original_popen is not None:
-            subprocess.Popen = PopenPlugin._original_popen  # type: ignore[misc]
-            PopenPlugin._original_popen = None
+        # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
+        PopenPlugin.__new__(PopenPlugin)._restore_patches()
 
 
 @pytest.fixture(autouse=True)
@@ -629,17 +628,10 @@ def test_popen_and_subprocess_coexist() -> None:
     saved_run = subprocess.run
     saved_which = shutil.which
 
-    # Reset SubprocessPlugin install count (autouse fixture only handles PopenPlugin)
+    # Reset SubprocessPlugin via its own _restore_patches() (autouse fixture only handles PopenPlugin)
     with SubprocessPlugin._install_lock:
         SubprocessPlugin._install_count = 0
-        if SubprocessPlugin._original_subprocess_run is not None:
-            subprocess.run = SubprocessPlugin._original_subprocess_run
-            SubprocessPlugin._original_subprocess_run = None
-        if SubprocessPlugin._original_shutil_which is not None:
-            shutil.which = SubprocessPlugin._original_shutil_which  # type: ignore[assignment]
-            SubprocessPlugin._original_shutil_which = None
-        _sp_mod._bigfoot_subprocess_run = None
-        _sp_mod._bigfoot_shutil_which = None
+        SubprocessPlugin.__new__(SubprocessPlugin)._restore_patches()
 
     v = StrictVerifier()
     sp = SubprocessPlugin(v)

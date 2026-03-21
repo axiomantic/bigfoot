@@ -40,9 +40,8 @@ def _reset_install_count() -> None:
     """Force-reset the class-level install count to 0 and restore pika if leaked."""
     with PikaPlugin._install_lock:
         PikaPlugin._install_count = 0
-        if PikaPlugin._original_blocking_connection is not None:
-            pika_lib.BlockingConnection = PikaPlugin._original_blocking_connection  # type: ignore[misc]
-            PikaPlugin._original_blocking_connection = None
+        # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
+        PikaPlugin.__new__(PikaPlugin)._restore_patches()
 
 
 @pytest.fixture(autouse=True)
