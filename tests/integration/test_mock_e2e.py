@@ -6,9 +6,7 @@ import types
 import pytest
 
 import bigfoot
-from bigfoot._errors import UnassertedInteractionsError
 from bigfoot._verifier import StrictVerifier
-
 
 pytestmark = pytest.mark.integration
 

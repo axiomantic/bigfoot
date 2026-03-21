@@ -105,7 +105,9 @@ def _patched_encode(
         config = queue.popleft()
 
     # SECURITY: key is intentionally excluded from details
-    details_encode: dict[str, Any] = {"payload": payload, "algorithm": algorithm, "extra_kwargs": kwargs}
+    details_encode: dict[str, Any] = {
+        "payload": payload, "algorithm": algorithm, "extra_kwargs": kwargs,
+    }
     if config.raises is not None:
         details_encode["raised"] = config.raises
     interaction = Interaction(

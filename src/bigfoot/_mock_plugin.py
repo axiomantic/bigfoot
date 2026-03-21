@@ -1,6 +1,5 @@
 """MockPlugin, MockProxy, MethodProxy, MockConfig, _BaseMock, ImportSiteMock, ObjectMock."""
 
-import threading
 import traceback
 from collections import deque
 from collections.abc import Callable
@@ -329,7 +328,7 @@ class _BaseMock:
         self._verifier_token = _active_verifier.set(self._plugin.verifier)
         return self
 
-    def __exit__(self, *exc_info: Any) -> None:
+    def __exit__(self, *exc_info: Any) -> None:  # noqa: ANN401
         from bigfoot._context import _active_verifier  # noqa: PLC0415
 
         self._deactivate()
@@ -346,7 +345,7 @@ class _BaseMock:
         self._verifier_token = _active_verifier.set(self._plugin.verifier)
         return self
 
-    async def __aexit__(self, *exc_info: Any) -> None:
+    async def __aexit__(self, *exc_info: Any) -> None:  # noqa: ANN401
         from bigfoot._context import _active_verifier  # noqa: PLC0415
 
         self._deactivate()
@@ -393,7 +392,7 @@ class _BaseMock:
         mock_ref = self
 
         if callable(self._original) or not self._methods:
-            def dispatch(*args: Any, **kwargs: Any) -> Any:
+            def dispatch(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
                 method = mock_ref.__getattr__("__call__")
                 return method(*args, **kwargs)
             return dispatch
@@ -414,7 +413,7 @@ class _BaseMock:
         self.__getattr__("__call__").calls(fn)
         return self
 
-    def assert_call(self, **kwargs: Any) -> None:
+    def assert_call(self, **kwargs: Any) -> None:  # noqa: ANN401
         self.__getattr__("__call__").assert_call(**kwargs)
 
 

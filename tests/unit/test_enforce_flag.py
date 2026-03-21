@@ -1,7 +1,7 @@
 """Tests for the enforce flag on Interaction."""
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._timeline import Interaction, Timeline
+from bigfoot._timeline import Interaction
 from bigfoot._verifier import StrictVerifier
 
 
@@ -81,6 +81,7 @@ def test_verify_all_skips_non_enforced_interactions(bigfoot_verifier: StrictVeri
 def test_verify_all_raises_for_enforced_unasserted(bigfoot_verifier: StrictVerifier) -> None:
     """verify_all() raises for unasserted interactions with enforce=True (default)."""
     import pytest
+
     from bigfoot._errors import UnassertedInteractionsError
 
     plugin = _MinimalPlugin(bigfoot_verifier)
@@ -103,6 +104,7 @@ def test_verify_all_raises_for_enforced_unasserted(bigfoot_verifier: StrictVerif
 def test_verify_all_mixed_enforce_flags(bigfoot_verifier: StrictVerifier) -> None:
     """verify_all() only reports enforced unasserted interactions."""
     import pytest
+
     from bigfoot._errors import UnassertedInteractionsError
 
     plugin = _MinimalPlugin(bigfoot_verifier)

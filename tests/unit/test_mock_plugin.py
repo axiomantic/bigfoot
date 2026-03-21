@@ -7,11 +7,11 @@ import pytest
 from bigfoot._context import _active_verifier
 from bigfoot._errors import SandboxNotActiveError, UnmockedInteractionError
 from bigfoot._mock_plugin import (
+    _ABSENT,
     MethodProxy,
     MockConfig,
     MockPlugin,
     MockProxy,
-    _ABSENT,
 )
 from bigfoot._timeline import Interaction
 from bigfoot._verifier import StrictVerifier

@@ -191,7 +191,7 @@ except NameError:  # pragma: no cover
     pass
 
 if TYPE_CHECKING:
-    from bigfoot._mock_plugin import ImportSiteMock, MethodProxy, MockProxy, ObjectMock
+    from bigfoot._mock_plugin import ImportSiteMock, MethodProxy, ObjectMock
     from bigfoot.plugins.http import HttpRequestSentinel
     from bigfoot.plugins.subprocess import SubprocessRunSentinel, SubprocessWhichSentinel
 
@@ -312,15 +312,15 @@ def _get_or_create_plugin(verifier: StrictVerifier, plugin_type: type[_T]) -> _T
 class _MockFactory:
     """Callable object: bigfoot.mock("mod:attr") and bigfoot.mock.object(target, "attr")."""
 
-    def __call__(self, path: str) -> "ImportSiteMock":
-        from bigfoot._mock_plugin import MockPlugin as _MP  # noqa: PLC0415
+    def __call__(self, path: str) -> ImportSiteMock:
+        from bigfoot._mock_plugin import MockPlugin as _MP  # noqa: PLC0415, N814
 
         verifier = _get_test_verifier_or_raise()
         plugin = _get_or_create_plugin(verifier, _MP)
         return plugin.create_import_site_mock(path, spy=False)
 
-    def object(self, target: object, attr: str) -> "ObjectMock":
-        from bigfoot._mock_plugin import MockPlugin as _MP  # noqa: PLC0415
+    def object(self, target: object, attr: str) -> ObjectMock:
+        from bigfoot._mock_plugin import MockPlugin as _MP  # noqa: PLC0415, N814
 
         verifier = _get_test_verifier_or_raise()
         plugin = _get_or_create_plugin(verifier, _MP)
@@ -330,15 +330,15 @@ class _MockFactory:
 class _SpyFactory:
     """Callable object: bigfoot.spy("mod:attr") and bigfoot.spy.object(target, "attr")."""
 
-    def __call__(self, path: str) -> "ImportSiteMock":
-        from bigfoot._mock_plugin import MockPlugin as _MP  # noqa: PLC0415
+    def __call__(self, path: str) -> ImportSiteMock:
+        from bigfoot._mock_plugin import MockPlugin as _MP  # noqa: PLC0415, N814
 
         verifier = _get_test_verifier_or_raise()
         plugin = _get_or_create_plugin(verifier, _MP)
         return plugin.create_import_site_mock(path, spy=True)
 
-    def object(self, target: object, attr: str) -> "ObjectMock":
-        from bigfoot._mock_plugin import MockPlugin as _MP  # noqa: PLC0415
+    def object(self, target: object, attr: str) -> ObjectMock:
+        from bigfoot._mock_plugin import MockPlugin as _MP  # noqa: PLC0415, N814
 
         verifier = _get_test_verifier_or_raise()
         plugin = _get_or_create_plugin(verifier, _MP)

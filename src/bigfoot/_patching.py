@@ -43,7 +43,7 @@ class PatchSet:
     def __init__(self) -> None:
         self._patches: list[PatchTarget] = []
 
-    def add(self, obj: Any, attr: str, replacement: Any) -> None:
+    def add(self, obj: Any, attr: str, replacement: Any) -> None:  # noqa: ANN401
         """Register a patch target. Does not apply yet."""
         self._patches.append(PatchTarget(obj=obj, attr=attr, replacement=replacement))
 

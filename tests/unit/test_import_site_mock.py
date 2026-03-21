@@ -5,11 +5,9 @@ import types
 
 import pytest
 
-from bigfoot._errors import ConflictError, SandboxNotActiveError, UnmockedInteractionError
+from bigfoot._errors import ConflictError
 from bigfoot._mock_plugin import ImportSiteMock, MockPlugin, ObjectMock
-from bigfoot._timeline import Interaction
 from bigfoot._verifier import StrictVerifier
-
 
 # --- Test fixtures ---
 

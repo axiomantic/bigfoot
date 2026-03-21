@@ -1,6 +1,5 @@
 """Psycopg2Plugin: intercepts psycopg2.connect() and returns _FakePsycopg2Connection."""
 
-import threading
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough

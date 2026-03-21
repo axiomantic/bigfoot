@@ -43,7 +43,6 @@ def test_spy_calls_original_function(bigfoot_verifier: StrictVerifier) -> None:
         spy._deactivate()
 
         # Assert the interaction so teardown doesn't raise
-        from bigfoot._context import _current_test_verifier
         bigfoot_verifier.assert_interaction(
             spy.__getattr__("__call__"),
             args=(5,),

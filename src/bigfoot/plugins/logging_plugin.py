@@ -1,7 +1,6 @@
 """LoggingPlugin: intercepts Python's logging module."""
 
 import logging
-import threading
 import traceback
 from collections import deque
 from dataclasses import dataclass, field

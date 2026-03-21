@@ -704,7 +704,6 @@ def test_assertable_fields_contract_returns_frozenset() -> None:
 
 import threading
 
-
 # ---------------------------------------------------------------------------
 # Shared patching infrastructure tests (Task 0.2)
 # ---------------------------------------------------------------------------

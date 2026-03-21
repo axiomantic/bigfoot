@@ -3,9 +3,6 @@
 import sys
 import types
 
-import pytest
-
-from bigfoot._context import _active_verifier, _current_test_verifier
 from bigfoot._mock_plugin import ImportSiteMock, MockPlugin
 from bigfoot._verifier import SandboxContext, StrictVerifier
 

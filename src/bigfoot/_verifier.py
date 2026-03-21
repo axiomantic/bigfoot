@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     import contextvars
 
     from bigfoot._base_plugin import BasePlugin
-    from bigfoot._mock_plugin import ImportSiteMock, MockPlugin, MockProxy
+    from bigfoot._mock_plugin import ImportSiteMock, MockPlugin
 
 
 class _HasSourceId(Protocol):
@@ -109,7 +109,6 @@ class StrictVerifier:
 
         Lazily creates MockPlugin if not already registered.
         """
-        from bigfoot._mock_plugin import MockPlugin  # noqa: PLC0415
 
         mock_plugin = self._get_or_create_mock_plugin()
         return mock_plugin.create_import_site_mock(path, spy=False)
@@ -342,7 +341,7 @@ class SandboxContext:
 
         # Activate all registered mocks with enforce=True
         if not errors:
-            from bigfoot._mock_plugin import MockPlugin as _MP  # noqa: PLC0415
+            from bigfoot._mock_plugin import MockPlugin as _MP  # noqa: PLC0415, N814
 
             mock_plugin = next(
                 (p for p in self._verifier._plugins if isinstance(p, _MP)), None

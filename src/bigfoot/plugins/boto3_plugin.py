@@ -131,7 +131,9 @@ def _patched_make_api_call(
             )
         config = queue.popleft()
 
-    details: dict[str, Any] = {"service": service_name, "operation": operation_name, "params": api_params}
+    details: dict[str, Any] = {
+        "service": service_name, "operation": operation_name, "params": api_params,
+    }
     if config.raises is not None:
         details["raised"] = config.raises
     interaction = Interaction(

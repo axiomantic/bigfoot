@@ -28,7 +28,7 @@ class BasePlugin(ABC):
     _install_count: ClassVar[int] = 0
     _install_lock: ClassVar[threading.Lock] = threading.Lock()
 
-    def __init_subclass__(cls, **kwargs: Any) -> None:
+    def __init_subclass__(cls, **kwargs: Any) -> None:  # noqa: ANN401
         """Give each plugin subclass its own lock and counter."""
         super().__init_subclass__(**kwargs)
         cls._install_count = 0

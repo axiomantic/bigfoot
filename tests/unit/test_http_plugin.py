@@ -1964,7 +1964,6 @@ def test_mock_error_appends_to_unified_queue() -> None:
 
 def test_mock_error_uppercases_method() -> None:
     """mock_error() uppercases the HTTP method."""
-    from bigfoot.plugins.http import HttpErrorConfig
 
     v, p = _make_verifier_with_plugin()
     p.mock_error("get", "https://api.example.com/data", raises=ConnectionError("x"))
@@ -2371,7 +2370,6 @@ def test_get_unused_mocks_excludes_optional_error_configs() -> None:
 
 def test_format_unused_mock_hint_for_error_config() -> None:
     """format_unused_mock_hint handles HttpErrorConfig entries."""
-    from bigfoot.plugins.http import HttpErrorConfig
 
     v, p = _make_verifier_with_plugin()
     exc = ConnectionError("refused")

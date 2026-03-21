@@ -17,7 +17,7 @@ from bigfoot import (
     UnmockedInteractionError,
     UnusedMocksError,
 )
-from bigfoot._mock_plugin import ImportSiteMock, ObjectMock
+from bigfoot._mock_plugin import ImportSiteMock
 
 pytestmark = pytest.mark.integration
 

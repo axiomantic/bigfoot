@@ -10,7 +10,6 @@ restore their respective targets correctly when deactivated.
 """
 
 import subprocess
-import threading
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
