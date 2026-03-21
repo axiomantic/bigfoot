@@ -334,7 +334,7 @@ class _BaseMock:
         self._deactivate()
         if hasattr(self, "_verifier_token") and self._verifier_token is not None:
             _active_verifier.reset(self._verifier_token)
-            self._verifier_token = None
+            del self._verifier_token
 
     # --- Async context manager ---
 
@@ -351,7 +351,7 @@ class _BaseMock:
         self._deactivate()
         if hasattr(self, "_verifier_token") and self._verifier_token is not None:
             _active_verifier.reset(self._verifier_token)
-            self._verifier_token = None
+            del self._verifier_token
 
     # --- Activation / Deactivation ---
 
