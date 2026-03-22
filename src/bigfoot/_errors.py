@@ -30,8 +30,13 @@ class UnmockedInteractionError(BigfootError):
         self.kwargs = kwargs
         self.hint = hint
         super().__init__(
-            f"Unexpected call: source_id={source_id!r}, "
-            f"args={args!r}, kwargs={kwargs!r}\n\n{hint}"
+            f"Unmocked call to {source_id!r}.\n\n"
+            f"Add a mock before entering the sandbox:\n"
+            f"{hint}\n\n"
+            f"Then assert it after the sandbox closes:\n"
+            f"    with bigfoot:\n"
+            f"        # ... your code that triggers the call\n"
+            f"    # assert_* call here (REQUIRED)"
         )
 
 
@@ -44,7 +49,16 @@ class UnassertedInteractionsError(BigfootError):
     def __init__(self, interactions: list[Any], hint: str) -> None:
         self.interactions = interactions
         self.hint = hint
-        super().__init__(f"{hint}")
+        count = len(interactions)
+        preamble = (
+            f"{count} interaction{'s were' if count > 1 else ' was'} not asserted. "
+            f"Every intercepted call must be verified with an assert_* call "
+            f"after the sandbox closes:\n\n"
+            f"    with bigfoot:\n"
+            f"        result = do_something()\n"
+            f"    plugin.assert_*(...)  # <-- required for each interaction\n\n"
+        )
+        super().__init__(f"{preamble}{hint}")
 
 
 class UnusedMocksError(BigfootError):

@@ -1,16 +1,45 @@
-"""bigfoot: a pluggable interaction auditor for Python tests."""
+"""bigfoot - Full-certainty test mocking.
+
+Quick start:
+    # 1. Configure in pyproject.toml:
+    #    [tool.bigfoot]
+    #    guard = true
+    #
+    # 2. Mock, execute, assert:
+    bigfoot.http.mock_response("GET", "/api", json={"ok": True})
+    with bigfoot:
+        response = requests.get("/api")
+    bigfoot.http.assert_request("GET", "/api", status=200)
+
+    # 3. Every intercepted call MUST be asserted.
+    #    Unasserted interactions raise UnassertedInteractionsError.
+    #    This is the core guarantee. Do not bypass it.
+
+Anti-patterns:
+    - NEVER create StrictVerifier directly. Use ``with bigfoot:`` context.
+    - NEVER use verifier.sandbox() directly. Use ``with bigfoot:``.
+    - NEVER skip assert_* calls. Every mock MUST be asserted.
+    - NEVER wildcard ALL fields in assert_* calls. Partial wildcards OK,
+      all-wildcard verifies nothing.
+    - Configure plugins via [tool.bigfoot], not by code.
+
+Plugin authoring:
+    Subclass BasePlugin and register via [tool.bigfoot] in pyproject.toml.
+    Import authoring types from bigfoot directly:
+        from bigfoot import BasePlugin, Interaction, Timeline
+    See bigfoot documentation for the plugin authoring guide.
+"""
 
 from __future__ import annotations
 
 import sys
 import threading
 import types
-from typing import TYPE_CHECKING, TypeVar
+from collections.abc import Callable
+from typing import TYPE_CHECKING, TypeVar, cast
 
 from bigfoot._base_plugin import BasePlugin
 from bigfoot._context import GuardPassThrough, _get_test_verifier_or_raise, get_verifier_or_raise
-from bigfoot._registry import GUARD_ELIGIBLE_PREFIXES, PluginEntry
-from bigfoot._timeline import Interaction, Timeline
 from bigfoot._errors import (
     AssertionInsideSandboxError,
     AutoAssertError,
@@ -30,6 +59,8 @@ from bigfoot._errors import (
 )
 from bigfoot._guard import allow, deny
 from bigfoot._mock_plugin import MockPlugin
+from bigfoot._registry import GUARD_ELIGIBLE_PREFIXES, PluginEntry
+from bigfoot._timeline import Interaction, Timeline
 from bigfoot._verifier import InAnyOrderContext, SandboxContext, StrictVerifier
 
 try:
@@ -311,8 +342,9 @@ def _get_or_create_plugin(verifier: StrictVerifier, plugin_type: type[_T]) -> _T
         _MISSING,
     )
     if existing is not _MISSING:
-        return existing  # type: ignore[return-value]
-    return plugin_type(verifier)  # type: ignore[call-arg]
+        return cast(_T, existing)
+    constructor: Callable[..., _T] = plugin_type
+    return constructor(verifier)
 
 
 # ---------------------------------------------------------------------------

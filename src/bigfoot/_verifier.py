@@ -32,9 +32,38 @@ class _HasSourceId(Protocol):
 
 
 class StrictVerifier:
-    """Central orchestrator: owns timeline, plugin registry, ContextVar routing."""
+    """Manages plugin lifecycle, sandbox context, and assertion verification.
+
+    Do NOT instantiate directly. Use bigfoot's pytest integration:
+
+        # In your test:
+        bigfoot.http.mock_response("GET", "/api", json={"ok": True})
+        with bigfoot:
+            response = requests.get("/api")
+        bigfoot.http.assert_request("GET", "/api", status=200)
+
+    Direct instantiation bypasses forced assertion checking and will
+    silently produce tests that pass without verifying anything.
+
+    To access the verifier in a fixture or helper:
+        verifier = bigfoot.current_verifier()
+    """
+
+    _suppress_direct_warning: bool = False
 
     def __init__(self) -> None:
+        # Detect direct instantiation outside pytest
+        if not StrictVerifier._suppress_direct_warning:
+            from bigfoot._context import _current_test_verifier  # noqa: PLC0415
+
+            if _current_test_verifier.get(None) is None:
+                warnings.warn(
+                    "StrictVerifier instantiated directly. "
+                    "Use `with bigfoot:` for proper assertion enforcement. "
+                    "Direct instantiation bypasses the pytest fixture that "
+                    "enforces verify_all() at teardown.",
+                    stacklevel=2,
+                )
         self._plugins: list[BasePlugin] = []
         self._timeline: Timeline = Timeline()
         self._bigfoot_config: dict[str, Any] = load_bigfoot_config()

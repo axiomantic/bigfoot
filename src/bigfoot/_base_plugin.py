@@ -14,12 +14,24 @@ if TYPE_CHECKING:
 class BasePlugin(ABC):
     """Abstract base for all bigfoot plugins.
 
+    To write a custom plugin:
+
+    1. Subclass BasePlugin
+    2. Implement all abstract methods (matches, format_interaction,
+       format_mock_hint, format_unmocked_hint, format_assert_hint,
+       get_unused_mocks, format_unused_mock_hint)
+    3. Override install_patches() and restore_patches() for monkeypatching
+    4. Register via entry_points in pyproject.toml or [tool.bigfoot]
+    5. Use ``with bigfoot:`` in tests (never verifier.sandbox() directly)
+
+    Import from bigfoot directly:
+        from bigfoot import BasePlugin, Interaction, Timeline
+
     Subclasses get per-class _install_count and _install_lock automatically
     via __init_subclass__. The default activate()/deactivate() implementations
     provide reference-counted patching: override install_patches() and
     restore_patches() instead of activate()/deactivate() for standard
-    ref-counting behavior. Plugins that need custom activation (e.g.,
-    StateMachinePlugin subclasses) can override activate()/deactivate() directly.
+    ref-counting behavior.
     """
 
     supports_guard: ClassVar[bool] = True
