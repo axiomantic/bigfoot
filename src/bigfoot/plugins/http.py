@@ -29,7 +29,7 @@ except ImportError:  # pragma: no cover
     _AIOHTTP_AVAILABLE = False
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
+from bigfoot._context import get_verifier_or_raise, _guard_allowlist, GuardPassThrough
 from bigfoot._errors import ConflictError, UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -499,7 +499,7 @@ class HttpPlugin(BasePlugin):
     # Conflict detection
     # ------------------------------------------------------------------
 
-    def _check_conflicts(self) -> None:
+    def check_conflicts(self) -> None:
         """Verify httpx sync/async transports and requests adapter have not been patched by a
         third party."""
         current_httpx_sync = httpx.HTTPTransport.handle_request
@@ -551,7 +551,7 @@ class HttpPlugin(BasePlugin):
     # Patch installation / restoration
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         global _bigfoot_httpx_handle, _bigfoot_httpx_async_handle, _bigfoot_requests_send
         global _bigfoot_aiohttp_request
 
@@ -571,8 +571,8 @@ class HttpPlugin(BasePlugin):
             if "http" in _guard_allowlist.get():
                 return HttpPlugin._original_httpx_transport_handle(transport_self, request)  # type: ignore[no-any-return]
             try:
-                verifier = _get_verifier_or_raise("http:request")
-            except _GuardPassThrough:
+                verifier = get_verifier_or_raise("http:request")
+            except GuardPassThrough:
                 return HttpPlugin._original_httpx_transport_handle(transport_self, request)  # type: ignore[no-any-return]
             plugin = _find_http_plugin(verifier)
             return plugin._handle_httpx_request(transport_self, request)
@@ -588,8 +588,8 @@ class HttpPlugin(BasePlugin):
                     transport_self, request,
                 )
             try:
-                verifier = _get_verifier_or_raise("http:request")
-            except _GuardPassThrough:
+                verifier = get_verifier_or_raise("http:request")
+            except GuardPassThrough:
                 return await HttpPlugin._original_httpx_async_transport_handle(  # type: ignore[no-any-return]
                     transport_self, request,
                 )
@@ -606,8 +606,8 @@ class HttpPlugin(BasePlugin):
             if "http" in _guard_allowlist.get():
                 return HttpPlugin._original_requests_adapter_send(adapter_self, request, **kwargs)  # type: ignore[no-any-return]
             try:
-                verifier = _get_verifier_or_raise("http:request")
-            except _GuardPassThrough:
+                verifier = get_verifier_or_raise("http:request")
+            except GuardPassThrough:
                 return HttpPlugin._original_requests_adapter_send(adapter_self, request, **kwargs)  # type: ignore[no-any-return]
             plugin = _find_http_plugin(verifier)
             return plugin._handle_requests_request(adapter_self, request, **kwargs)
@@ -624,7 +624,7 @@ class HttpPlugin(BasePlugin):
         self._patch_run_in_executor()
         self._install_aiohttp()
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         global _bigfoot_httpx_handle, _bigfoot_httpx_async_handle, _bigfoot_requests_send
         global _bigfoot_aiohttp_request
 
@@ -687,8 +687,8 @@ class HttpPlugin(BasePlugin):
                 finally:
                     HttpPlugin._reinstall_urllib_opener()
             try:
-                verifier = _get_verifier_or_raise("http:request")
-            except _GuardPassThrough:
+                verifier = get_verifier_or_raise("http:request")
+            except GuardPassThrough:
                 original_opener = HttpPlugin._original_urllib_opener
                 urllib.request.install_opener(original_opener)
                 try:
@@ -740,8 +740,8 @@ class HttpPlugin(BasePlugin):
                     session_self, method, str_or_url, **kwargs,
                 )
             try:
-                verifier = _get_verifier_or_raise("http:request")
-            except _GuardPassThrough:
+                verifier = get_verifier_or_raise("http:request")
+            except GuardPassThrough:
                 return await HttpPlugin._original_aiohttp_request(
                     session_self, method, str_or_url, **kwargs,
                 )
@@ -1319,8 +1319,8 @@ class HttpPlugin(BasePlugin):
                 finally:
                     HttpPlugin._reinstall_urllib_opener()
             try:
-                verifier = _get_verifier_or_raise("http:request")
-            except _GuardPassThrough:
+                verifier = get_verifier_or_raise("http:request")
+            except GuardPassThrough:
                 original_opener = HttpPlugin._original_urllib_opener
                 urllib.request.install_opener(original_opener)
                 try:

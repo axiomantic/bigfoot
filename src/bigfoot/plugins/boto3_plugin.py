@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
+from bigfoot._context import get_verifier_or_raise, _guard_allowlist, GuardPassThrough
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -63,7 +63,7 @@ class Boto3MockConfig:
 
 
 def _get_boto3_plugin() -> Boto3Plugin | None:
-    verifier = _get_verifier_or_raise("boto3:_make_api_call")
+    verifier = get_verifier_or_raise("boto3:_make_api_call")
     for plugin in verifier._plugins:
         if isinstance(plugin, Boto3Plugin):
             return plugin
@@ -111,7 +111,7 @@ def _patched_make_api_call(
         return Boto3Plugin._original_make_api_call(client_self, operation_name, api_params)
     try:
         plugin = _get_boto3_plugin()
-    except _GuardPassThrough:
+    except GuardPassThrough:
         return Boto3Plugin._original_make_api_call(client_self, operation_name, api_params)
     if plugin is None:
         return Boto3Plugin._original_make_api_call(client_self, operation_name, api_params)
@@ -227,7 +227,7 @@ class Boto3Plugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         """Install botocore._make_api_call patch."""
         if not _BOTO3_AVAILABLE:
             raise ImportError(
@@ -236,7 +236,7 @@ class Boto3Plugin(BasePlugin):
         Boto3Plugin._original_make_api_call = botocore.client.BaseClient._make_api_call
         botocore.client.BaseClient._make_api_call = _patched_make_api_call
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         """Restore original botocore._make_api_call."""
         if Boto3Plugin._original_make_api_call is not None:
             botocore.client.BaseClient._make_api_call = Boto3Plugin._original_make_api_call

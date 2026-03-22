@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
+from bigfoot._context import get_verifier_or_raise, _guard_allowlist, GuardPassThrough
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -64,7 +64,7 @@ class GrpcMockConfig:
 
 
 def _get_grpc_plugin() -> GrpcPlugin:
-    verifier = _get_verifier_or_raise("grpc:channel")
+    verifier = get_verifier_or_raise("grpc:channel")
     for plugin in verifier._plugins:
         if isinstance(plugin, GrpcPlugin):
             return plugin
@@ -132,12 +132,12 @@ class _GrpcCallable:
     ) -> Any:  # noqa: ANN401
         try:
             plugin = _get_grpc_plugin()
-        except _GuardPassThrough:
+        except GuardPassThrough:
             # Guard mode allows grpc: this should not happen in normal flow
             # because the channel factory already returns a real channel when
             # guard allows. But handle it defensively.
             raise RuntimeError(
-                "BUG: _GuardPassThrough reached _GrpcCallable.__call__. "
+                "BUG: GuardPassThrough reached _GrpcCallable.__call__. "
                 "The channel factory should have returned a real channel."
             ) from None
         queue_key = f"{self._call_type}:{self._method}"
@@ -242,8 +242,8 @@ def _patched_insecure_channel(target: str, *args: Any, **kwargs: Any) -> _FakeCh
     if "grpc" in _guard_allowlist.get():
         return GrpcPlugin._original_insecure_channel(target, *args, **kwargs)  # type: ignore[no-any-return]
     try:
-        _get_verifier_or_raise("grpc:channel")
-    except _GuardPassThrough:
+        get_verifier_or_raise("grpc:channel")
+    except GuardPassThrough:
         return GrpcPlugin._original_insecure_channel(target, *args, **kwargs)  # type: ignore[no-any-return]
     except SandboxNotActiveError:
         pass  # No sandbox, no guard: proceed with fake channel
@@ -260,8 +260,8 @@ def _patched_secure_channel(  # noqa: ANN401
     if "grpc" in _guard_allowlist.get():
         return GrpcPlugin._original_secure_channel(target, credentials, *args, **kwargs)  # type: ignore[no-any-return]
     try:
-        _get_verifier_or_raise("grpc:channel")
-    except _GuardPassThrough:
+        get_verifier_or_raise("grpc:channel")
+    except GuardPassThrough:
         return GrpcPlugin._original_secure_channel(target, credentials, *args, **kwargs)  # type: ignore[no-any-return]
     except SandboxNotActiveError:
         pass  # No sandbox, no guard: proceed with fake channel
@@ -367,7 +367,7 @@ class GrpcPlugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         """Install gRPC channel patches."""
         if not _GRPC_AVAILABLE:
             raise ImportError(
@@ -378,7 +378,7 @@ class GrpcPlugin(BasePlugin):
         grpc_lib.insecure_channel = _patched_insecure_channel
         grpc_lib.secure_channel = _patched_secure_channel
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         """Restore original gRPC channel functions."""
         if GrpcPlugin._original_insecure_channel is not None:
             grpc_lib.insecure_channel = GrpcPlugin._original_insecure_channel

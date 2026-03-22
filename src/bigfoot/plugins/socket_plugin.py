@@ -3,7 +3,7 @@
 import socket
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
+from bigfoot._context import get_verifier_or_raise, _guard_allowlist, GuardPassThrough
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -37,7 +37,7 @@ _SOCKET_CLOSE_ORIGINAL: Any = socket.socket.close
 
 
 def _get_socket_plugin() -> "SocketPlugin | None":
-    verifier = _get_verifier_or_raise(_SOURCE_CONNECT)
+    verifier = get_verifier_or_raise(_SOURCE_CONNECT)
     for plugin in verifier._plugins:
         if isinstance(plugin, SocketPlugin):
             return plugin
@@ -120,7 +120,7 @@ class SocketPlugin(StateMachinePlugin):
     # Patch installation / restoration
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         SocketPlugin._original_connect = socket.socket.connect
         SocketPlugin._original_send = socket.socket.send
         SocketPlugin._original_sendall = socket.socket.sendall
@@ -133,7 +133,7 @@ class SocketPlugin(StateMachinePlugin):
                 return _SOCKET_CONNECT_ORIGINAL(sock_self, address)  # type: ignore[no-any-return]
             try:
                 plugin = _get_socket_plugin()
-            except _GuardPassThrough:
+            except GuardPassThrough:
                 return _SOCKET_CONNECT_ORIGINAL(sock_self, address)  # type: ignore[no-any-return]
             if plugin is None:
                 return _SOCKET_CONNECT_ORIGINAL(sock_self, address)  # type: ignore[no-any-return]
@@ -159,7 +159,7 @@ class SocketPlugin(StateMachinePlugin):
                 return _SOCKET_SEND_ORIGINAL(sock_self, data, flags)  # type: ignore[no-any-return]
             try:
                 plugin = _get_socket_plugin()
-            except _GuardPassThrough:
+            except GuardPassThrough:
                 return _SOCKET_SEND_ORIGINAL(sock_self, data, flags)  # type: ignore[no-any-return]
             if plugin is None:
                 return _SOCKET_SEND_ORIGINAL(sock_self, data, flags)  # type: ignore[no-any-return]
@@ -181,7 +181,7 @@ class SocketPlugin(StateMachinePlugin):
                 return _SOCKET_SENDALL_ORIGINAL(sock_self, data, flags)  # type: ignore[no-any-return]
             try:
                 plugin = _get_socket_plugin()
-            except _GuardPassThrough:
+            except GuardPassThrough:
                 return _SOCKET_SENDALL_ORIGINAL(sock_self, data, flags)  # type: ignore[no-any-return]
             if plugin is None:
                 return _SOCKET_SENDALL_ORIGINAL(sock_self, data, flags)  # type: ignore[no-any-return]
@@ -197,7 +197,7 @@ class SocketPlugin(StateMachinePlugin):
                 return _SOCKET_RECV_ORIGINAL(sock_self, bufsize, flags)  # type: ignore[no-any-return]
             try:
                 plugin = _get_socket_plugin()
-            except _GuardPassThrough:
+            except GuardPassThrough:
                 return _SOCKET_RECV_ORIGINAL(sock_self, bufsize, flags)  # type: ignore[no-any-return]
             if plugin is None:
                 return _SOCKET_RECV_ORIGINAL(sock_self, bufsize, flags)  # type: ignore[no-any-return]
@@ -217,7 +217,7 @@ class SocketPlugin(StateMachinePlugin):
                 return _SOCKET_CLOSE_ORIGINAL(sock_self)  # type: ignore[no-any-return]
             try:
                 plugin = _get_socket_plugin()
-            except _GuardPassThrough:
+            except GuardPassThrough:
                 return _SOCKET_CLOSE_ORIGINAL(sock_self)  # type: ignore[no-any-return]
             if plugin is None:
                 return _SOCKET_CLOSE_ORIGINAL(sock_self)  # type: ignore[no-any-return]
@@ -234,7 +234,7 @@ class SocketPlugin(StateMachinePlugin):
         socket.socket.recv = _patched_recv  # type: ignore[method-assign, assignment]
         socket.socket.close = _patched_close  # type: ignore[method-assign, assignment]
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         if SocketPlugin._original_connect is not None:
             socket.socket.connect = SocketPlugin._original_connect  # type: ignore[method-assign]
             SocketPlugin._original_connect = None

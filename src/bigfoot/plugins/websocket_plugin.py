@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
+from bigfoot._context import get_verifier_or_raise, _guard_allowlist, GuardPassThrough
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._state_machine_plugin import SessionHandle, StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
@@ -53,7 +53,7 @@ except ImportError:  # pragma: no cover
 
 
 def _get_async_websocket_plugin() -> AsyncWebSocketPlugin:
-    verifier = _get_verifier_or_raise("websocket:async:connect")
+    verifier = get_verifier_or_raise("websocket:async:connect")
     for plugin in verifier._plugins:
         if isinstance(plugin, AsyncWebSocketPlugin):
             return plugin
@@ -64,7 +64,7 @@ def _get_async_websocket_plugin() -> AsyncWebSocketPlugin:
 
 
 def _get_sync_websocket_plugin() -> SyncWebSocketPlugin:
-    verifier = _get_verifier_or_raise("websocket:sync:connect")
+    verifier = get_verifier_or_raise("websocket:sync:connect")
     for plugin in verifier._plugins:
         if isinstance(plugin, SyncWebSocketPlugin):
             return plugin
@@ -213,7 +213,7 @@ class AsyncWebSocketPlugin(StateMachinePlugin):
     # Patch installation / restoration
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         if not _WEBSOCKETS_AVAILABLE:
             raise ImportError(
                 "Install bigfoot[websockets] to use AsyncWebSocketPlugin: "
@@ -229,7 +229,7 @@ class AsyncWebSocketPlugin(StateMachinePlugin):
                 return AsyncWebSocketPlugin._original_connect(*args, **kwargs)  # type: ignore[no-any-return]
             try:
                 plugin = _get_async_websocket_plugin()
-            except _GuardPassThrough:
+            except GuardPassThrough:
                 return AsyncWebSocketPlugin._original_connect(*args, **kwargs)  # type: ignore[no-any-return]
             uri = args[0] if args else kwargs.get("uri", "")
             # Pop from queue at websockets.connect() call time (FIFO).
@@ -248,7 +248,7 @@ class AsyncWebSocketPlugin(StateMachinePlugin):
 
         _ws.connect = _patched_websockets_connect  # type: ignore[misc,assignment]
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         if AsyncWebSocketPlugin._original_connect is not None:
             import websockets as _ws
 
@@ -459,7 +459,7 @@ class SyncWebSocketPlugin(StateMachinePlugin):
     # Patch installation / restoration
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         if not _WEBSOCKET_CLIENT_AVAILABLE:
             raise ImportError(
                 "Install bigfoot[websocket-client] to use SyncWebSocketPlugin: "
@@ -475,7 +475,7 @@ class SyncWebSocketPlugin(StateMachinePlugin):
                 return SyncWebSocketPlugin._original_create_connection(*args, **kwargs)  # type: ignore[no-any-return]
             try:
                 plugin = _get_sync_websocket_plugin()
-            except _GuardPassThrough:
+            except GuardPassThrough:
                 return SyncWebSocketPlugin._original_create_connection(*args, **kwargs)  # type: ignore[no-any-return]
             uri = args[0] if args else kwargs.get("url", "")
             # Pop from queue immediately at create_connection() call time (FIFO).
@@ -502,7 +502,7 @@ class SyncWebSocketPlugin(StateMachinePlugin):
 
         _wsc.create_connection = _patched_create_connection
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         if SyncWebSocketPlugin._original_create_connection is not None:
             import websocket as _wsc
 

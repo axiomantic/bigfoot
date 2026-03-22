@@ -7,7 +7,10 @@ import threading
 import types
 from typing import TYPE_CHECKING, TypeVar
 
-from bigfoot._context import _get_test_verifier_or_raise
+from bigfoot._base_plugin import BasePlugin
+from bigfoot._context import GuardPassThrough, _get_test_verifier_or_raise, get_verifier_or_raise
+from bigfoot._registry import GUARD_ELIGIBLE_PREFIXES, PluginEntry
+from bigfoot._timeline import Interaction, Timeline
 from bigfoot._errors import (
     AssertionInsideSandboxError,
     AutoAssertError,
@@ -196,6 +199,14 @@ if TYPE_CHECKING:
     from bigfoot.plugins.subprocess import SubprocessRunSentinel, SubprocessWhichSentinel
 
 __all__ = [
+    # Plugin authoring API
+    "BasePlugin",
+    "Interaction",
+    "Timeline",
+    "GuardPassThrough",
+    "get_verifier_or_raise",
+    "GUARD_ELIGIBLE_PREFIXES",
+    "PluginEntry",
     # Classes
     "StrictVerifier",
     "SandboxContext",

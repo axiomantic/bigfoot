@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
+from bigfoot._context import get_verifier_or_raise, _guard_allowlist, GuardPassThrough
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -49,7 +49,7 @@ _SOURCE_CLOSE = "ssh:close"
 
 
 def _find_ssh_plugin() -> SshPlugin:
-    verifier = _get_verifier_or_raise("ssh:connect")
+    verifier = get_verifier_or_raise("ssh:connect")
     for plugin in verifier._plugins:
         if isinstance(plugin, SshPlugin):
             return plugin
@@ -189,7 +189,7 @@ class _FakeSSHClient:
             )
         try:
             plugin = _find_ssh_plugin()
-        except _GuardPassThrough:
+        except GuardPassThrough:
             self._real_client = SshPlugin._original_ssh_client()
             return self._real_client.connect(
                 hostname, port=port, username=username, password=password,
@@ -350,14 +350,14 @@ class SshPlugin(StateMachinePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         """Install paramiko.SSHClient patch."""
         if not _PARAMIKO_AVAILABLE:  # pragma: no cover
             return
         SshPlugin._original_ssh_client = paramiko_lib.SSHClient
         paramiko_lib.SSHClient = _FakeSSHClient
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         """Restore original paramiko.SSHClient."""
         if not _PARAMIKO_AVAILABLE:  # pragma: no cover
             return

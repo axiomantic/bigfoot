@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -60,7 +60,7 @@ class CeleryMockConfig:
 
 
 def _get_celery_plugin() -> CeleryPlugin:
-    verifier = _get_verifier_or_raise("celery:dispatch")
+    verifier = get_verifier_or_raise("celery:dispatch")
     for plugin in verifier._plugins:
         if isinstance(plugin, CeleryPlugin):
             return plugin
@@ -266,7 +266,7 @@ class CeleryPlugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         """Install Celery Task.delay and Task.apply_async patches."""
         if not _CELERY_AVAILABLE:
             raise ImportError(
@@ -279,7 +279,7 @@ class CeleryPlugin(BasePlugin):
         Task.delay = _patched_delay
         Task.apply_async = _patched_apply_async
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         """Restore original Celery Task methods."""
         from celery.app.task import Task
 

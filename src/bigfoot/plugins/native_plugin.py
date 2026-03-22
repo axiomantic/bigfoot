@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import get_verifier_or_raise
 from bigfoot._errors import ConflictError, UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -66,7 +66,7 @@ class NativeMockConfig:
 
 
 def _get_native_plugin() -> NativePlugin:
-    verifier = _get_verifier_or_raise("native:call")
+    verifier = get_verifier_or_raise("native:call")
     for plugin in verifier._plugins:
         if isinstance(plugin, NativePlugin):
             return plugin
@@ -308,7 +308,7 @@ class NativePlugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def _check_conflicts(self) -> None:
+    def check_conflicts(self) -> None:
         """Verify ctypes.CDLL.__init__ has not been patched by a third party."""
         current_init = ctypes.CDLL.__init__
         if (
@@ -321,7 +321,7 @@ class NativePlugin(BasePlugin):
                 patcher=patcher,
             )
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         """Install ctypes.CDLL and optionally cffi.FFI patches."""
         NativePlugin._original_cdll_init = ctypes.CDLL.__init__
         ctypes.CDLL.__init__ = _patched_cdll_init  # type: ignore[assignment]
@@ -331,7 +331,7 @@ class NativePlugin(BasePlugin):
             NativePlugin._original_ffi_dlopen = cffi_lib.FFI.dlopen
             cffi_lib.FFI.dlopen = _patched_ffi_dlopen
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         """Restore original ctypes.CDLL and cffi.FFI functions."""
         if NativePlugin._original_cdll_init is not None:
             ctypes.CDLL.__init__ = NativePlugin._original_cdll_init  # type: ignore[method-assign]

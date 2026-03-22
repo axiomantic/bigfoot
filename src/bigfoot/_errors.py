@@ -236,8 +236,8 @@ class GuardedCallError(BigfootError):
             "  FOR CONTRIBUTORS:",
             "    To add guard support to a new I/O plugin:",
             "    1. Keep supports_guard = True (the default)",
-            "    2. Add try/except _GuardPassThrough to each interceptor",
-            "    3. On _GuardPassThrough, call the original function",
+            "    2. Add try/except GuardPassThrough to each interceptor",
+            "    3. On GuardPassThrough, call the original function",
         ]
         return "\n".join(lines)
 

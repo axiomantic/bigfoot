@@ -544,7 +544,7 @@ class FileIoPlugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def _check_conflicts(self) -> None:
+    def check_conflicts(self) -> None:
         """Verify builtins.open has not been patched by a third party."""
         current_open = builtins.open
         if hasattr(current_open, "__module__") and current_open.__module__ not in (
@@ -562,7 +562,7 @@ class FileIoPlugin(BasePlugin):
                 patcher = "an unknown library"
             raise ConflictError(target="builtins.open", patcher=patcher)
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         """Install file I/O interceptors."""
         # Save originals
         FileIoPlugin._original_open = builtins.open
@@ -598,7 +598,7 @@ class FileIoPlugin(BasePlugin):
         shutil.copytree = _intercepted_copytree
         shutil.rmtree = _intercepted_rmtree  # type: ignore[assignment]
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         """Restore original file I/O functions."""
         if FileIoPlugin._original_open is not None:
             builtins.open = FileIoPlugin._original_open

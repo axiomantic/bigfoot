@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
+from bigfoot._context import get_verifier_or_raise, _guard_allowlist, GuardPassThrough
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -63,7 +63,7 @@ class McpMockConfig:
 
 
 def _get_mcp_plugin() -> McpPlugin | None:
-    verifier = _get_verifier_or_raise("mcp:client:call_tool")
+    verifier = get_verifier_or_raise("mcp:client:call_tool")
     for plugin in verifier._plugins:
         if isinstance(plugin, McpPlugin):
             return plugin
@@ -99,7 +99,7 @@ async def _patched_call_tool(
         return await McpPlugin._original_call_tool(self, name, arguments, *args, **kwargs)
     try:
         plugin = _get_mcp_plugin()
-    except _GuardPassThrough:
+    except GuardPassThrough:
         return await McpPlugin._original_call_tool(self, name, arguments, *args, **kwargs)
     if plugin is None:
         return await McpPlugin._original_call_tool(self, name, arguments, *args, **kwargs)
@@ -151,7 +151,7 @@ async def _patched_read_resource(
         return await McpPlugin._original_read_resource(self, uri, *args, **kwargs)
     try:
         plugin = _get_mcp_plugin()
-    except _GuardPassThrough:
+    except GuardPassThrough:
         return await McpPlugin._original_read_resource(self, uri, *args, **kwargs)
     if plugin is None:
         return await McpPlugin._original_read_resource(self, uri, *args, **kwargs)
@@ -203,7 +203,7 @@ async def _patched_get_prompt(
         return await McpPlugin._original_get_prompt(self, name, arguments, *args, **kwargs)
     try:
         plugin = _get_mcp_plugin()
-    except _GuardPassThrough:
+    except GuardPassThrough:
         return await McpPlugin._original_get_prompt(self, name, arguments, *args, **kwargs)
     if plugin is None:
         return await McpPlugin._original_get_prompt(self, name, arguments, *args, **kwargs)
@@ -267,7 +267,7 @@ async def _patched_handle_request(
         )
     try:
         plugin = _get_mcp_plugin()
-    except _GuardPassThrough:
+    except GuardPassThrough:
         return await McpPlugin._original_handle_request(  # type: ignore[no-any-return]
             self, message, req, session, lifespan_context, raise_exceptions,
         )
@@ -504,7 +504,7 @@ class McpPlugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         """Install MCP client/server patches."""
         if not _MCP_AVAILABLE:
             raise ImportError(
@@ -520,7 +520,7 @@ class McpPlugin(BasePlugin):
         _ClientSession.get_prompt = _patched_get_prompt  # type: ignore[method-assign]
         _Server._handle_request = _patched_handle_request  # type: ignore[method-assign]
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         """Restore original MCP client/server functions."""
         if McpPlugin._original_call_tool is not None:
             _ClientSession.call_tool = McpPlugin._original_call_tool  # type: ignore[method-assign]

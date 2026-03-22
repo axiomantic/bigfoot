@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import get_verifier_or_raise
 from bigfoot._timeline import Interaction
 
 if TYPE_CHECKING:
@@ -211,7 +211,7 @@ class LoggingPlugin(BasePlugin):
     # Conflict detection
     # ------------------------------------------------------------------
 
-    def _check_conflicts(self) -> None:
+    def check_conflicts(self) -> None:
         """Verify logging.Logger._log has not been patched by a third party."""
         from bigfoot._errors import ConflictError
 
@@ -230,7 +230,7 @@ class LoggingPlugin(BasePlugin):
     # Patch installation / restoration
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         global _bigfoot_logger_log
 
         LoggingPlugin._original_logger_log = logging.Logger._log
@@ -242,7 +242,7 @@ class LoggingPlugin(BasePlugin):
             args: Any,  # noqa: ANN401
             **kwargs: Any,  # noqa: ANN401
         ) -> None:
-            verifier = _get_verifier_or_raise(_SOURCE_LOG)
+            verifier = get_verifier_or_raise(_SOURCE_LOG)
             plugin = _find_logging_plugin(verifier)
             plugin._handle_log(logger_self, level, msg, args)
 
@@ -250,7 +250,7 @@ class LoggingPlugin(BasePlugin):
 
         logging.Logger._log = _log_interceptor  # type: ignore[assignment]
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         global _bigfoot_logger_log
 
         if LoggingPlugin._original_logger_log is not None:

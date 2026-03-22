@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -66,7 +66,7 @@ class CryptoMockConfig:
 
 
 def _get_crypto_plugin() -> CryptoPlugin:
-    verifier = _get_verifier_or_raise("crypto:operation")
+    verifier = get_verifier_or_raise("crypto:operation")
     for plugin in verifier._plugins:
         if isinstance(plugin, CryptoPlugin):
             return plugin
@@ -278,7 +278,7 @@ class CryptoPlugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         """Install cryptography Fernet and RSA patches."""
         if not _CRYPTOGRAPHY_AVAILABLE:
             raise ImportError(
@@ -291,7 +291,7 @@ class CryptoPlugin(BasePlugin):
         _Fernet.decrypt = _patched_fernet_decrypt  # type: ignore[assignment]
         _rsa_mod.generate_private_key = _patched_generate_private_key
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         """Restore original cryptography functions."""
         if CryptoPlugin._original_encrypt is not None:
             _Fernet.encrypt = CryptoPlugin._original_encrypt  # type: ignore[method-assign]

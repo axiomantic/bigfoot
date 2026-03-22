@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
+from bigfoot._context import get_verifier_or_raise, _guard_allowlist, GuardPassThrough
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -61,7 +61,7 @@ class DnsMockConfig:
 
 
 def _get_dns_plugin() -> DnsPlugin | None:
-    verifier = _get_verifier_or_raise("dns:lookup")
+    verifier = get_verifier_or_raise("dns:lookup")
     for plugin in verifier._plugins:
         if isinstance(plugin, DnsPlugin):
             return plugin
@@ -73,7 +73,7 @@ def _resolve_dns_plugin() -> DnsPlugin | None:
 
     Centralises the guard-mode / allowlist check shared by all DNS interceptors:
     1. If ``"dns"`` is on the context-local allowlist, return ``None``.
-    2. If ``_get_dns_plugin`` raises ``_GuardPassThrough``, return ``None``.
+    2. If ``_get_dns_plugin`` raises ``GuardPassThrough``, return ``None``.
     3. If no ``DnsPlugin`` is registered on the active verifier, return ``None``.
     4. Otherwise return the plugin instance.
     """
@@ -81,7 +81,7 @@ def _resolve_dns_plugin() -> DnsPlugin | None:
         return None
     try:
         return _get_dns_plugin()
-    except _GuardPassThrough:
+    except GuardPassThrough:
         return None
 
 
@@ -328,7 +328,7 @@ class DnsPlugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         """Install DNS interception patches."""
         DnsPlugin._original_getaddrinfo = socket.getaddrinfo
         DnsPlugin._original_gethostbyname = socket.gethostbyname
@@ -341,7 +341,7 @@ class DnsPlugin(BasePlugin):
             dns.resolver.resolve = _patched_module_resolve  # type: ignore[assignment]
             dns.resolver.Resolver.resolve = _patched_resolver_resolve  # type: ignore[assignment, method-assign]
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         """Restore original DNS functions."""
         if DnsPlugin._original_getaddrinfo is not None:
             socket.getaddrinfo = DnsPlugin._original_getaddrinfo

@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
+from bigfoot._context import get_verifier_or_raise, _guard_allowlist, GuardPassThrough
 from bigfoot._errors import ConflictError, UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -256,7 +256,7 @@ class SubprocessPlugin(BasePlugin):
     # Conflict detection
     # ------------------------------------------------------------------
 
-    def _check_conflicts(self) -> None:
+    def check_conflicts(self) -> None:
         """Verify subprocess.run and shutil.which have not been patched by a third party."""
         current_run = subprocess.run
         if (
@@ -284,7 +284,7 @@ class SubprocessPlugin(BasePlugin):
     # Patch installation / restoration
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         global _bigfoot_subprocess_run, _bigfoot_shutil_which
 
         SubprocessPlugin._original_subprocess_run = subprocess.run
@@ -295,8 +295,8 @@ class SubprocessPlugin(BasePlugin):
             if "subprocess" in _guard_allowlist.get():
                 return SubprocessPlugin._original_subprocess_run(*args, **kwargs)
             try:
-                verifier = _get_verifier_or_raise(_SOURCE_RUN)
-            except _GuardPassThrough:
+                verifier = get_verifier_or_raise(_SOURCE_RUN)
+            except GuardPassThrough:
                 return SubprocessPlugin._original_subprocess_run(*args, **kwargs)
             plugin = _find_subprocess_plugin(verifier)
             return plugin._handle_run(*args, **kwargs)
@@ -306,8 +306,8 @@ class SubprocessPlugin(BasePlugin):
             if "subprocess" in _guard_allowlist.get():
                 return SubprocessPlugin._original_shutil_which(name, **kwargs)  # type: ignore[no-any-return]
             try:
-                verifier = _get_verifier_or_raise(_SOURCE_WHICH)
-            except _GuardPassThrough:
+                verifier = get_verifier_or_raise(_SOURCE_WHICH)
+            except GuardPassThrough:
                 return SubprocessPlugin._original_shutil_which(name, **kwargs)  # type: ignore[no-any-return]
             plugin = _find_subprocess_plugin(verifier)
             return plugin._handle_which(name, **kwargs)
@@ -318,7 +318,7 @@ class SubprocessPlugin(BasePlugin):
         subprocess.run = _run_interceptor
         shutil.which = _which_interceptor  # type: ignore[assignment]
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         global _bigfoot_subprocess_run, _bigfoot_shutil_which
 
         if SubprocessPlugin._original_subprocess_run is not None:

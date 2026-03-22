@@ -10,7 +10,7 @@ import asyncio
 import asyncio.subprocess
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
+from bigfoot._context import get_verifier_or_raise, _guard_allowlist, GuardPassThrough
 from bigfoot._errors import ConflictError
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
@@ -49,7 +49,7 @@ _bigfoot_create_subprocess_shell: Any = None
 
 
 def _find_async_subprocess_plugin() -> "AsyncSubprocessPlugin":
-    verifier = _get_verifier_or_raise(_SOURCE_SPAWN)
+    verifier = get_verifier_or_raise(_SOURCE_SPAWN)
     for plugin in verifier._plugins:
         if isinstance(plugin, AsyncSubprocessPlugin):
             return plugin
@@ -161,7 +161,7 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         """Install asyncio.create_subprocess_exec/shell patches."""
         global _bigfoot_create_subprocess_exec, _bigfoot_create_subprocess_shell
 
@@ -178,7 +178,7 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
                 return await _ORIGINAL_CREATE_SUBPROCESS_EXEC(program, *args, **kwargs)  # type: ignore[no-any-return]
             try:
                 plugin = _find_async_subprocess_plugin()
-            except _GuardPassThrough:
+            except GuardPassThrough:
                 return await _ORIGINAL_CREATE_SUBPROCESS_EXEC(program, *args, **kwargs)  # type: ignore[no-any-return]
             proc = _AsyncFakeProcess()
             proc._plugin = plugin
@@ -204,7 +204,7 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
                 return await _ORIGINAL_CREATE_SUBPROCESS_SHELL(cmd, **kwargs)  # type: ignore[no-any-return]
             try:
                 plugin = _find_async_subprocess_plugin()
-            except _GuardPassThrough:
+            except GuardPassThrough:
                 return await _ORIGINAL_CREATE_SUBPROCESS_SHELL(cmd, **kwargs)  # type: ignore[no-any-return]
             proc = _AsyncFakeProcess()
             proc._plugin = plugin
@@ -226,7 +226,7 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
         asyncio.create_subprocess_exec = _fake_create_subprocess_exec  # type: ignore[assignment]
         asyncio.create_subprocess_shell = _fake_create_subprocess_shell  # type: ignore[assignment]
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         """Restore original asyncio.create_subprocess_exec/shell."""
         global _bigfoot_create_subprocess_exec, _bigfoot_create_subprocess_shell
 
@@ -243,7 +243,7 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
     # Conflict detection
     # ------------------------------------------------------------------
 
-    def _check_conflicts(self) -> None:
+    def check_conflicts(self) -> None:
         """Verify asyncio.create_subprocess_exec/shell have not been patched by a third party."""
         for target_name, current, original, bigfoot_ref in [
             (

@@ -16,8 +16,8 @@ class BasePlugin(ABC):
 
     Subclasses get per-class _install_count and _install_lock automatically
     via __init_subclass__. The default activate()/deactivate() implementations
-    provide reference-counted patching: override _install_patches() and
-    _restore_patches() instead of activate()/deactivate() for standard
+    provide reference-counted patching: override install_patches() and
+    restore_patches() instead of activate()/deactivate() for standard
     ref-counting behavior. Plugins that need custom activation (e.g.,
     StateMachinePlugin subclasses) can override activate()/deactivate() directly.
     """
@@ -39,49 +39,49 @@ class BasePlugin(ABC):
         verifier._register_plugin(self)
 
     def activate(self) -> None:
-        """Reference-counted activation. Calls _check_conflicts() and
-        _install_patches() on first activation.
+        """Reference-counted activation. Calls check_conflicts() and
+        install_patches() on first activation.
 
         Plugins that need custom activation logic can override this method
         directly. Plugins that use standard ref-counting should override
-        _install_patches() and _restore_patches() instead.
+        install_patches() and restore_patches() instead.
         """
         with type(self)._install_lock:
             if type(self)._install_count == 0:
-                self._check_conflicts()
-                self._install_patches()
+                self.check_conflicts()
+                self.install_patches()
             type(self)._install_count += 1
 
     def deactivate(self) -> None:
-        """Reference-counted deactivation. Calls _restore_patches() when
+        """Reference-counted deactivation. Calls restore_patches() when
         count reaches 0.
 
         Plugins that need custom deactivation logic can override this method
         directly. Plugins that use standard ref-counting should override
-        _install_patches() and _restore_patches() instead.
+        install_patches() and restore_patches() instead.
         """
         with type(self)._install_lock:
             type(self)._install_count = max(0, type(self)._install_count - 1)
             if type(self)._install_count == 0:
-                self._restore_patches()
+                self.restore_patches()
 
-    def _check_conflicts(self) -> None:
+    def check_conflicts(self) -> None:
         """Check for conflicting patches before installing.
 
         Default: no-op. Domain plugins that need conflict detection override
         this to raise ConflictError when foreign patches are detected.
 
         Called by activate() when _install_count goes 0 -> 1, before
-        _install_patches().
+        install_patches().
         """
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         """Install monkeypatches. Called once when install_count goes 0 -> 1.
 
         Default: no-op. Plugins that do import-site patching override this.
         """
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         """Restore original functions. Called once when install_count goes 1 -> 0.
 
         Default: no-op. Plugins that do import-site patching override this.

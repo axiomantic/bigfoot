@@ -3,7 +3,7 @@
 import smtplib
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
+from bigfoot._context import get_verifier_or_raise, _guard_allowlist, GuardPassThrough
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -35,7 +35,7 @@ _SOURCE_QUIT = "smtp:quit"
 
 
 def _find_smtp_plugin() -> "SmtpPlugin":
-    verifier = _get_verifier_or_raise("smtp:connect")
+    verifier = get_verifier_or_raise("smtp:connect")
     for plugin in verifier._plugins:
         if isinstance(plugin, SmtpPlugin):
             return plugin
@@ -59,7 +59,7 @@ class _FakeSMTP:
             return _ORIGINAL_SMTP(*args, **kwargs)
         try:
             _find_smtp_plugin()
-        except _GuardPassThrough:
+        except GuardPassThrough:
             return _ORIGINAL_SMTP(*args, **kwargs)
         return super().__new__(cls)
 
@@ -235,12 +235,12 @@ class SmtpPlugin(StateMachinePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         """Install smtplib.SMTP patch."""
         SmtpPlugin._original_smtp = smtplib.SMTP
         smtplib.SMTP = _FakeSMTP  # type: ignore[assignment, misc]
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         """Restore original smtplib.SMTP."""
         if SmtpPlugin._original_smtp is not None:
             smtplib.SMTP = SmtpPlugin._original_smtp  # type: ignore[misc]

@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -58,7 +58,7 @@ class JwtMockConfig:
 
 
 def _get_jwt_plugin() -> JwtPlugin:
-    verifier = _get_verifier_or_raise("jwt:operation")
+    verifier = get_verifier_or_raise("jwt:operation")
     for plugin in verifier._plugins:
         if isinstance(plugin, JwtPlugin):
             return plugin
@@ -225,7 +225,7 @@ class JwtPlugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         """Install jwt.encode and jwt.decode patches."""
         if not _JWT_AVAILABLE:
             raise ImportError(
@@ -236,7 +236,7 @@ class JwtPlugin(BasePlugin):
         jwt_lib.encode = _patched_encode  # type: ignore[assignment]
         jwt_lib.decode = _patched_decode  # type: ignore[assignment]
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         """Restore original jwt.encode and jwt.decode."""
         if JwtPlugin._original_encode is not None:
             jwt_lib.encode = JwtPlugin._original_encode

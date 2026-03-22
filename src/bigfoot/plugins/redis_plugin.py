@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
+from bigfoot._context import get_verifier_or_raise, _guard_allowlist, GuardPassThrough
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -60,7 +60,7 @@ class RedisMockConfig:
 
 
 def _get_redis_plugin() -> RedisPlugin | None:
-    verifier = _get_verifier_or_raise("redis:execute_command")
+    verifier = get_verifier_or_raise("redis:execute_command")
     for plugin in verifier._plugins:
         if isinstance(plugin, RedisPlugin):
             return plugin
@@ -90,7 +90,7 @@ def _patched_execute_command(redis_self: object, command: str, *args: Any, **kwa
         return RedisPlugin._original_execute_command(redis_self, command, *args, **kwargs)
     try:
         plugin = _get_redis_plugin()
-    except _GuardPassThrough:
+    except GuardPassThrough:
         return RedisPlugin._original_execute_command(redis_self, command, *args, **kwargs)
     if plugin is None:
         return RedisPlugin._original_execute_command(redis_self, command, *args, **kwargs)
@@ -185,7 +185,7 @@ class RedisPlugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         """Install Redis.execute_command patch."""
         if not _REDIS_AVAILABLE:
             raise ImportError(
@@ -194,7 +194,7 @@ class RedisPlugin(BasePlugin):
         RedisPlugin._original_execute_command = redis_lib.Redis.execute_command
         redis_lib.Redis.execute_command = _patched_execute_command  # type: ignore[assignment]
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         """Restore original Redis.execute_command."""
         if RedisPlugin._original_execute_command is not None:
             redis_lib.Redis.execute_command = RedisPlugin._original_execute_command  # type: ignore[method-assign]
