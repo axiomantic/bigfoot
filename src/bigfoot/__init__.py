@@ -41,6 +41,7 @@ from typing import TYPE_CHECKING, TypeVar, cast
 from bigfoot._base_plugin import BasePlugin
 from bigfoot._context import GuardPassThrough, _get_test_verifier_or_raise, get_verifier_or_raise
 from bigfoot._errors import (
+    AllWildcardAssertionError,
     AssertionInsideSandboxError,
     AutoAssertError,
     BigfootConfigError,
@@ -267,6 +268,7 @@ __all__ = [
     "deny",
     "GuardedCallError",
     # Errors
+    "AllWildcardAssertionError",
     "BigfootConfigError",
     "BigfootError",
     "AssertionInsideSandboxError",

@@ -207,6 +207,23 @@ class AutoAssertError(BigfootError):
     """
 
 
+class AllWildcardAssertionError(BigfootError):
+    """Raised when all assertion fields are wildcards (e.g., AnyThing()).
+
+    All-wildcard assertions verify nothing. Use real expected values
+    for at least some fields.
+    """
+
+    def __init__(self, interaction: object, hint: str) -> None:
+        self.interaction = interaction
+        self.hint = hint
+        super().__init__(
+            "All assertion fields are wildcards. This assertion verifies nothing.\n\n"
+            "Here's what actually happened -- paste this instead:\n\n"
+            f"{hint}"
+        )
+
+
 class BigfootConfigError(BigfootError):
     """Raised when [tool.bigfoot] configuration is invalid.
 

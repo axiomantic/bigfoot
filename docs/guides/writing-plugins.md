@@ -1,5 +1,9 @@
 # Writing Plugins
 
+> **Using pytest?** See [pytest integration](pytest-integration.md) for the standard `with bigfoot:` pattern. The manual `StrictVerifier()` pattern below is for use outside pytest only.
+
+> **Do not use `bigfoot_verifier` fixture in your plugin fixtures.** Use `bigfoot.current_verifier()` instead.
+
 bigfoot's plugin system allows you to add interception for any type of interaction, not just HTTP or method calls. Custom plugins follow the `BasePlugin` abstract base class.
 
 ## BasePlugin contract

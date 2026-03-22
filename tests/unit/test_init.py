@@ -52,6 +52,7 @@ def test_all_contains_expected_names() -> None:
         "deny",
         "GuardedCallError",
         # Errors
+        "AllWildcardAssertionError",
         "BigfootConfigError",
         "BigfootError",
         "AssertionInsideSandboxError",
