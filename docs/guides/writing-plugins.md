@@ -554,7 +554,7 @@ class MyComputePlugin(BasePlugin):
 When guard mode is active and a call is allowed (via `allow()` or `@pytest.mark.allow`), `get_verifier_or_raise()` raises `GuardPassThrough` instead of returning a verifier. The allowlist can also be narrowed with `deny()` or `@pytest.mark.deny`, which re-guards specific plugins. Guard-eligible interceptors must catch `GuardPassThrough` and delegate to the original function:
 
 ```python
-from bigfoot._context import get_verifier_or_raise, GuardPassThrough
+from bigfoot import get_verifier_or_raise, GuardPassThrough
 
 def _my_interceptor(original_self, *args, **kwargs):
     try:
