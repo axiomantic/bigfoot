@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from bigfoot._context import get_verifier_or_raise, _guard_allowlist, GuardPassThrough
+from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -197,7 +197,7 @@ class PikaPlugin(StateMachinePlugin):
     """
 
     # Saved original, restored when count reaches 0.
-    _original_blocking_connection: ClassVar[Any] = None
+    _original_blocking_connection: ClassVar[type[Any] | None] = None
 
     def __init__(self, verifier: StrictVerifier) -> None:
         super().__init__(verifier)

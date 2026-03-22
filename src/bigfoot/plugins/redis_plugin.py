@@ -5,11 +5,12 @@ from __future__ import annotations
 import threading
 import traceback
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import get_verifier_or_raise, _guard_allowlist, GuardPassThrough
+from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -85,15 +86,17 @@ class _RedisSentinel:
 
 
 def _patched_execute_command(redis_self: object, command: str, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+    _original = RedisPlugin._original_execute_command
+    assert _original is not None
     # Check allowlist FIRST - bypasses both guard and sandbox
     if "redis" in _guard_allowlist.get():
-        return RedisPlugin._original_execute_command(redis_self, command, *args, **kwargs)
+        return _original(redis_self, command, *args, **kwargs)
     try:
         plugin = _get_redis_plugin()
     except GuardPassThrough:
-        return RedisPlugin._original_execute_command(redis_self, command, *args, **kwargs)
+        return _original(redis_self, command, *args, **kwargs)
     if plugin is None:
-        return RedisPlugin._original_execute_command(redis_self, command, *args, **kwargs)
+        return _original(redis_self, command, *args, **kwargs)
     cmd_upper = command.upper()
     with plugin._registry_lock:
         queue = plugin._queues.get(cmd_upper)
@@ -142,7 +145,7 @@ class RedisPlugin(BasePlugin):
     """
 
     # Saved original, restored when count reaches 0.
-    _original_execute_command: ClassVar[Any] = None
+    _original_execute_command: ClassVar[Callable[..., Any] | None] = None
 
     def __init__(self, verifier: StrictVerifier) -> None:
         super().__init__(verifier)
@@ -192,12 +195,12 @@ class RedisPlugin(BasePlugin):
                 "Install bigfoot[redis] to use RedisPlugin: pip install bigfoot[redis]"
             )
         RedisPlugin._original_execute_command = redis_lib.Redis.execute_command
-        redis_lib.Redis.execute_command = _patched_execute_command  # type: ignore[assignment]
+        setattr(redis_lib.Redis, "execute_command", _patched_execute_command)
 
     def restore_patches(self) -> None:
         """Restore original Redis.execute_command."""
         if RedisPlugin._original_execute_command is not None:
-            redis_lib.Redis.execute_command = RedisPlugin._original_execute_command  # type: ignore[method-assign]
+            setattr(redis_lib.Redis, "execute_command", RedisPlugin._original_execute_command)
             RedisPlugin._original_execute_command = None
 
     # ------------------------------------------------------------------
@@ -267,7 +270,7 @@ class RedisPlugin(BasePlugin):
         )
 
     def format_unused_mock_hint(self, mock_config: object) -> str:
-        config: RedisMockConfig = mock_config  # type: ignore[assignment]
+        config = cast(RedisMockConfig, mock_config)
         command = getattr(config, "command", "?")
         tb = getattr(config, "registration_traceback", "")
         return (

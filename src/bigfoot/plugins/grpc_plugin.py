@@ -8,11 +8,12 @@ from __future__ import annotations
 import threading
 import traceback
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import get_verifier_or_raise, _guard_allowlist, GuardPassThrough
+from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -238,13 +239,15 @@ class _FakeChannel:
 def _patched_insecure_channel(target: str, *args: Any, **kwargs: Any) -> _FakeChannel:  # noqa: ANN401
     from bigfoot._errors import SandboxNotActiveError  # noqa: PLC0415
 
+    _original = GrpcPlugin._original_insecure_channel
+    assert _original is not None
     # Check allowlist FIRST - bypasses both guard and sandbox
     if "grpc" in _guard_allowlist.get():
-        return GrpcPlugin._original_insecure_channel(target, *args, **kwargs)  # type: ignore[no-any-return]
+        return cast(_FakeChannel, _original(target, *args, **kwargs))
     try:
         get_verifier_or_raise("grpc:channel")
     except GuardPassThrough:
-        return GrpcPlugin._original_insecure_channel(target, *args, **kwargs)  # type: ignore[no-any-return]
+        return cast(_FakeChannel, _original(target, *args, **kwargs))
     except SandboxNotActiveError:
         pass  # No sandbox, no guard: proceed with fake channel
     # GuardedCallError propagates naturally (not caught here)
@@ -256,13 +259,15 @@ def _patched_secure_channel(  # noqa: ANN401
 ) -> _FakeChannel:
     from bigfoot._errors import SandboxNotActiveError  # noqa: PLC0415
 
+    _original = GrpcPlugin._original_secure_channel
+    assert _original is not None
     # Check allowlist FIRST - bypasses both guard and sandbox
     if "grpc" in _guard_allowlist.get():
-        return GrpcPlugin._original_secure_channel(target, credentials, *args, **kwargs)  # type: ignore[no-any-return]
+        return cast(_FakeChannel, _original(target, credentials, *args, **kwargs))
     try:
         get_verifier_or_raise("grpc:channel")
     except GuardPassThrough:
-        return GrpcPlugin._original_secure_channel(target, credentials, *args, **kwargs)  # type: ignore[no-any-return]
+        return cast(_FakeChannel, _original(target, credentials, *args, **kwargs))
     except SandboxNotActiveError:
         pass  # No sandbox, no guard: proceed with fake channel
     # GuardedCallError propagates naturally (not caught here)
@@ -284,8 +289,8 @@ class GrpcPlugin(BasePlugin):
     """
 
     # Saved originals, restored when count reaches 0.
-    _original_insecure_channel: ClassVar[Any] = None
-    _original_secure_channel: ClassVar[Any] = None
+    _original_insecure_channel: ClassVar[Callable[..., Any] | None] = None
+    _original_secure_channel: ClassVar[Callable[..., Any] | None] = None
 
     def __init__(self, verifier: StrictVerifier) -> None:
         super().__init__(verifier)
@@ -453,7 +458,7 @@ class GrpcPlugin(BasePlugin):
         )
 
     def format_unused_mock_hint(self, mock_config: object) -> str:
-        config: GrpcMockConfig = mock_config  # type: ignore[assignment]
+        config = cast(GrpcMockConfig, mock_config)
         call_type = getattr(config, "call_type", "?")
         method = getattr(config, "method", "?")
         tb = getattr(config, "registration_traceback", "")

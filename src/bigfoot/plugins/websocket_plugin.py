@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
-from bigfoot._context import get_verifier_or_raise, _guard_allowlist, GuardPassThrough
+from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._state_machine_plugin import SessionHandle, StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
@@ -158,7 +159,7 @@ class AsyncWebSocketPlugin(StateMachinePlugin):
     """
 
     # Saved original, restored when count reaches 0.
-    _original_connect: ClassVar[Any] = None
+    _original_connect: ClassVar[Callable[..., Any] | None] = None
 
     # ------------------------------------------------------------------
     # Plugin init: create per-instance sentinels
@@ -222,15 +223,16 @@ class AsyncWebSocketPlugin(StateMachinePlugin):
         import websockets as _ws
 
         AsyncWebSocketPlugin._original_connect = _ws.connect
+        _orig_connect = _ws.connect
 
         def _patched_websockets_connect(*args: Any, **kwargs: Any) -> _FakeAsyncWebSocketCM:  # noqa: ANN401
             # Check allowlist FIRST - bypasses both guard and sandbox
             if "websocket" in _guard_allowlist.get() or "async_websocket" in _guard_allowlist.get():
-                return AsyncWebSocketPlugin._original_connect(*args, **kwargs)  # type: ignore[no-any-return]
+                return cast(_FakeAsyncWebSocketCM, _orig_connect(*args, **kwargs))
             try:
                 plugin = _get_async_websocket_plugin()
             except GuardPassThrough:
-                return AsyncWebSocketPlugin._original_connect(*args, **kwargs)  # type: ignore[no-any-return]
+                return cast(_FakeAsyncWebSocketCM, _orig_connect(*args, **kwargs))
             uri = args[0] if args else kwargs.get("uri", "")
             # Pop from queue at websockets.connect() call time (FIFO).
             with plugin._registry_lock:
@@ -246,13 +248,13 @@ class AsyncWebSocketPlugin(StateMachinePlugin):
                 handle = plugin._session_queue.popleft()
             return _FakeAsyncWebSocketCM(handle, plugin, uri)
 
-        _ws.connect = _patched_websockets_connect  # type: ignore[misc,assignment]
+        setattr(_ws, "connect", _patched_websockets_connect)
 
     def restore_patches(self) -> None:
         if AsyncWebSocketPlugin._original_connect is not None:
             import websockets as _ws
 
-            _ws.connect = AsyncWebSocketPlugin._original_connect  # type: ignore[misc]
+            setattr(_ws, "connect", AsyncWebSocketPlugin._original_connect)
             AsyncWebSocketPlugin._original_connect = None
 
     # ------------------------------------------------------------------
@@ -404,7 +406,7 @@ class SyncWebSocketPlugin(StateMachinePlugin):
     """
 
     # Saved original, restored when count reaches 0.
-    _original_create_connection: ClassVar[Any] = None
+    _original_create_connection: ClassVar[Callable[..., Any] | None] = None
 
     # ------------------------------------------------------------------
     # Plugin init: create per-instance sentinels
@@ -468,15 +470,16 @@ class SyncWebSocketPlugin(StateMachinePlugin):
         import websocket as _wsc
 
         SyncWebSocketPlugin._original_create_connection = _wsc.create_connection
+        _orig_create = _wsc.create_connection
 
         def _patched_create_connection(*args: Any, **kwargs: Any) -> _FakeSyncWebSocket:  # noqa: ANN401
             # Check allowlist FIRST - bypasses both guard and sandbox
             if "websocket" in _guard_allowlist.get() or "sync_websocket" in _guard_allowlist.get():
-                return SyncWebSocketPlugin._original_create_connection(*args, **kwargs)  # type: ignore[no-any-return]
+                return cast(_FakeSyncWebSocket, _orig_create(*args, **kwargs))
             try:
                 plugin = _get_sync_websocket_plugin()
             except GuardPassThrough:
-                return SyncWebSocketPlugin._original_create_connection(*args, **kwargs)  # type: ignore[no-any-return]
+                return cast(_FakeSyncWebSocket, _orig_create(*args, **kwargs))
             uri = args[0] if args else kwargs.get("url", "")
             # Pop from queue immediately at create_connection() call time (FIFO).
             with plugin._registry_lock:

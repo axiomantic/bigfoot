@@ -12,7 +12,7 @@ restore their respective targets correctly when deactivated.
 import subprocess
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from bigfoot._context import get_verifier_or_raise, _guard_allowlist, GuardPassThrough
+from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
 from bigfoot._errors import ConflictError
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
@@ -186,7 +186,7 @@ class PopenPlugin(StateMachinePlugin):
     """
 
     # Saved original, restored when count reaches 0.
-    _original_popen: ClassVar[Any] = None
+    _original_popen: ClassVar[type[subprocess.Popen[Any]] | None] = None
 
     def __init__(self, verifier: "StrictVerifier") -> None:
         super().__init__(verifier)
@@ -233,14 +233,14 @@ class PopenPlugin(StateMachinePlugin):
 
         PopenPlugin._original_popen = subprocess.Popen
         _bigfoot_popen_class = _FakePopen
-        subprocess.Popen = _FakePopen  # type: ignore[assignment, misc]
+        setattr(subprocess, "Popen", _FakePopen)
 
     def restore_patches(self) -> None:
         """Restore original subprocess.Popen."""
         global _bigfoot_popen_class
 
         if PopenPlugin._original_popen is not None:
-            subprocess.Popen = PopenPlugin._original_popen  # type: ignore[misc]
+            setattr(subprocess, "Popen", PopenPlugin._original_popen)
             PopenPlugin._original_popen = None
         _bigfoot_popen_class = None
 

@@ -5,8 +5,9 @@ from __future__ import annotations
 import threading
 import traceback
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from bigfoot._base_plugin import BasePlugin
 from bigfoot._context import get_verifier_or_raise
@@ -177,8 +178,8 @@ class JwtPlugin(BasePlugin):
 
     supports_guard: ClassVar[bool] = False
 
-    _original_encode: ClassVar[Any] = None
-    _original_decode: ClassVar[Any] = None
+    _original_encode: ClassVar[Callable[..., Any] | None] = None
+    _original_decode: ClassVar[Callable[..., Any] | None] = None
 
     def __init__(self, verifier: StrictVerifier) -> None:
         super().__init__(verifier)
@@ -233,8 +234,8 @@ class JwtPlugin(BasePlugin):
             )
         JwtPlugin._original_encode = jwt_lib.encode
         JwtPlugin._original_decode = jwt_lib.decode
-        jwt_lib.encode = _patched_encode  # type: ignore[assignment]
-        jwt_lib.decode = _patched_decode  # type: ignore[assignment]
+        setattr(jwt_lib, "encode", _patched_encode)
+        setattr(jwt_lib, "decode", _patched_decode)
 
     def restore_patches(self) -> None:
         """Restore original jwt.encode and jwt.decode."""
@@ -306,7 +307,7 @@ class JwtPlugin(BasePlugin):
         )
 
     def format_unused_mock_hint(self, mock_config: object) -> str:
-        config: JwtMockConfig = mock_config  # type: ignore[assignment]
+        config = cast(JwtMockConfig, mock_config)
         operation = getattr(config, "operation", "?")
         tb = getattr(config, "registration_traceback", "")
         return (

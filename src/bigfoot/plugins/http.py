@@ -6,9 +6,10 @@ import json as json_module
 import traceback
 import urllib.request
 import urllib.response
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from http.client import HTTPMessage
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import parse_qs, urlparse
 
 try:
@@ -29,7 +30,7 @@ except ImportError:  # pragma: no cover
     _AIOHTTP_AVAILABLE = False
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import get_verifier_or_raise, _guard_allowlist, GuardPassThrough
+from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
 from bigfoot._errors import ConflictError, UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -41,11 +42,11 @@ if TYPE_CHECKING:
 # Used by _check_conflicts() to detect foreign patchers.
 # ---------------------------------------------------------------------------
 
-_HTTPX_ORIGINAL_HANDLE: Any = httpx.HTTPTransport.handle_request
-_HTTPX_ORIGINAL_ASYNC_HANDLE: Any = httpx.AsyncHTTPTransport.handle_async_request
-_REQUESTS_ORIGINAL_SEND: Any = requests.adapters.HTTPAdapter.send
+_HTTPX_ORIGINAL_HANDLE: Callable[..., Any] = httpx.HTTPTransport.handle_request
+_HTTPX_ORIGINAL_ASYNC_HANDLE: Callable[..., Any] = httpx.AsyncHTTPTransport.handle_async_request
+_REQUESTS_ORIGINAL_SEND: Callable[..., Any] = requests.adapters.HTTPAdapter.send
 
-_AIOHTTP_ORIGINAL_REQUEST: Any = None
+_AIOHTTP_ORIGINAL_REQUEST: Callable[..., Any] | None = None
 if _AIOHTTP_AVAILABLE:
     _AIOHTTP_ORIGINAL_REQUEST = aiohttp.ClientSession._request
 
@@ -55,10 +56,10 @@ if _AIOHTTP_AVAILABLE:
 # patches from foreign patches during nested sandbox activations.
 # ---------------------------------------------------------------------------
 
-_bigfoot_httpx_handle: Any = None
-_bigfoot_httpx_async_handle: Any = None
-_bigfoot_requests_send: Any = None
-_bigfoot_aiohttp_request: Any = None
+_bigfoot_httpx_handle: Callable[..., Any] | None = None
+_bigfoot_httpx_async_handle: Callable[..., Any] | None = None
+_bigfoot_requests_send: Callable[..., Any] | None = None
+_bigfoot_aiohttp_request: Callable[..., Any] | None = None
 
 
 # Sentinel: distinguishes "parameter not passed" from None in assert_request().
@@ -226,8 +227,8 @@ class _FakeAiohttpResponse:
             self.url = URL(url)
             self.real_url = self.url
         else:  # pragma: no cover
-            self.url = url  # type: ignore[assignment]
-            self.real_url = url  # type: ignore[assignment]
+            object.__setattr__(self, "url", url)
+            object.__setattr__(self, "real_url", url)
 
     @property
     def ok(self) -> bool:
@@ -290,12 +291,12 @@ class HttpPlugin(BasePlugin):
     """
 
     # Saved originals, restored when count reaches 0.
-    _original_httpx_transport_handle: Any = None
-    _original_httpx_async_transport_handle: Any = None
-    _original_requests_adapter_send: Any = None
+    _original_httpx_transport_handle: Callable[..., Any] | None = None
+    _original_httpx_async_transport_handle: Callable[..., Any] | None = None
+    _original_requests_adapter_send: Callable[..., Any] | None = None
     _original_urllib_opener: Any = None
-    _original_run_in_executor: Any = None
-    _original_aiohttp_request: Any = None
+    _original_run_in_executor: Callable[..., Any] | None = None
+    _original_aiohttp_request: Callable[..., Any] | None = None
 
     def __init__(self, verifier: "StrictVerifier", require_response: bool = False) -> None:
         super().__init__(verifier)
@@ -561,6 +562,9 @@ class HttpPlugin(BasePlugin):
             httpx.AsyncHTTPTransport.handle_async_request
         )
         HttpPlugin._original_requests_adapter_send = requests.adapters.HTTPAdapter.send
+        _orig_httpx = HttpPlugin._original_httpx_transport_handle
+        _orig_httpx_async = HttpPlugin._original_httpx_async_transport_handle
+        _orig_requests_send = HttpPlugin._original_requests_adapter_send
 
         # httpx sync interceptor
         def _sync_interceptor(
@@ -569,11 +573,11 @@ class HttpPlugin(BasePlugin):
         ) -> httpx.Response:
             # Check allowlist FIRST - bypasses both guard and sandbox
             if "http" in _guard_allowlist.get():
-                return HttpPlugin._original_httpx_transport_handle(transport_self, request)  # type: ignore[no-any-return]
+                return _orig_httpx(transport_self, request)
             try:
                 verifier = get_verifier_or_raise("http:request")
             except GuardPassThrough:
-                return HttpPlugin._original_httpx_transport_handle(transport_self, request)  # type: ignore[no-any-return]
+                return _orig_httpx(transport_self, request)
             plugin = _find_http_plugin(verifier)
             return plugin._handle_httpx_request(transport_self, request)
 
@@ -584,13 +588,13 @@ class HttpPlugin(BasePlugin):
         ) -> httpx.Response:
             # Check allowlist FIRST - bypasses both guard and sandbox
             if "http" in _guard_allowlist.get():
-                return await HttpPlugin._original_httpx_async_transport_handle(  # type: ignore[no-any-return]
+                return await _orig_httpx_async(
                     transport_self, request,
                 )
             try:
                 verifier = get_verifier_or_raise("http:request")
             except GuardPassThrough:
-                return await HttpPlugin._original_httpx_async_transport_handle(  # type: ignore[no-any-return]
+                return await _orig_httpx_async(
                     transport_self, request,
                 )
             plugin = _find_http_plugin(verifier)
@@ -604,11 +608,11 @@ class HttpPlugin(BasePlugin):
         ) -> requests.Response:
             # Check allowlist FIRST - bypasses both guard and sandbox
             if "http" in _guard_allowlist.get():
-                return HttpPlugin._original_requests_adapter_send(adapter_self, request, **kwargs)  # type: ignore[no-any-return]
+                return _orig_requests_send(adapter_self, request, **kwargs)
             try:
                 verifier = get_verifier_or_raise("http:request")
             except GuardPassThrough:
-                return HttpPlugin._original_requests_adapter_send(adapter_self, request, **kwargs)  # type: ignore[no-any-return]
+                return _orig_requests_send(adapter_self, request, **kwargs)
             plugin = _find_http_plugin(verifier)
             return plugin._handle_requests_request(adapter_self, request, **kwargs)
 
@@ -616,9 +620,9 @@ class HttpPlugin(BasePlugin):
         _bigfoot_httpx_async_handle = _async_interceptor
         _bigfoot_requests_send = _requests_interceptor
 
-        httpx.HTTPTransport.handle_request = _sync_interceptor  # type: ignore[assignment]
-        httpx.AsyncHTTPTransport.handle_async_request = _async_interceptor  # type: ignore[assignment]
-        requests.adapters.HTTPAdapter.send = _requests_interceptor  # type: ignore[assignment]
+        setattr(httpx.HTTPTransport, "handle_request", _sync_interceptor)
+        setattr(httpx.AsyncHTTPTransport, "handle_async_request", _async_interceptor)
+        setattr(requests.adapters.HTTPAdapter, "send", _requests_interceptor)
 
         self._install_urllib()
         self._patch_run_in_executor()
@@ -629,17 +633,24 @@ class HttpPlugin(BasePlugin):
         global _bigfoot_aiohttp_request
 
         if HttpPlugin._original_httpx_transport_handle is not None:
-            httpx.HTTPTransport.handle_request = HttpPlugin._original_httpx_transport_handle  # type: ignore[method-assign]
+            setattr(
+                httpx.HTTPTransport, "handle_request",
+                HttpPlugin._original_httpx_transport_handle,
+            )
             HttpPlugin._original_httpx_transport_handle = None
 
         if HttpPlugin._original_httpx_async_transport_handle is not None:
-            httpx.AsyncHTTPTransport.handle_async_request = (  # type: ignore[method-assign]
-                HttpPlugin._original_httpx_async_transport_handle
+            setattr(
+                httpx.AsyncHTTPTransport, "handle_async_request",
+                HttpPlugin._original_httpx_async_transport_handle,
             )
             HttpPlugin._original_httpx_async_transport_handle = None
 
         if HttpPlugin._original_requests_adapter_send is not None:
-            requests.adapters.HTTPAdapter.send = HttpPlugin._original_requests_adapter_send  # type: ignore[method-assign]
+            setattr(
+                requests.adapters.HTTPAdapter, "send",
+                HttpPlugin._original_requests_adapter_send,
+            )
             HttpPlugin._original_requests_adapter_send = None
 
         # urllib
@@ -648,14 +659,14 @@ class HttpPlugin(BasePlugin):
 
         # aiohttp
         if _AIOHTTP_AVAILABLE and HttpPlugin._original_aiohttp_request is not None:
-            aiohttp.ClientSession._request = HttpPlugin._original_aiohttp_request  # type: ignore[method-assign]
+            setattr(aiohttp.ClientSession, "_request", HttpPlugin._original_aiohttp_request)
             HttpPlugin._original_aiohttp_request = None
 
         # run_in_executor
         import asyncio
 
         if HttpPlugin._original_run_in_executor is not None:
-            asyncio.BaseEventLoop.run_in_executor = HttpPlugin._original_run_in_executor  # type: ignore[method-assign]
+            setattr(asyncio.BaseEventLoop, "run_in_executor", HttpPlugin._original_run_in_executor)
             HttpPlugin._original_run_in_executor = None
 
         _bigfoot_httpx_handle = None
@@ -664,7 +675,7 @@ class HttpPlugin(BasePlugin):
         _bigfoot_aiohttp_request = None
 
     def _install_urllib(self) -> None:
-        HttpPlugin._original_urllib_opener = urllib.request._opener  # type: ignore[attr-defined]
+        HttpPlugin._original_urllib_opener = getattr(urllib.request, "_opener", None)
 
         class _BigfootHandler(urllib.request.BaseHandler):
             handler_order = 100
@@ -683,7 +694,7 @@ class HttpPlugin(BasePlugin):
                 original_opener = HttpPlugin._original_urllib_opener
                 urllib.request.install_opener(original_opener)
                 try:
-                    return urllib.request.urlopen(req)  # type: ignore[no-any-return]
+                    return cast(urllib.response.addinfourl, urllib.request.urlopen(req))
                 finally:
                     HttpPlugin._reinstall_urllib_opener()
             try:
@@ -692,7 +703,7 @@ class HttpPlugin(BasePlugin):
                 original_opener = HttpPlugin._original_urllib_opener
                 urllib.request.install_opener(original_opener)
                 try:
-                    return urllib.request.urlopen(req)  # type: ignore[no-any-return]
+                    return cast(urllib.response.addinfourl, urllib.request.urlopen(req))
                 finally:
                     HttpPlugin._reinstall_urllib_opener()
             plugin = _find_http_plugin(verifier)
@@ -718,7 +729,7 @@ class HttpPlugin(BasePlugin):
             wrapped = functools.partial(ctx.run, func, *args)
             return _original(loop, executor, wrapped)
 
-        asyncio.BaseEventLoop.run_in_executor = _patched_run_in_executor  # type: ignore[assignment]
+        setattr(asyncio.BaseEventLoop, "run_in_executor", _patched_run_in_executor)
 
     def _install_aiohttp(self) -> None:
         global _bigfoot_aiohttp_request
@@ -727,6 +738,7 @@ class HttpPlugin(BasePlugin):
             return
 
         HttpPlugin._original_aiohttp_request = aiohttp.ClientSession._request
+        _orig_aiohttp = aiohttp.ClientSession._request
 
         async def _aiohttp_interceptor(
             session_self: "aiohttp.ClientSession",
@@ -736,20 +748,20 @@ class HttpPlugin(BasePlugin):
         ) -> Any:  # noqa: ANN401
             # Check allowlist FIRST - bypasses both guard and sandbox
             if "http" in _guard_allowlist.get():
-                return await HttpPlugin._original_aiohttp_request(
+                return await _orig_aiohttp(
                     session_self, method, str_or_url, **kwargs,
                 )
             try:
                 verifier = get_verifier_or_raise("http:request")
             except GuardPassThrough:
-                return await HttpPlugin._original_aiohttp_request(
+                return await _orig_aiohttp(
                     session_self, method, str_or_url, **kwargs,
                 )
             plugin = _find_http_plugin(verifier)
             return await plugin._handle_aiohttp_request(session_self, method, str_or_url, **kwargs)
 
         _bigfoot_aiohttp_request = _aiohttp_interceptor
-        aiohttp.ClientSession._request = _aiohttp_interceptor  # type: ignore[assignment]
+        setattr(aiohttp.ClientSession, "_request", _aiohttp_interceptor)
 
     # ------------------------------------------------------------------
     # Mock config lookup
@@ -892,6 +904,7 @@ class HttpPlugin(BasePlugin):
     ) -> httpx.Response:
         """Forward an httpx request to the real backend and record the interaction."""
         original = HttpPlugin._original_httpx_transport_handle
+        assert original is not None
         response: httpx.Response = original(transport_self, request)
         self._record_http_interaction(
             method=request.method,
@@ -959,6 +972,7 @@ class HttpPlugin(BasePlugin):
     ) -> httpx.Response:
         """Forward an async httpx request to the real backend and record the interaction."""
         original = HttpPlugin._original_httpx_async_transport_handle
+        assert original is not None
         response: httpx.Response = await original(transport_self, request)
         self._record_http_interaction(
             method=request.method,
@@ -1045,6 +1059,7 @@ class HttpPlugin(BasePlugin):
     ) -> requests.Response:
         """Forward a requests request to the real backend and record the interaction."""
         original = HttpPlugin._original_requests_adapter_send
+        assert original is not None
         response: requests.Response = original(adapter_self, request, **kwargs)
         method = (request.method or "GET").upper()
         url = request.url or ""
@@ -1263,6 +1278,7 @@ class HttpPlugin(BasePlugin):
     ) -> Any:  # noqa: ANN401
         """Forward an aiohttp request to the real backend and record the interaction."""
         original = HttpPlugin._original_aiohttp_request
+        assert original is not None
         response = await original(session_self, method, str_or_url, **kwargs)
         url = str(str_or_url)
         body_str = ""
@@ -1315,7 +1331,7 @@ class HttpPlugin(BasePlugin):
                 original_opener = HttpPlugin._original_urllib_opener
                 urllib.request.install_opener(original_opener)
                 try:
-                    return urllib.request.urlopen(req)  # type: ignore[no-any-return]
+                    return cast(urllib.response.addinfourl, urllib.request.urlopen(req))
                 finally:
                     HttpPlugin._reinstall_urllib_opener()
             try:
@@ -1324,7 +1340,7 @@ class HttpPlugin(BasePlugin):
                 original_opener = HttpPlugin._original_urllib_opener
                 urllib.request.install_opener(original_opener)
                 try:
-                    return urllib.request.urlopen(req)  # type: ignore[no-any-return]
+                    return cast(urllib.response.addinfourl, urllib.request.urlopen(req))
                 finally:
                     HttpPlugin._reinstall_urllib_opener()
             plugin = _find_http_plugin(verifier)

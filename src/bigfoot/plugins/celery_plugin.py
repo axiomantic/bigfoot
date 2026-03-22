@@ -5,8 +5,9 @@ from __future__ import annotations
 import threading
 import traceback
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from bigfoot._base_plugin import BasePlugin
 from bigfoot._context import get_verifier_or_raise
@@ -206,8 +207,8 @@ class CeleryPlugin(BasePlugin):
 
     supports_guard: ClassVar[bool] = False
 
-    _original_delay: ClassVar[Any] = None
-    _original_apply_async: ClassVar[Any] = None
+    _original_delay: ClassVar[Callable[..., Any] | None] = None
+    _original_apply_async: ClassVar[Callable[..., Any] | None] = None
 
     def __init__(self, verifier: StrictVerifier) -> None:
         super().__init__(verifier)
@@ -350,7 +351,7 @@ class CeleryPlugin(BasePlugin):
         return f"    {sm}.assert_{dispatch}(\n{body}\n    )"
 
     def format_unused_mock_hint(self, mock_config: object) -> str:
-        config: CeleryMockConfig = mock_config  # type: ignore[assignment]
+        config = cast(CeleryMockConfig, mock_config)
         task_name = getattr(config, "task_name", "?")
         dispatch = getattr(config, "dispatch_method", "?")
         tb = getattr(config, "registration_traceback", "")

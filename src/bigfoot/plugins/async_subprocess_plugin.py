@@ -8,9 +8,10 @@ restores the original functions correctly when deactivated.
 
 import asyncio
 import asyncio.subprocess
-from typing import TYPE_CHECKING, Any, ClassVar
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
-from bigfoot._context import get_verifier_or_raise, _guard_allowlist, GuardPassThrough
+from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
 from bigfoot._errors import ConflictError
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
@@ -30,8 +31,8 @@ _SOURCE_WAIT = "asyncio:subprocess:wait"
 # Import-time constants -- captured BEFORE any patches are installed.
 # ---------------------------------------------------------------------------
 
-_ORIGINAL_CREATE_SUBPROCESS_EXEC: Any = asyncio.create_subprocess_exec
-_ORIGINAL_CREATE_SUBPROCESS_SHELL: Any = asyncio.create_subprocess_shell
+_ORIGINAL_CREATE_SUBPROCESS_EXEC: Callable[..., Any] = asyncio.create_subprocess_exec
+_ORIGINAL_CREATE_SUBPROCESS_SHELL: Callable[..., Any] = asyncio.create_subprocess_shell
 
 # ---------------------------------------------------------------------------
 # Module-level references to our own interceptor functions.
@@ -39,8 +40,8 @@ _ORIGINAL_CREATE_SUBPROCESS_SHELL: Any = asyncio.create_subprocess_shell
 # interceptors from foreign patchers during nested sandbox activations.
 # ---------------------------------------------------------------------------
 
-_bigfoot_create_subprocess_exec: Any = None
-_bigfoot_create_subprocess_shell: Any = None
+_bigfoot_create_subprocess_exec: Callable[..., Any] | None = None
+_bigfoot_create_subprocess_shell: Callable[..., Any] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -119,8 +120,8 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
     """
 
     # Saved originals, restored when count reaches 0.
-    _original_exec: ClassVar[Any] = None
-    _original_shell: ClassVar[Any] = None
+    _original_exec: ClassVar[Callable[..., Any] | None] = None
+    _original_shell: ClassVar[Callable[..., Any] | None] = None
 
     def __init__(self, verifier: "StrictVerifier") -> None:
         super().__init__(verifier)
@@ -175,11 +176,17 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
         ) -> _AsyncFakeProcess:
             # Check allowlist FIRST - bypasses both guard and sandbox
             if "async_subprocess" in _guard_allowlist.get():
-                return await _ORIGINAL_CREATE_SUBPROCESS_EXEC(program, *args, **kwargs)  # type: ignore[no-any-return]
+                return cast(
+                    _AsyncFakeProcess,
+                    await _ORIGINAL_CREATE_SUBPROCESS_EXEC(program, *args, **kwargs),
+                )
             try:
                 plugin = _find_async_subprocess_plugin()
             except GuardPassThrough:
-                return await _ORIGINAL_CREATE_SUBPROCESS_EXEC(program, *args, **kwargs)  # type: ignore[no-any-return]
+                return cast(
+                    _AsyncFakeProcess,
+                    await _ORIGINAL_CREATE_SUBPROCESS_EXEC(program, *args, **kwargs),
+                )
             proc = _AsyncFakeProcess()
             proc._plugin = plugin
             plugin._bind_connection(proc)
@@ -201,11 +208,17 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
         ) -> _AsyncFakeProcess:
             # Check allowlist FIRST - bypasses both guard and sandbox
             if "async_subprocess" in _guard_allowlist.get():
-                return await _ORIGINAL_CREATE_SUBPROCESS_SHELL(cmd, **kwargs)  # type: ignore[no-any-return]
+                return cast(
+                    _AsyncFakeProcess,
+                    await _ORIGINAL_CREATE_SUBPROCESS_SHELL(cmd, **kwargs),
+                )
             try:
                 plugin = _find_async_subprocess_plugin()
             except GuardPassThrough:
-                return await _ORIGINAL_CREATE_SUBPROCESS_SHELL(cmd, **kwargs)  # type: ignore[no-any-return]
+                return cast(
+                    _AsyncFakeProcess,
+                    await _ORIGINAL_CREATE_SUBPROCESS_SHELL(cmd, **kwargs),
+                )
             proc = _AsyncFakeProcess()
             proc._plugin = plugin
             plugin._bind_connection(proc)
@@ -223,8 +236,8 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
         _bigfoot_create_subprocess_exec = _fake_create_subprocess_exec
         _bigfoot_create_subprocess_shell = _fake_create_subprocess_shell
 
-        asyncio.create_subprocess_exec = _fake_create_subprocess_exec  # type: ignore[assignment]
-        asyncio.create_subprocess_shell = _fake_create_subprocess_shell  # type: ignore[assignment]
+        setattr(asyncio, "create_subprocess_exec", _fake_create_subprocess_exec)
+        setattr(asyncio, "create_subprocess_shell", _fake_create_subprocess_shell)
 
     def restore_patches(self) -> None:
         """Restore original asyncio.create_subprocess_exec/shell."""

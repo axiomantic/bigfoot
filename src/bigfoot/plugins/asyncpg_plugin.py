@@ -1,8 +1,9 @@
 """AsyncpgPlugin: intercepts asyncpg.connect() and returns _FakeAsyncpgConnection."""
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
-from bigfoot._context import get_verifier_or_raise, _guard_allowlist, GuardPassThrough
+from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
 from bigfoot._state_machine_plugin import SessionHandle, StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -78,7 +79,7 @@ class _FakeAsyncpgConnection:
             handle, "fetch", (query, *args), {}, _SOURCE_FETCH,
             details={"query": query, "args": list(args)},
         )
-        return result  # type: ignore[no-any-return]
+        return cast(list[Any], result)
 
     async def fetchrow(self, query: str, *args: Any) -> Any:  # noqa: ANN401
         handle = self._plugin._lookup_session(self)
@@ -110,13 +111,15 @@ class _FakeAsyncpgConnection:
 async def _patched_asyncpg_connect(
     dsn: str | None = None, **kwargs: object
 ) -> _FakeAsyncpgConnection:
+    _original = AsyncpgPlugin._original_connect
+    assert _original is not None
     # Check allowlist FIRST - bypasses both guard and sandbox
     if "asyncpg" in _guard_allowlist.get():
-        return await AsyncpgPlugin._original_connect(dsn, **kwargs)  # type: ignore[no-any-return]
+        return cast(_FakeAsyncpgConnection, await _original(dsn, **kwargs))
     try:
         plugin = _get_asyncpg_plugin()
     except GuardPassThrough:
-        return await AsyncpgPlugin._original_connect(dsn, **kwargs)  # type: ignore[no-any-return]
+        return cast(_FakeAsyncpgConnection, await _original(dsn, **kwargs))
     fake_conn = _FakeAsyncpgConnection(plugin)
     plugin._bind_connection(fake_conn)
     handle = plugin._lookup_session(fake_conn)
@@ -149,7 +152,7 @@ class AsyncpgPlugin(StateMachinePlugin):
     """
 
     # Saved original, restored when count reaches 0.
-    _original_connect: ClassVar[Any] = None  # noqa: ANN401
+    _original_connect: ClassVar[Callable[..., Any] | None] = None
 
     def __init__(self, verifier: "StrictVerifier") -> None:
         super().__init__(verifier)

@@ -9,10 +9,10 @@ import threading
 import traceback
 from collections import deque
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import get_verifier_or_raise, _guard_allowlist, GuardPassThrough
+from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -307,7 +307,7 @@ class MemcachePlugin(BasePlugin):
         return f"    {sm}.{helper}(\n{body}\n    )"
 
     def format_unused_mock_hint(self, mock_config: object) -> str:
-        config: MemcacheMockConfig = mock_config  # type: ignore[assignment]
+        config = cast(MemcacheMockConfig, mock_config)
         command = getattr(config, "command", "?")
         tb = getattr(config, "registration_traceback", "")
         return (
