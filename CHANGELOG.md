@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] - 2026-03-24
+
+### Added
+
+- **Python 3.10 support:** bigfoot now supports Python 3.10 through 3.13. Uses `tomli` and `exceptiongroup` backport packages as conditional dependencies on Python <3.11. CI matrix expanded to include Python 3.10 across all three platforms.
+
+### Fixed
+
+- Redis example tests used incorrect `kwargs` assertion that broke across redis library versions; now uses `IsInstance(dict)` for portability.
+- HTTP plugin tests with `requests` now allow DNS pass-through (`bigfoot.allow("dns")`) to handle Python 3.10's `urllib3` triggering `socket.gethostbyname` before the HTTP interceptor.
+
 ## [0.15.0] - 2026-03-22
 
 ### Added
@@ -292,6 +303,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-OS CI matrix (Ubuntu, macOS, Windows) across Python 3.11, 3.12, and 3.13
 - OIDC trusted publishing to PyPI on `v*` tags
 
+[0.16.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.16.0
 [0.15.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.15.0
 [0.14.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.14.0
 [0.13.2]: https://github.com/axiomantic/bigfoot/releases/tag/v0.13.2
