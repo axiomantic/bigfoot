@@ -8,6 +8,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+import bigfoot
+
 httpx = pytest.importorskip("httpx")
 requests = pytest.importorskip("requests")
 import requests.adapters  # noqa: E402 -- importorskip guarantees requests is available
@@ -377,7 +379,7 @@ def test_httpx_interceptor_raises_unmocked_when_no_config() -> None:
 #   ESCAPE: Nothing reasonable -- type check plus attribute check.
 def test_requests_interceptor_raises_unmocked_when_no_config() -> None:
     v, p = _make_verifier_with_plugin()
-    with v.sandbox():
+    with bigfoot.allow("dns"), v.sandbox():
         with pytest.raises(UnmockedInteractionError) as exc_info:
             requests.get("https://api.example.com/no-mock")
     assert exc_info.value.source_id == "http:request"
@@ -437,7 +439,7 @@ def test_requests_configured_response_returned() -> None:
     v, p = _make_verifier_with_plugin()
     p.mock_response("GET", "https://api.example.com/items", json={"items": [1, 2, 3]})
 
-    with v.sandbox():
+    with bigfoot.allow("dns"), v.sandbox():
         response = requests.get("https://api.example.com/items")
 
     assert response.status_code == 200
@@ -454,7 +456,7 @@ def test_requests_configured_response_custom_status() -> None:
     v, p = _make_verifier_with_plugin()
     p.mock_response("GET", "https://api.example.com/missing", status=404)
 
-    with v.sandbox():
+    with bigfoot.allow("dns"), v.sandbox():
         response = requests.get("https://api.example.com/missing")
 
     assert response.status_code == 404
@@ -496,7 +498,7 @@ def test_interaction_recorded_after_requests_request() -> None:
     v, p = _make_verifier_with_plugin()
     p.mock_response("POST", "https://api.example.com/submit", json={"ok": True})
 
-    with v.sandbox():
+    with bigfoot.allow("dns"), v.sandbox():
         requests.post("https://api.example.com/submit", json={"data": 1})
 
     interactions = v._timeline.all_unasserted()
@@ -954,7 +956,7 @@ def test_requests_interceptor_records_str_body() -> None:
     v, p = _make_verifier_with_plugin()
     p.mock_response("POST", "https://api.example.com/str-body", json={"ok": True})
 
-    with v.sandbox():
+    with bigfoot.allow("dns"), v.sandbox():
         # Sending a string body directly via prepared request
         req = requests.Request("POST", "https://api.example.com/str-body", data="raw string")
         prepared = req.prepare()
@@ -2035,7 +2037,7 @@ def test_requests_handler_raises_error_config() -> None:
     exc = requests.ConnectionError("DNS resolution failed")
     p.mock_error("GET", "https://api.example.com/data", raises=exc)
 
-    with v.sandbox():
+    with bigfoot.allow("dns"), v.sandbox():
         with pytest.raises(requests.ConnectionError, match="DNS resolution failed"):
             requests.get("https://api.example.com/data")
 
