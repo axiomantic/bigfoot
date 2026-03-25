@@ -22,10 +22,14 @@ _test_var: contextvars.ContextVar[str] = contextvars.ContextVar("_test_var", def
 
 @pytest.fixture(autouse=True)
 def _ensure_uninstalled() -> None:
-    """Ensure context propagation is uninstalled before and after each test."""
+    """Ensure context propagation is uninstalled for each test, then restore prior state."""
+    import bigfoot._context_propagation as cp
+    was_installed = cp._installed
     uninstall_context_propagation()
     yield  # type: ignore[misc]
     uninstall_context_propagation()
+    if was_installed:
+        install_context_propagation()
 
 
 # ---------------------------------------------------------------------------

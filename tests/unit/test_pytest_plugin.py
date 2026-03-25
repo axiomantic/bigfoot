@@ -6,6 +6,8 @@ Tests verify the structural contracts of both fixtures:
 - bigfoot_verifier: explicit fixture that returns the auto-verifier
 """
 
+from __future__ import annotations
+
 from unittest.mock import MagicMock
 
 import pytest
@@ -111,3 +113,43 @@ def test_bigfoot_verifier_returns_strict_verifier_instance() -> None:
     result = bigfoot_verifier.__wrapped__(real_verifier)  # type: ignore[attr-defined]
     assert isinstance(result, StrictVerifier)
     assert result is real_verifier
+
+
+# ---------------------------------------------------------------------------
+# Context propagation lifecycle
+# ---------------------------------------------------------------------------
+
+
+class TestContextPropagationLifecycle:
+    """Context propagation is installed/uninstalled by pytest hooks."""
+
+    def test_context_propagation_installed_during_test(self) -> None:
+        """Context propagation should be active during test execution."""
+        import bigfoot._context_propagation as cp
+
+        assert cp._installed is True
+
+    def test_thread_sees_verifier_during_sandbox(
+        self,
+        bigfoot_verifier: StrictVerifier,
+    ) -> None:
+        """A child thread inside a sandbox can see the active verifier."""
+        import threading
+
+        from bigfoot._context import _active_verifier
+
+        captured: list[object] = []
+
+        with bigfoot_verifier.sandbox():
+            verifier_in_parent = _active_verifier.get()
+
+            def worker() -> None:
+                captured.append(_active_verifier.get())
+
+            t = threading.Thread(target=worker)
+            t.start()
+            t.join()
+
+        assert len(captured) == 1
+        assert captured[0] is verifier_in_parent
+        assert captured[0] is not None

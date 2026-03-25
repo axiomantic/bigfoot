@@ -8,6 +8,10 @@ from collections.abc import Generator
 import pytest
 
 from bigfoot._config import load_bigfoot_config
+from bigfoot._context_propagation import (
+    install_context_propagation,
+    uninstall_context_propagation,
+)
 from bigfoot._context import (
     _current_test_verifier,
     _guard_active,
@@ -57,7 +61,7 @@ def _resolve_guard_level(config: dict[str, object]) -> str:
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    """Register bigfoot pytest markers."""
+    """Register bigfoot pytest markers and install context propagation."""
     config.addinivalue_line(
         "markers",
         "allow(*plugin_names): allow plugins to make real calls"
@@ -67,6 +71,12 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         'deny(*plugin_names): remove plugins from the allowlist (narrows an outer allow)',
     )
+    install_context_propagation()
+
+
+def pytest_unconfigure(config: pytest.Config) -> None:
+    """Clean up bigfoot patches."""
+    uninstall_context_propagation()
 
 
 @pytest.fixture(autouse=True)
