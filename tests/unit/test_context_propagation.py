@@ -225,3 +225,131 @@ class TestInstallUninstall:
         """Calling uninstall when not installed does not raise."""
         uninstall_context_propagation()
         uninstall_context_propagation()  # no-op, no error
+
+
+# ---------------------------------------------------------------------------
+# Bigfoot-specific ContextVar propagation
+# ---------------------------------------------------------------------------
+
+from bigfoot._context import (
+    _active_verifier,
+    _guard_active,
+    _guard_allowlist,
+    _guard_level,
+    _guard_patches_installed,
+)
+from bigfoot._recording import _recording_in_progress
+from bigfoot.plugins.file_io_plugin import _file_io_bypass
+
+
+class TestBigfootContextVarsPropagation:
+    """Verify all 9 bigfoot ContextVars propagate to child threads."""
+
+    @pytest.mark.parametrize(
+        "var,value",
+        [
+            (_active_verifier, object()),
+            (_guard_active, True),
+            (_guard_allowlist, frozenset({"http", "socket"})),
+            (_guard_level, "error"),
+            (_guard_patches_installed, True),
+            (_recording_in_progress, True),
+            (_file_io_bypass, True),
+        ],
+        ids=[
+            "active_verifier",
+            "guard_active",
+            "guard_allowlist",
+            "guard_level",
+            "guard_patches_installed",
+            "recording_in_progress",
+            "file_io_bypass",
+        ],
+    )
+    def test_bigfoot_contextvar_propagates_to_thread(
+        self,
+        var: contextvars.ContextVar[object],
+        value: object,
+    ) -> None:
+        """Each bigfoot ContextVar value is visible in a child thread after install."""
+        install_context_propagation()
+        token = var.set(value)
+        captured: list[object] = []
+
+        def worker() -> None:
+            captured.append(var.get())
+
+        t = threading.Thread(target=worker)
+        t.start()
+        t.join()
+        var.reset(token)
+
+        assert captured == [value]
+
+
+# ---------------------------------------------------------------------------
+# Guard mode propagation
+# ---------------------------------------------------------------------------
+
+from bigfoot._context import get_verifier_or_raise, GuardPassThrough
+from bigfoot._errors import GuardedCallError
+
+
+class TestGuardModePropagation:
+    """Guard mode state propagates correctly to child threads."""
+
+    def test_guard_error_propagates_to_child_thread(self) -> None:
+        """When guard is active with level=error, child thread sees it."""
+        install_context_propagation()
+
+        guard_token = _guard_active.set(True)
+        level_token = _guard_level.set("error")
+        patches_token = _guard_patches_installed.set(True)
+        allowlist_token = _guard_allowlist.set(frozenset())
+        errors: list[BaseException] = []
+
+        def worker() -> None:
+            try:
+                get_verifier_or_raise("http:request")
+            except (GuardedCallError, GuardPassThrough) as exc:
+                errors.append(exc)
+
+        t = threading.Thread(target=worker)
+        t.start()
+        t.join()
+
+        _guard_active.reset(guard_token)
+        _guard_level.reset(level_token)
+        _guard_patches_installed.reset(patches_token)
+        _guard_allowlist.reset(allowlist_token)
+
+        assert len(errors) == 1
+        assert isinstance(errors[0], GuardedCallError)
+
+    def test_guard_allowlist_propagates_to_child_thread(self) -> None:
+        """When a plugin is in the allowlist, child thread passes through."""
+        install_context_propagation()
+
+        guard_token = _guard_active.set(True)
+        level_token = _guard_level.set("error")
+        patches_token = _guard_patches_installed.set(True)
+        allowlist_token = _guard_allowlist.set(frozenset({"http"}))
+        errors: list[BaseException] = []
+
+        def worker() -> None:
+            try:
+                get_verifier_or_raise("http:request")
+            except GuardPassThrough as exc:
+                errors.append(exc)
+
+        t = threading.Thread(target=worker)
+        t.start()
+        t.join()
+
+        _guard_active.reset(guard_token)
+        _guard_level.reset(level_token)
+        _guard_patches_installed.reset(patches_token)
+        _guard_allowlist.reset(allowlist_token)
+
+        assert len(errors) == 1
+        assert isinstance(errors[0], GuardPassThrough)
