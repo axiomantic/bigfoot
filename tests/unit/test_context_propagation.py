@@ -385,8 +385,9 @@ class TestGuardModePropagation:
 class TestPython314Detection:
     """Verify behavior when sys.flags.thread_inherit_context is True."""
 
-    def test_start_new_thread_not_patched_when_runtime_handles_it(self) -> None:
-        """When sys.flags.thread_inherit_context is True, _thread.start_new_thread is not patched."""
+    def test_thread_start_not_patched_when_runtime_handles_it(self) -> None:
+        """When sys.flags.thread_inherit_context is True, Thread.start is not
+        patched but _thread.start_new_thread IS (it doesn't natively inherit)."""
         import bigfoot._context_propagation as cp
 
         # Ensure clean state
@@ -400,11 +401,11 @@ class TestPython314Detection:
         with patch.object(sys, "flags", mock_flags):
             install_context_propagation()
 
-        # _thread.start_new_thread should NOT have been patched
-        assert _thread.start_new_thread is original_start
-        # threading.Thread.start should NOT have been patched
+        # _thread.start_new_thread SHOULD still be patched (no native inheritance)
+        assert _thread.start_new_thread is not original_start
+        # threading.Thread.start should NOT have been patched (runtime handles it)
         assert threading.Thread.start is original_thread_start
-        # But TPE.submit SHOULD still be patched
+        # TPE.submit SHOULD still be patched
         assert cp._saved_tpe_submit is not None
 
     def test_tpe_submit_still_patched_when_runtime_handles_threads(self) -> None:
@@ -445,6 +446,10 @@ class TestThreadStartPatch:
         threading.Thread.start = saved_thread_start  # type: ignore[method-assign]
         _thread.start_new_thread = saved_raw_start
 
+    @pytest.mark.skipif(
+        _NATIVE_THREAD_CONTEXT,
+        reason="Thread.start not patched on free-threaded Python (runtime handles it)",
+    )
     def test_thread_start_is_patched_and_restored(self) -> None:
         """After install, threading.Thread.start is patched;
         after uninstall it is restored to the original."""

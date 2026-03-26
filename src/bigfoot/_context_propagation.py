@@ -59,29 +59,30 @@ def install_context_propagation() -> None:
 
         skip_thread_patch = getattr(getattr(sys, "flags", None), "thread_inherit_context", False)
 
+        # Always patch _thread.start_new_thread for raw _thread usage.
+        # Unlike threading.Thread, _thread.start_new_thread does NOT natively
+        # inherit context even on free-threaded Python 3.14t.
+        _saved_start_new_thread = _thread.start_new_thread
+
+        _original_start = _saved_start_new_thread
+
+        def _patched_start_new_thread(
+            function: Callable[..., Any],
+            args: tuple[Any, ...],
+            kwargs: dict[str, Any] | None = None,
+        ) -> int:
+            ctx = contextvars.copy_context()
+
+            def _context_wrapper(*a: Any, **kw: Any) -> None:  # noqa: ANN401
+                ctx.run(function, *a, **kw)
+
+            return _original_start(_context_wrapper, args, kwargs or {})
+
+        _thread.start_new_thread = _patched_start_new_thread
+
         if not skip_thread_patch:
-            # Patch _thread.start_new_thread for raw _thread usage
-            _saved_start_new_thread = _thread.start_new_thread
-
-            _original_start = _saved_start_new_thread
-
-            def _patched_start_new_thread(
-                function: Callable[..., Any],
-                args: tuple[Any, ...],
-                kwargs: dict[str, Any] | None = None,
-            ) -> int:
-                ctx = contextvars.copy_context()
-
-                def _context_wrapper(*a: Any, **kw: Any) -> None:  # noqa: ANN401
-                    ctx.run(function, *a, **kw)
-
-                return _original_start(_context_wrapper, args, kwargs or {})
-
-            _thread.start_new_thread = _patched_start_new_thread
-
             # Patch threading.Thread.start() directly for Thread usage.
-            # This is stable across Python versions (unlike patching internal
-            # cached references like _start_new_thread or _start_joinable_thread).
+            # Skipped on free-threaded 3.14t where the runtime handles it.
             _saved_thread_start = threading.Thread.start
 
             _original_thread_start = _saved_thread_start
