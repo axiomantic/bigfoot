@@ -46,7 +46,7 @@ Context propagation matters whenever code under test (or a test utility) creates
 
 **ThreadPoolExecutor in production code.** If your application dispatches work to a thread pool, those worker threads need the sandbox context to route intercepted calls correctly.
 
-**Custom threading.Thread usage.** Any code that creates `threading.Thread` instances benefits from propagation. The patch operates at the `_thread` level, so `Thread.start()` is covered automatically.
+**Custom threading.Thread usage.** Any code that creates `threading.Thread` instances benefits from propagation. bigfoot patches both `threading.Thread.start()` and the lower-level `_thread.start_new_thread()` to cover all thread-creation paths.
 
 **Libraries that create threads internally.** Some libraries spawn threads for connection pools, background polling, or heartbeats. The low-level `_thread.start_new_thread` patch catches these without needing per-library workarounds.
 
