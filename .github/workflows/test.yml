@@ -60,4 +60,4 @@ jobs:
           --ignore=examples/psycopg2_example
           --ignore=examples/ssh_remote
           --ignore=examples/mcp_tool
-          --ignore=examples/aiohttp_api
+          --ignore=examples/async_api
