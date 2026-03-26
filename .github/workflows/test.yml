@@ -7,11 +7,12 @@ jobs:
   test:
     name: Python ${{ matrix.python-version }} / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14", "3.14t"]
 
     steps:
       - uses: actions/checkout@v4
@@ -22,8 +23,43 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
+      - name: Disable GIL for free-threaded builds
+        if: endsWith(matrix.python-version, 't')
+        run: echo "PYTHON_GIL=0" >> "$GITHUB_ENV"
+
       - name: Install dependencies
-        run: pip install -e ".[http,matchers,dev]"
+        run: pip install -e ".[dev]"
+        if: ${{ !endsWith(matrix.python-version, 't') }}
+
+      - name: Install dependencies (free-threaded)
+        run: pip install -e ".[dev-ft]"
+        if: endsWith(matrix.python-version, 't')
 
       - name: Run tests
         run: pytest
+        if: ${{ !endsWith(matrix.python-version, 't') }}
+
+      - name: Run tests (free-threaded, skip plugins without ft wheels)
+        if: endsWith(matrix.python-version, 't')
+        run: >-
+          pytest
+          --ignore=tests/unit/test_asyncpg_plugin.py
+          --ignore=tests/unit/test_celery_plugin.py
+          --ignore=tests/unit/test_crypto_plugin.py
+          --ignore=tests/unit/test_grpc_plugin.py
+          --ignore=tests/unit/test_mcp_plugin.py
+          --ignore=tests/unit/test_mongo_plugin.py
+          --ignore=tests/unit/test_pika_plugin.py
+          --ignore=tests/unit/test_psycopg2_plugin.py
+          --ignore=tests/unit/test_ssh_plugin.py
+          --ignore=tests/unit/test_native_plugin.py
+          --ignore=examples/async_api
+          --ignore=examples/asyncpg_example
+          --ignore=examples/celery_tasks
+          --ignore=examples/crypto_sign
+          --ignore=examples/grpc_service
+          --ignore=examples/mcp_tool
+          --ignore=examples/mongo_store
+          --ignore=examples/pika_queue
+          --ignore=examples/psycopg2_example
+          --ignore=examples/ssh_remote
