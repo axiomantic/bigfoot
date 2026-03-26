@@ -29,6 +29,11 @@ jobs:
 
       - name: Install dependencies
         run: pip install -e ".[http,matchers,dev]"
+        if: ${{ !endsWith(matrix.python-version, 't') }}
+
+      - name: Install dependencies (free-threaded)
+        run: pip install -e ".[http,matchers]" pytest
+        if: endsWith(matrix.python-version, 't')
 
       - name: Run tests
         run: pytest
