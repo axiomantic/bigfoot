@@ -100,7 +100,7 @@ class TestThreadPropagation:
         _test_var.reset(token)
 
     def test_threading_thread_propagates_via_thread_patch(self) -> None:
-        """threading.Thread uses _thread.start_new_thread under the hood, so it gets context."""
+        """threading.Thread uses patched start(), so it gets context."""
         install_context_propagation()
         token = _test_var.set("via_threading")
         captured: list[str] = []
@@ -115,8 +115,8 @@ class TestThreadPropagation:
     def test_thread_subclass_with_overridden_run(self) -> None:
         """Thread subclass that overrides run() still gets context.
 
-        Since we patch at the _thread level, the subclass's run() is called
-        inside the propagated context automatically.
+        Since we patch Thread.start() to wrap run() in a context copy,
+        the subclass's run() is called inside the propagated context.
         """
         install_context_propagation()
         token = _test_var.set("subclass_test")
@@ -393,6 +393,7 @@ class TestPython314Detection:
         uninstall_context_propagation()
 
         original_start = _thread.start_new_thread
+        original_thread_start = threading.Thread.start
 
         # Mock sys.flags to have thread_inherit_context=True
         mock_flags = type("MockFlags", (), {"thread_inherit_context": True})()
@@ -401,6 +402,8 @@ class TestPython314Detection:
 
         # _thread.start_new_thread should NOT have been patched
         assert _thread.start_new_thread is original_start
+        # threading.Thread.start should NOT have been patched
+        assert threading.Thread.start is original_thread_start
         # But TPE.submit SHOULD still be patched
         assert cp._saved_tpe_submit is not None
 
@@ -423,140 +426,43 @@ class TestPython314Detection:
 
 
 # ---------------------------------------------------------------------------
-# Python 3.13 _start_joinable_thread compatibility
+# threading.Thread.start patch verification
 # ---------------------------------------------------------------------------
 
 
-class TestThreadingModuleCompat:
-    """Verify correct threading module attribute is patched for 3.12 vs 3.13+."""
+class TestThreadStartPatch:
+    """Verify threading.Thread.start is patched and restored correctly."""
 
     @pytest.fixture(autouse=True)
     def _save_threading_state(self) -> Generator[None, None, None]:
-        """Save and restore real threading module state around each compat test.
-
-        The compat tests mock ``_HAS_START_JOINABLE_THREAD`` and manipulate
-        ``threading._start_new_thread`` / ``threading._start_joinable_thread``.
-        If ``uninstall_context_propagation()`` runs while the mock is active it
-        can restore the *wrong* function (e.g. a no-op lambda), leaving the
-        threading module broken and causing subsequent thread creation to
-        deadlock.  We therefore snapshot every relevant attribute before the
-        test and unconditionally restore them afterward, regardless of what
-        install/uninstall did.
-        """
-        saved_thread_start = _thread.start_new_thread
-        saved_cthread_joinable = getattr(_thread, "start_joinable_thread", None)
-        had_cthread_joinable = hasattr(_thread, "start_joinable_thread")
-        saved_threading_start = getattr(threading, "_start_new_thread", None)
-        saved_threading_joinable = getattr(threading, "_start_joinable_thread", None)
-        had_joinable = hasattr(threading, "_start_joinable_thread")
+        """Save and restore threading.Thread.start around each test."""
+        saved_thread_start = threading.Thread.start
+        saved_raw_start = _thread.start_new_thread
 
         yield
 
-        # Force-uninstall so the global ``_installed`` flag is cleared, then
-        # restore the real functions unconditionally.
         uninstall_context_propagation()
+        threading.Thread.start = saved_thread_start  # type: ignore[method-assign]
+        _thread.start_new_thread = saved_raw_start
 
-        _thread.start_new_thread = saved_thread_start
-        if had_cthread_joinable:
-            _thread.start_joinable_thread = saved_cthread_joinable  # type: ignore[attr-defined]
-        elif hasattr(_thread, "start_joinable_thread"):
-            delattr(_thread, "start_joinable_thread")  # type: ignore[attr-defined]
-        if saved_threading_start is not None:
-            threading._start_new_thread = saved_threading_start  # type: ignore[attr-defined]
-        if had_joinable:
-            threading._start_joinable_thread = saved_threading_joinable  # type: ignore[attr-defined]
-        elif hasattr(threading, "_start_joinable_thread"):
-            delattr(threading, "_start_joinable_thread")
-
-    def test_patches_correct_threading_attribute_for_current_python(self) -> None:
-        """After install, the threading module's cached thread-starter is patched;
+    def test_thread_start_is_patched_and_restored(self) -> None:
+        """After install, threading.Thread.start is patched;
         after uninstall it is restored to the original."""
         import bigfoot._context_propagation as cp
 
-        has_joinable = hasattr(threading, "_start_joinable_thread")
-
-        if has_joinable:
-            original = threading._start_joinable_thread  # type: ignore[attr-defined]
-        else:
-            original = threading._start_new_thread  # type: ignore[attr-defined]
+        original = threading.Thread.start
 
         install_context_propagation()
 
-        if has_joinable:
-            assert threading._start_joinable_thread is not original  # type: ignore[attr-defined]
-            assert cp._saved_threading_start_joinable_thread is original
-        else:
-            assert threading._start_new_thread is not original  # type: ignore[attr-defined]
-            assert cp._saved_threading_start_new_thread is original
+        assert threading.Thread.start is not original
+        assert cp._saved_thread_start is original
 
         uninstall_context_propagation()
 
-        if has_joinable:
-            assert threading._start_joinable_thread is original  # type: ignore[attr-defined]
-        else:
-            assert threading._start_new_thread is original  # type: ignore[attr-defined]
+        assert threading.Thread.start is original
 
-    def test_start_joinable_thread_patched_when_present(self) -> None:
-        """When threading._start_joinable_thread exists (3.13+), it is patched
-        and _start_new_thread on the threading module is left alone."""
-        import bigfoot._context_propagation as cp
-
-        fake_joinable = lambda func, handle=None, daemon=True: None  # noqa: ARG005, E731
-        fake_start = lambda func, args, kwargs=None: None  # noqa: ARG005, E731
-
-        with (
-            patch.object(cp, "_HAS_START_JOINABLE_THREAD", True),
-            patch.object(threading, "_start_joinable_thread", fake_joinable, create=True),
-            patch.object(threading, "_start_new_thread", fake_start, create=True),
-        ):
-            install_context_propagation()
-
-            # _start_joinable_thread should be patched (different from fake)
-            assert threading._start_joinable_thread is not fake_joinable  # type: ignore[attr-defined]
-            assert cp._saved_threading_start_joinable_thread is fake_joinable
-            # _start_new_thread on threading module should NOT have been saved
-            assert cp._saved_threading_start_new_thread is None
-
-            # Uninstall while mocks are still active so it restores the fakes
-            # (not the real functions).  The _save_threading_state fixture will
-            # then restore the real functions unconditionally.
-            uninstall_context_propagation()
-
-    @pytest.mark.skipif(
-        not hasattr(threading, "_start_new_thread"),
-        reason="threading._start_new_thread does not exist on Python 3.13+",
-    )
-    def test_start_new_thread_patched_when_no_joinable(self) -> None:
-        """When threading._start_joinable_thread does not exist (3.12-),
-        threading._start_new_thread is patched instead."""
-        import bigfoot._context_propagation as cp
-
-        fake_start = threading._start_new_thread  # type: ignore[attr-defined]
-
-        # Temporarily remove _start_joinable_thread if it exists
-        had_joinable = hasattr(threading, "_start_joinable_thread")
-        saved_joinable = getattr(threading, "_start_joinable_thread", None)
-
-        with patch.object(cp, "_HAS_START_JOINABLE_THREAD", False):
-            if had_joinable:
-                delattr(threading, "_start_joinable_thread")
-            try:
-                install_context_propagation()
-
-                assert threading._start_new_thread is not fake_start  # type: ignore[attr-defined]
-                assert cp._saved_threading_start_new_thread is fake_start
-                assert cp._saved_threading_start_joinable_thread is None
-
-                # Uninstall while mocks are still active so it restores
-                # correctly.  The _save_threading_state fixture handles final
-                # cleanup.
-                uninstall_context_propagation()
-            finally:
-                if had_joinable:
-                    threading._start_joinable_thread = saved_joinable  # type: ignore[attr-defined]
-
-    def test_context_propagates_via_patched_threading_attribute(self) -> None:
-        """Regardless of which threading attribute is patched, context propagation works."""
+    def test_context_propagates_via_patched_thread_start(self) -> None:
+        """Context propagation works via the patched Thread.start()."""
         install_context_propagation()
         token = _test_var.set("compat_check")
         captured: list[str] = []
