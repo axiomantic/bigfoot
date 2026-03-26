@@ -21,6 +21,12 @@ from bigfoot._context_propagation import (
 # Use a fresh ContextVar for isolation from bigfoot's own vars
 _test_var: contextvars.ContextVar[str] = contextvars.ContextVar("_test_var", default="unset")
 
+# Python 3.14t (free-threaded) natively inherits context to child threads,
+# so tests asserting "no propagation without install" must be skipped.
+_NATIVE_THREAD_CONTEXT = getattr(
+    getattr(sys, "flags", None), "thread_inherit_context", False
+)
+
 
 @pytest.fixture(autouse=True)
 def _ensure_uninstalled() -> Generator[None, None, None]:
@@ -57,6 +63,10 @@ class TestThreadPropagation:
 
         assert captured == ["from_parent"]
 
+    @pytest.mark.skipif(
+        _NATIVE_THREAD_CONTEXT,
+        reason="Native context inheritance on free-threaded Python",
+    )
     def test_contextvar_does_not_propagate_without_install(self) -> None:
         """Without install, child thread gets default ContextVar value."""
         token = _test_var.set("from_parent")
@@ -142,6 +152,10 @@ class TestThreadPoolExecutorPropagation:
         _test_var.reset(token)
         assert result == "pool_parent"
 
+    @pytest.mark.skipif(
+        _NATIVE_THREAD_CONTEXT,
+        reason="Native context inheritance on free-threaded Python",
+    )
     def test_executor_submit_does_not_propagate_without_install(self) -> None:
         """Without install, executor workers get default ContextVar value."""
         token = _test_var.set("pool_parent")
@@ -212,6 +226,10 @@ class TestInstallUninstall:
 
         assert captured == ["idempotent_test"]
 
+    @pytest.mark.skipif(
+        _NATIVE_THREAD_CONTEXT,
+        reason="Native context inheritance on free-threaded Python",
+    )
     def test_uninstall_restores_original_behavior(self) -> None:
         """After uninstall, threads no longer get parent context."""
         install_context_propagation()
@@ -426,6 +444,8 @@ class TestThreadingModuleCompat:
         install/uninstall did.
         """
         saved_thread_start = _thread.start_new_thread
+        saved_cthread_joinable = getattr(_thread, "start_joinable_thread", None)
+        had_cthread_joinable = hasattr(_thread, "start_joinable_thread")
         saved_threading_start = getattr(threading, "_start_new_thread", None)
         saved_threading_joinable = getattr(threading, "_start_joinable_thread", None)
         had_joinable = hasattr(threading, "_start_joinable_thread")
@@ -437,6 +457,10 @@ class TestThreadingModuleCompat:
         uninstall_context_propagation()
 
         _thread.start_new_thread = saved_thread_start
+        if had_cthread_joinable:
+            _thread.start_joinable_thread = saved_cthread_joinable  # type: ignore[attr-defined]
+        elif hasattr(_thread, "start_joinable_thread"):
+            delattr(_thread, "start_joinable_thread")  # type: ignore[attr-defined]
         if saved_threading_start is not None:
             threading._start_new_thread = saved_threading_start  # type: ignore[attr-defined]
         if had_joinable:

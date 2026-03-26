@@ -32,6 +32,7 @@ _lock = threading.Lock()
 # time, NOT at import time. This respects other libraries (e.g., OTel) that
 # may have already patched these before bigfoot installs.
 _saved_start_new_thread: Callable[..., Any] | None = None
+_saved_start_joinable_thread: Callable[..., Any] | None = None
 _saved_threading_start_new_thread: Callable[..., Any] | None = None
 _saved_threading_start_joinable_thread: Callable[..., Any] | None = None
 _saved_tpe_submit: Callable[..., Any] | None = None
@@ -42,6 +43,12 @@ _saved_tpe_submit: Callable[..., Any] | None = None
 # _start_joinable_thread instead of _start_new_thread, so we must
 # detect which attribute exists and patch accordingly.
 _HAS_START_JOINABLE_THREAD = hasattr(threading, "_start_joinable_thread")
+
+# Python 3.13+ also exposes _thread.start_joinable_thread (no leading
+# underscore) as the C-level function. Some CPython builds may have
+# Thread.start() call _thread.start_joinable_thread directly rather than
+# going through the threading module-level cache. We patch both to be safe.
+_HAS_CTHREAD_START_JOINABLE = hasattr(_thread, "start_joinable_thread")
 
 
 def install_context_propagation() -> None:
@@ -54,7 +61,7 @@ def install_context_propagation() -> None:
     patching is skipped (the runtime handles it natively). TPE.submit is
     still patched because the runtime flag only affects Thread, not executors.
     """
-    global _installed, _saved_start_new_thread
+    global _installed, _saved_start_new_thread, _saved_start_joinable_thread
     global _saved_threading_start_new_thread
     global _saved_threading_start_joinable_thread, _saved_tpe_submit
 
@@ -82,6 +89,31 @@ def install_context_propagation() -> None:
                 return _original_start(_context_wrapper, args, kwargs or {})
 
             _thread.start_new_thread = _patched_start_new_thread
+
+            # Python 3.13+ added _thread.start_joinable_thread as the
+            # preferred low-level thread creator. Thread.start() on some
+            # builds may reference this directly rather than through
+            # threading._start_joinable_thread. Patch it too.
+            if _HAS_CTHREAD_START_JOINABLE:
+                _saved_start_joinable_thread = _thread.start_joinable_thread  # type: ignore[attr-defined]
+
+                _original_cthread_joinable = _saved_start_joinable_thread
+
+                def _patched_cthread_start_joinable(
+                    function: Callable[..., Any],
+                    handle: Any = None,  # noqa: ANN401
+                    daemon: bool = True,
+                ) -> Any:  # noqa: ANN401
+                    ctx = contextvars.copy_context()
+
+                    def _context_wrapper() -> None:
+                        ctx.run(function)
+
+                    return _original_cthread_joinable(
+                        _context_wrapper, handle=handle, daemon=daemon,
+                    )
+
+                _thread.start_joinable_thread = _patched_cthread_start_joinable  # type: ignore[attr-defined]
 
             # threading caches the low-level thread starter as a module-level
             # attribute at import time. We must also patch that cached reference
@@ -139,7 +171,7 @@ def uninstall_context_propagation() -> None:
 
     Idempotent: calling when not installed is a no-op.
     """
-    global _installed, _saved_start_new_thread
+    global _installed, _saved_start_new_thread, _saved_start_joinable_thread
     global _saved_threading_start_new_thread
     global _saved_threading_start_joinable_thread, _saved_tpe_submit
 
@@ -150,6 +182,10 @@ def uninstall_context_propagation() -> None:
         if _saved_start_new_thread is not None:
             _thread.start_new_thread = _saved_start_new_thread
             _saved_start_new_thread = None
+
+        if _saved_start_joinable_thread is not None:
+            _thread.start_joinable_thread = _saved_start_joinable_thread  # type: ignore[attr-defined]
+            _saved_start_joinable_thread = None
 
         if _saved_threading_start_new_thread is not None:
             threading._start_new_thread = _saved_threading_start_new_thread  # type: ignore[attr-defined]
