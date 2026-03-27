@@ -102,16 +102,15 @@ def test_payment_flow():
 If you forget the `assert_request()` call, bigfoot fails the test at teardown:
 
 ```
-E   bigfoot._errors.UnassertedInteractionsError: 1 interaction(s) were not asserted
+E   bigfoot._errors.UnassertedInteractionsError: 1 interaction was not asserted.
 E
-E     [sequence=0] [HttpPlugin] POST https://api.stripe.com/v1/charges (status=200)
-E       To assert this interaction:
-E         http.assert_request(
-E       "POST",
-E       "https://api.stripe.com/v1/charges",
-E       headers={'host': 'api.stripe.com', ...},
-E       body='{"amount":5000}',
-E   )
+E       http.assert_request(
+E           "POST",
+E           "https://api.stripe.com/v1/charges",
+E           headers={'host': 'api.stripe.com', ...},
+E           body='{"amount":5000}',
+E       )
+E       # ^ [sequence=0] [HttpPlugin] POST https://api.stripe.com/v1/charges (status=200)
 ```
 
 Every field is shown. Every value is real. Copy, paste, done.

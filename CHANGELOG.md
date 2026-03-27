@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.1] - 2026-03-27
+
+### Improved
+
+- **Field-level diffs in `InteractionMismatchError`:** Mismatch errors now show per-field `expected:` / `actual:` comparisons for only the fields that differ, with `difflib.unified_diff` for long strings. Matching fields are collapsed to a single "N fields matched" line.
+- **Compact remaining timeline:** The "Remaining timeline" section in mismatch errors is hidden when redundant (single interaction already shown above).
+- **Assertion-first `UnassertedInteractionsError`:** Copy-pasteable assertion code is shown first per interaction; the teaching preamble appears once at the end, not repeated per interaction.
+- **Slimmer `InteractionMismatchError` header:** Removed redundant `Expected={...}, actual={...}` repr dump from the one-liner; the formatted hint already contains all the detail.
+- **Cleaner `VerificationError` nesting:** When both unasserted and unused errors fire, section headers (`--- Unasserted Interactions ---`, `--- Unused Mocks ---`) replace the old cramped nesting.
+- **`MissingAssertionFieldsError` shows provided fields:** Error message now lists both the missing fields and the fields that were provided, so you see the gap at a glance.
+- **Richer `MockPlugin.format_interaction`:** One-liners now include a truncated preview of the first positional arg (e.g., `[MockPlugin] mod:attr.__call__(["osascript", "-e", ...])`), making timeline listings distinguishable when multiple interactions share the same source.
+
 ## [0.19.0] - 2026-03-26
 
 ### Added
