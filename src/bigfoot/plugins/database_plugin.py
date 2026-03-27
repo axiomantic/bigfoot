@@ -175,6 +175,9 @@ class DatabasePlugin(StateMachinePlugin):
     States: connected -> in_transaction -> connected/closed
     """
 
+    # source_id prefixes that differ from the registry name ("database")
+    guard_prefixes: ClassVar[tuple[str, ...]] = ("db",)
+
     # Saved original, restored when count reaches 0.
     _original_connect: ClassVar[Callable[..., Any] | None] = None
 
