@@ -5,6 +5,7 @@ Uses a per-service:operation FIFO queue.
 
 from __future__ import annotations
 
+import os
 import threading
 import traceback
 from collections import deque
@@ -173,6 +174,17 @@ class Boto3Plugin(BasePlugin):
     """
 
     _original_make_api_call: ClassVar[Callable[..., Any] | None] = None
+    _saved_env: ClassVar[dict[str, str | None]] = {}
+
+    # Env vars that must be set to prevent botocore's credential provider
+    # from hitting the EC2 metadata service (169.254.169.254).
+    _CREDENTIAL_ENV_VARS: ClassVar[dict[str, str]] = {
+        "AWS_ACCESS_KEY_ID": "testing",
+        "AWS_SECRET_ACCESS_KEY": "testing",
+        "AWS_SECURITY_TOKEN": "testing",
+        "AWS_SESSION_TOKEN": "testing",
+        "AWS_DEFAULT_REGION": "us-east-1",
+    }
 
     def __init__(self, verifier: StrictVerifier) -> None:
         super().__init__(verifier)
@@ -237,19 +249,37 @@ class Boto3Plugin(BasePlugin):
     # ------------------------------------------------------------------
 
     def install_patches(self) -> None:
-        """Install botocore._make_api_call patch."""
+        """Install botocore._make_api_call patch and set dummy AWS credentials.
+
+        Setting dummy credentials prevents botocore's credential provider from
+        hitting the EC2 metadata service (169.254.169.254), which would leak DNS
+        and HTTP calls to other plugin interceptors.
+        """
         if not _BOTO3_AVAILABLE:
             raise ImportError(
                 "Install bigfoot[boto3] to use Boto3Plugin: pip install bigfoot[boto3]"
             )
+        # Save current env values and inject dummy credentials
+        for key, value in self._CREDENTIAL_ENV_VARS.items():
+            Boto3Plugin._saved_env[key] = os.environ.get(key)
+            os.environ[key] = value
+
         Boto3Plugin._original_make_api_call = botocore.client.BaseClient._make_api_call
         botocore.client.BaseClient._make_api_call = _patched_make_api_call
 
     def restore_patches(self) -> None:
-        """Restore original botocore._make_api_call."""
+        """Restore original botocore._make_api_call and AWS credential env vars."""
         if Boto3Plugin._original_make_api_call is not None:
             botocore.client.BaseClient._make_api_call = Boto3Plugin._original_make_api_call
             Boto3Plugin._original_make_api_call = None
+
+        # Restore original env values
+        for key, original_value in Boto3Plugin._saved_env.items():
+            if original_value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = original_value
+        Boto3Plugin._saved_env.clear()
 
     # ------------------------------------------------------------------
     # BasePlugin abstract method implementations
