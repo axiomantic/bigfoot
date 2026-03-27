@@ -335,7 +335,7 @@ class MongoPlugin(BasePlugin):
                         host = host_arg
                 _mongo_conn_meta[self_] = (normalize_host(host), port)
 
-            pymongo.MongoClient.__init__ = _patched_client_init  # type: ignore[method-assign]
+            pymongo.MongoClient.__init__ = _patched_client_init  # type: ignore[assignment,method-assign]
 
         MongoPlugin._original_methods = {}
         for op in MongoPlugin._INTERCEPTED_OPERATIONS:

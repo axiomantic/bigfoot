@@ -271,7 +271,7 @@ class ElasticsearchPlugin(BasePlugin):
                         port = parsed.port
                 _es_conn_meta[self_] = (normalize_host(str(host)), int(port))
 
-            es_cls.__init__ = _patched_init  # type: ignore[method-assign]
+            es_cls.__init__ = _patched_init  # type: ignore[assignment,method-assign]
 
         for method_name in _INTERCEPTED_METHODS:
             ElasticsearchPlugin._originals[method_name] = getattr(es_cls, method_name)

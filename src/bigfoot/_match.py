@@ -152,7 +152,7 @@ class _ExactMatcher(_FieldMatcher):
         self._value = value
 
     def matches(self, actual: Any) -> bool:  # noqa: ANN401
-        return self._value == actual
+        return bool(self._value == actual)
 
     def __repr__(self) -> str:
         return repr(self._value)
@@ -222,7 +222,7 @@ class _EqualityMatcher(_FieldMatcher):
         self._value = value
 
     def matches(self, actual: Any) -> bool:  # noqa: ANN401
-        return self._value == actual
+        return bool(self._value == actual)
 
     def __repr__(self) -> str:
         return repr(self._value)

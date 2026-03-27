@@ -248,7 +248,7 @@ class MemcachePlugin(BasePlugin):
                     host, port = str(server), 11211
                 _memcache_conn_meta[self_] = (normalize_host(host), port)
 
-            Client.__init__ = _patched_init  # type: ignore[method-assign]
+            Client.__init__ = _patched_init
 
         for method_name in _ALL_INTERCEPTED:
             MemcachePlugin._originals[method_name] = getattr(Client, method_name, None)
@@ -263,7 +263,7 @@ class MemcachePlugin(BasePlugin):
                 setattr(Client, method_name, original)
         MemcachePlugin._originals = {k: None for k in MemcachePlugin._originals}
         if MemcachePlugin._original_init is not None:
-            Client.__init__ = MemcachePlugin._original_init  # type: ignore[method-assign]
+            Client.__init__ = MemcachePlugin._original_init
             MemcachePlugin._original_init = None
 
     # ------------------------------------------------------------------

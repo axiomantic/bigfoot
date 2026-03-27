@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 try:
-    import asyncpg  # type: ignore[import-untyped]
+    import asyncpg
 
     _ASYNCPG_AVAILABLE = True
 except ImportError:  # pragma: no cover
@@ -118,7 +118,7 @@ async def _patched_asyncpg_connect(
     assert _original is not None
     # Parse connection parameters for firewall request
     host = str(kwargs.get("host", ""))
-    port = int(kwargs.get("port", 0)) if "port" in kwargs else 0
+    port = int(kwargs.get("port", 0)) if "port" in kwargs else 0  # type: ignore[call-overload]
     dbname = str(kwargs.get("database", ""))
     fw_request = PostgresFirewallRequest(protocol="asyncpg", host=host, port=port, dbname=dbname)
     try:

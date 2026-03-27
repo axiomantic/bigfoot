@@ -214,7 +214,7 @@ class RedisPlugin(BasePlugin):
                 db = kwargs.get("db") or (args[2] if len(args) > 2 else 0)
                 _redis_conn_meta[self_] = (normalize_host(str(host)), int(port), int(db))
 
-            redis_lib.Redis.__init__ = _patched_init  # type: ignore[method-assign]
+            redis_lib.Redis.__init__ = _patched_init  # type: ignore[assignment,method-assign]
 
         RedisPlugin._original_execute_command = redis_lib.Redis.execute_command
         setattr(redis_lib.Redis, "execute_command", _patched_execute_command)

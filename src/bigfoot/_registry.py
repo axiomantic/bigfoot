@@ -151,8 +151,8 @@ def is_guard_eligible(plugin_name: str) -> bool:
                         eligible.add(prefix)
             except Exception:
                 pass
-        is_guard_eligible._cache = frozenset(eligible)
-    return plugin_name in is_guard_eligible._cache
+        is_guard_eligible._cache = frozenset(eligible)  # type: ignore[attr-defined]
+    return plugin_name in is_guard_eligible._cache  # type: ignore[attr-defined]
 
 
 def _clear_guard_eligible_cache() -> None:

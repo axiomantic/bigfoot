@@ -364,7 +364,7 @@ def _parse_toml_rule(rule_str: str) -> M:  # type: ignore[name-defined]  # noqa:
             kwargs["db"] = int(parsed.path.lstrip("/"))
         else:
             kwargs["path"] = parsed.path
-    return M(**kwargs)
+    return M(**kwargs)  # type: ignore[arg-type]
 
 
 def _path_matches_glob(test_path: str, glob_pattern: str) -> bool:

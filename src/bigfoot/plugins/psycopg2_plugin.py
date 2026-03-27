@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 try:
-    import psycopg2  # type: ignore[import-untyped]
+    import psycopg2
 
     _PSYCOPG2_AVAILABLE = True
 except ImportError:  # pragma: no cover
@@ -168,7 +168,7 @@ def _patched_psycopg2_connect(
     assert _original is not None
     # Parse connection parameters for firewall request
     host = str(kwargs.get("host", ""))
-    port = int(kwargs.get("port", 0)) if "port" in kwargs else 0
+    port = int(kwargs.get("port", 0)) if "port" in kwargs else 0  # type: ignore[call-overload]
     dbname = str(kwargs.get("dbname", ""))
     fw_request = PostgresFirewallRequest(protocol="psycopg2", host=host, port=port, dbname=dbname)
     try:

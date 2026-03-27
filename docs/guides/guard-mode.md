@@ -161,7 +161,7 @@ Multiple `M()` objects in a single `allow()` or `deny()` create a union (any mat
 ```python
 @pytest.mark.allow(
     M(protocol="http", host="*.example.com"),
-    M(protocol="http", host="*.internal.co"),
+    M(protocol="http", host="*.internal.com"),
 )
 def test_multi_host():
     ...
@@ -177,27 +177,23 @@ The `[tool.bigfoot.firewall]` section in `pyproject.toml` replaces the old `guar
 [tool.bigfoot]
 guard = "error"
 
-[tool.bigfoot.firewall.allow.http]
-hosts = ["*.example.com", "api.stripe.com"]
-methods = ["GET", "POST"]
-
-[tool.bigfoot.firewall.allow.redis]
-hosts = ["localhost"]
-commands = ["GET", "SET", "DEL"]
-
-[tool.bigfoot.firewall.allow.subprocess]
-commands = ["/usr/bin/git", "/usr/local/bin/helm"]
-
-[tool.bigfoot.firewall.allow.boto3]
-services = ["s3", "sqs"]
-regions = ["us-east-1"]
+[tool.bigfoot.firewall]
+allow = [
+    "http://*.example.com",
+    "http://api.stripe.com",
+    "redis://localhost",
+    "subprocess:/usr/bin/git",
+    "subprocess:/usr/local/bin/helm",
+    "boto3:s3",
+    "boto3:sqs",
+]
 ```
 
 ### Denying in TOML
 
 ```toml
-[tool.bigfoot.firewall.deny.http]
-hosts = ["*.production.internal"]
+[tool.bigfoot.firewall]
+deny = ["http://*.production.internal"]
 ```
 
 ### Per-file allow rules
@@ -213,17 +209,16 @@ Keys are glob patterns matched against test file paths; values are lists of allo
 
 ### Legacy `guard_allow` migration
 
-The old `guard_allow` config is still supported but deprecated:
+The old `guard_allow` config key has been removed. If you see a `BigfootConfigError` about `guard_allow`, migrate as follows:
 
 ```toml
-# OLD (deprecated):
+# OLD (removed):
 [tool.bigfoot]
 guard_allow = ["socket", "database"]
 
-# NEW (recommended):
-[tool.bigfoot.firewall.allow]
-socket = {}
-database = {}
+# NEW:
+[tool.bigfoot.firewall]
+allow = ["socket:*", "database:*"]
 ```
 
 ## Three-level configuration

@@ -386,8 +386,8 @@ class GuardedCallError(BigfootError):
                 f"@pytest.mark.allow({m_str})",
                 f"with bigfoot.allow({m_str}):",
                 [
-                    "[tool.bigfoot.firewall.allow.subprocess]",
-                    f'commands = ["{req.binary}"]',
+                    "[tool.bigfoot.firewall]",
+                    f'allow = ["subprocess:{req.binary}"]',
                 ],
             )
 
