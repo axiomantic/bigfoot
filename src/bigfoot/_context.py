@@ -69,21 +69,36 @@ def get_verifier_or_raise(
 
     Decision tree:
 
-    1. Sandbox active: return verifier (firewall not consulted).
-    2. Guard-eligible plugin (determined by supports_guard ClassVar):
+    1. Guard-eligible plugin + guard active + firewall ALLOW:
+       raise GuardPassThrough (bypasses sandbox -- allowed calls are invisible).
+    2. Sandbox active: return verifier.
+    3. Guard-eligible plugin (determined by supports_guard ClassVar):
        a. Guard active + firewall_request provided:
-          - Evaluate request against firewall stack.
-          - ALLOW: raise GuardPassThrough (call original).
           - DENY + level "warn": warn and raise GuardPassThrough.
           - DENY + level "error": raise GuardedCallError.
        b. Guard active + no firewall_request (should not happen post-migration,
           but safe fallback): raise GuardedCallError.
        c. Guard not active but patches installed: raise GuardPassThrough.
-    3. Non-guard-eligible plugin: raise SandboxNotActiveError.
+    4. Non-guard-eligible plugin: raise SandboxNotActiveError.
     """
+    # Check for active sandbox FIRST: when a sandbox is active, all calls
+    # should go through the sandbox's mock/intercept pipeline.  The firewall
+    # is only relevant in guard mode (outside a sandbox).
     verifier = _active_verifier.get()
     if verifier is not None:
         return verifier
+
+    # No sandbox active -- check firewall for guard mode.
+    if firewall_request is not None and _guard_active.get():
+        plugin_name = source_id.split(":")[0]
+        from bigfoot._registry import is_guard_eligible  # noqa: PLC0415
+
+        if is_guard_eligible(plugin_name):
+            from bigfoot._firewall import Disposition, get_firewall_stack  # noqa: PLC0415
+
+            disposition = get_firewall_stack().evaluate(firewall_request)
+            if disposition == Disposition.ALLOW:
+                raise GuardPassThrough()
 
     # Determine guard eligibility from plugin ClassVar, not GUARD_ELIGIBLE_PREFIXES
     plugin_name = source_id.split(":")[0]
@@ -97,10 +112,7 @@ def get_verifier_or_raise(
                 from bigfoot._firewall import Disposition, get_firewall_stack  # noqa: PLC0415
 
                 disposition = get_firewall_stack().evaluate(firewall_request)
-                if disposition == Disposition.ALLOW:
-                    raise GuardPassThrough()
-
-                # DENY
+                # ALLOW was already handled above, so this is DENY
                 level = _guard_level.get()
                 if level == "warn":
                     import warnings  # noqa: PLC0415
