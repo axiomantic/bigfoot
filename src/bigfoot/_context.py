@@ -104,6 +104,7 @@ def get_verifier_or_raise(
                 level = _guard_level.get()
                 if level == "warn":
                     import warnings  # noqa: PLC0415
+
                     from bigfoot._errors import GuardedCallWarning  # noqa: PLC0415
 
                     warnings.warn(

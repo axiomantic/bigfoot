@@ -1730,7 +1730,7 @@ class TestFirewallTomlConfig:
         config = {"guard": "error", "firewall": {"allow": ["socket:*"]}}
 
         class FakeMark:
-            def __init__(self, *args: str):
+            def __init__(self, *args: str) -> None:
                 self.args = args
 
         class FakeItem:
@@ -1766,7 +1766,7 @@ class TestFirewallTomlConfig:
         config = {"guard": "error", "firewall": {"allow": ["socket:*", "dns:*"]}}
 
         class FakeMark:
-            def __init__(self, *args: str):
+            def __init__(self, *args: str) -> None:
                 self.args = args
 
         class FakeItem:

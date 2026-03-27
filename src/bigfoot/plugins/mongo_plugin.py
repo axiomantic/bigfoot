@@ -169,11 +169,20 @@ def _make_patched_method(operation: str) -> Any:  # noqa: ANN401
     def _patched(collection_self: Any, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
         # Navigate from Collection -> Database -> MongoClient for connection metadata
         client = getattr(getattr(collection_self, "database", None), "client", None)
-        host, port = _mongo_conn_meta.get(client, ("unknown", 0)) if client is not None else ("unknown", 0)
-        database = getattr(collection_self.database, "name", "") if hasattr(collection_self, "database") else ""
+        host, port = (
+            _mongo_conn_meta.get(client, ("unknown", 0))
+            if client is not None
+            else ("unknown", 0)
+        )
+        database = (
+            getattr(collection_self.database, "name", "")
+            if hasattr(collection_self, "database")
+            else ""
+        )
         collection_name = getattr(collection_self, "name", "")
         fw_request = MongoFirewallRequest(
-            host=host, port=port, database=database, collection=collection_name, operation=operation,
+            host=host, port=port, database=database,
+            collection=collection_name, operation=operation,
         )
         try:
             plugin = _get_mongo_plugin(firewall_request=fw_request)
@@ -305,15 +314,18 @@ class MongoPlugin(BasePlugin):
         if MongoPlugin._original_client_init is None:
             MongoPlugin._original_client_init = pymongo.MongoClient.__init__
 
-            def _patched_client_init(self_: object, *args: Any, **kwargs: Any) -> None:
+            def _patched_client_init(self_: object, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
                 assert MongoPlugin._original_client_init is not None
                 MongoPlugin._original_client_init(self_, *args, **kwargs)
                 host_arg = args[0] if args else kwargs.get("host", "localhost")
                 port_arg = kwargs.get("port") or (args[1] if len(args) > 1 else 27017)
                 host = "localhost"
                 port = int(port_arg)
+                if isinstance(host_arg, list):
+                    # pymongo accepts a list of host strings; use the first.
+                    host_arg = host_arg[0] if host_arg else "localhost"
                 if isinstance(host_arg, str):
-                    if host_arg.startswith("mongodb://") or host_arg.startswith("mongodb+srv://"):
+                    if host_arg.startswith(("mongodb://", "mongodb+srv://")):
                         from urllib.parse import urlparse  # noqa: PLC0415
                         parsed = urlparse(host_arg)
                         host = parsed.hostname or "localhost"

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import ipaddress
 import re
-from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -50,7 +49,7 @@ class M:
     # Fields that get path normalization at construction time
     _PATH_FIELDS: frozenset[str] = frozenset({"path", "database_path", "uri"})
 
-    def __init__(self, protocol: str | None = None, **kwargs: Any) -> None:
+    def __init__(self, protocol: str | None = None, **kwargs: Any) -> None:  # noqa: ANN401
         self._protocol = protocol
         self._field_matchers: dict[str, _FieldMatcher] = {}
 
@@ -142,7 +141,7 @@ class _FieldMatcher:
     """Base protocol for field-level matching."""
     __slots__ = ()
 
-    def matches(self, actual: Any) -> bool:
+    def matches(self, actual: Any) -> bool:  # noqa: ANN401
         raise NotImplementedError
 
 
@@ -152,7 +151,7 @@ class _ExactMatcher(_FieldMatcher):
     def __init__(self, value: str) -> None:
         self._value = value
 
-    def matches(self, actual: Any) -> bool:
+    def matches(self, actual: Any) -> bool:  # noqa: ANN401
         return self._value == actual
 
     def __repr__(self) -> str:
@@ -165,7 +164,7 @@ class _GlobMatcher(_FieldMatcher):
     def __init__(self, pattern: str) -> None:
         self._pattern = pattern
 
-    def matches(self, actual: Any) -> bool:
+    def matches(self, actual: Any) -> bool:  # noqa: ANN401
         from bigfoot._glob import bigfoot_match  # noqa: PLC0415
         return bigfoot_match(self._pattern, str(actual))
 
@@ -179,7 +178,7 @@ class _CidrMatcher(_FieldMatcher):
     def __init__(self, cidr: str) -> None:
         self._network = ipaddress.ip_network(cidr, strict=False)
 
-    def matches(self, actual: Any) -> bool:
+    def matches(self, actual: Any) -> bool:  # noqa: ANN401
         try:
             return ipaddress.ip_address(actual) in self._network
         except ValueError:
@@ -196,7 +195,7 @@ class _RegexMatcher(_FieldMatcher):
         self._pattern = pattern
         self._compiled = re.compile(pattern)
 
-    def matches(self, actual: Any) -> bool:
+    def matches(self, actual: Any) -> bool:  # noqa: ANN401
         return self._compiled.fullmatch(str(actual)) is not None
 
     def __repr__(self) -> str:
@@ -206,10 +205,10 @@ class _RegexMatcher(_FieldMatcher):
 class _CallableMatcher(_FieldMatcher):
     __slots__ = ("_func",)
 
-    def __init__(self, func: Any) -> None:
+    def __init__(self, func: Any) -> None:  # noqa: ANN401
         self._func = func
 
-    def matches(self, actual: Any) -> bool:
+    def matches(self, actual: Any) -> bool:  # noqa: ANN401
         return bool(self._func(actual))
 
     def __repr__(self) -> str:
@@ -219,10 +218,10 @@ class _CallableMatcher(_FieldMatcher):
 class _EqualityMatcher(_FieldMatcher):
     __slots__ = ("_value",)
 
-    def __init__(self, value: Any) -> None:
+    def __init__(self, value: Any) -> None:  # noqa: ANN401
         self._value = value
 
-    def matches(self, actual: Any) -> bool:
+    def matches(self, actual: Any) -> bool:  # noqa: ANN401
         return self._value == actual
 
     def __repr__(self) -> str:

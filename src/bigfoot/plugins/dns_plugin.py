@@ -157,7 +157,9 @@ def _patched_getaddrinfo(
     proto: int = 0,
     flags: int = 0,
 ) -> Any:  # noqa: ANN401
-    fw_request = DnsFirewallRequest(hostname=host, port=port if isinstance(port, int) else 0, rdtype="")
+    fw_request = DnsFirewallRequest(
+        hostname=host, port=port if isinstance(port, int) else 0, rdtype="",
+    )
     plugin = _resolve_dns_plugin(firewall_request=fw_request)
     if plugin is None:
         _orig = DnsPlugin._original_getaddrinfo

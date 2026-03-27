@@ -398,7 +398,7 @@ class GuardedCallError(BigfootError):
                 f"with bigfoot.allow({m_str}):",
                 [
                     "[tool.bigfoot.firewall]",
-                    f'allow = ["file_io:*"]  # or restrict to specific paths',
+                    'allow = ["file_io:*"]  # or restrict to specific paths',
                 ],
             )
 
@@ -409,7 +409,7 @@ class GuardedCallError(BigfootError):
                 f"with bigfoot.allow({m_str}):",
                 [
                     "[tool.bigfoot.firewall]",
-                    f'allow = ["boto3:*"]  # or restrict to specific services',
+                    'allow = ["boto3:*"]  # or restrict to specific services',
                 ],
             )
 

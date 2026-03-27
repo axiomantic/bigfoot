@@ -200,16 +200,15 @@ regions = ["us-east-1"]
 hosts = ["*.production.internal"]
 ```
 
-### Per-file overrides
+### Per-file allow rules
 
-Override firewall rules for specific test files:
+Override firewall rules for specific test files using the flat `per-file-allow` map.
+Keys are glob patterns matched against test file paths; values are lists of allow rules:
 
 ```toml
-[tool.bigfoot.firewall.overrides."tests/integration/test_api.py"]
-allow.http.hosts = ["*"]
-
-[tool.bigfoot.firewall.overrides."tests/unit/"]
-deny.http.hosts = ["*"]
+[tool.bigfoot.firewall.per-file-allow]
+"tests/integration/test_api.py" = ["http:*"]
+"tests/api/*" = ["http:*", "dns:*"]
 ```
 
 ### Legacy `guard_allow` migration

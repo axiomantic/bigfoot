@@ -64,7 +64,7 @@ from bigfoot._firewall_request import FirewallRequest
 from bigfoot._guard import allow, deny, restrict
 from bigfoot._match import M
 from bigfoot._mock_plugin import MockPlugin
-from bigfoot._registry import is_guard_eligible, PluginEntry
+from bigfoot._registry import PluginEntry, is_guard_eligible
 from bigfoot._timeline import Interaction, Timeline
 from bigfoot._verifier import InAnyOrderContext, SandboxContext, StrictVerifier
 

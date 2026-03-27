@@ -117,7 +117,9 @@ def _make_interceptor(operation: str) -> Any:  # noqa: ANN401
         host, port = _es_conn_meta.get(es_self, ("unknown", 0))
         index = kwargs.get("index", "")
         fw_request = ElasticsearchFirewallRequest(
-            host=host, port=port, index=index if isinstance(index, str) else "", operation=operation,
+            host=host, port=port,
+            index=index if isinstance(index, str) else "",
+            operation=operation,
         )
         try:
             plugin = _get_elasticsearch_plugin(firewall_request=fw_request)
@@ -229,7 +231,7 @@ class ElasticsearchPlugin(BasePlugin):
         if ElasticsearchPlugin._original_init is None:
             ElasticsearchPlugin._original_init = es_cls.__init__
 
-            def _patched_init(self_: object, *args: Any, **kwargs: Any) -> None:
+            def _patched_init(self_: object, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
                 assert ElasticsearchPlugin._original_init is not None
                 ElasticsearchPlugin._original_init(self_, *args, **kwargs)
                 # Elasticsearch client accepts hosts as str, list of str, or list of dicts

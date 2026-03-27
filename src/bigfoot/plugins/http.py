@@ -574,7 +574,9 @@ class HttpPlugin(BasePlugin):
             url = str(request.url)
             method = request.method
             scheme, host, port, path = normalize_url(url)
-            fw_request = HttpFirewallRequest(host=host, port=port, scheme=scheme, path=path, method=method)
+            fw_request = HttpFirewallRequest(
+                host=host, port=port, scheme=scheme, path=path, method=method,
+            )
             try:
                 verifier = get_verifier_or_raise("http:request", firewall_request=fw_request)
             except GuardPassThrough:
@@ -590,7 +592,9 @@ class HttpPlugin(BasePlugin):
             url = str(request.url)
             method = request.method
             scheme, host, port, path = normalize_url(url)
-            fw_request = HttpFirewallRequest(host=host, port=port, scheme=scheme, path=path, method=method)
+            fw_request = HttpFirewallRequest(
+                host=host, port=port, scheme=scheme, path=path, method=method,
+            )
             try:
                 verifier = get_verifier_or_raise("http:request", firewall_request=fw_request)
             except GuardPassThrough:
@@ -609,7 +613,9 @@ class HttpPlugin(BasePlugin):
             url = request.url or ""
             method = (request.method or "GET").upper()
             scheme, host, port, path = normalize_url(url)
-            fw_request = HttpFirewallRequest(host=host, port=port, scheme=scheme, path=path, method=method)
+            fw_request = HttpFirewallRequest(
+                host=host, port=port, scheme=scheme, path=path, method=method,
+            )
             try:
                 verifier = get_verifier_or_raise("http:request", firewall_request=fw_request)
             except GuardPassThrough:
@@ -685,7 +691,9 @@ class HttpPlugin(BasePlugin):
             url = req.full_url
             method = (req.get_method() or "GET").upper()
             scheme, host, port, path = normalize_url(url)
-            fw_request = HttpFirewallRequest(host=host, port=port, scheme=scheme, path=path, method=method)
+            fw_request = HttpFirewallRequest(
+                host=host, port=port, scheme=scheme, path=path, method=method,
+            )
             try:
                 verifier = get_verifier_or_raise("http:request", firewall_request=fw_request)
             except GuardPassThrough:
@@ -718,7 +726,9 @@ class HttpPlugin(BasePlugin):
         ) -> Any:  # noqa: ANN401
             url = str(str_or_url)
             scheme, host, port, path = normalize_url(url)
-            fw_request = HttpFirewallRequest(host=host, port=port, scheme=scheme, path=path, method=method)
+            fw_request = HttpFirewallRequest(
+                host=host, port=port, scheme=scheme, path=path, method=method,
+            )
             try:
                 verifier = get_verifier_or_raise("http:request", firewall_request=fw_request)
             except GuardPassThrough:
@@ -1297,7 +1307,9 @@ class HttpPlugin(BasePlugin):
             url = req.full_url
             method = (req.get_method() or "GET").upper()
             scheme, host, port, path = normalize_url(url)
-            fw_request = HttpFirewallRequest(host=host, port=port, scheme=scheme, path=path, method=method)
+            fw_request = HttpFirewallRequest(
+                host=host, port=port, scheme=scheme, path=path, method=method,
+            )
             try:
                 verifier = get_verifier_or_raise("http:request", firewall_request=fw_request)
             except GuardPassThrough:

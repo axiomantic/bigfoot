@@ -206,7 +206,7 @@ class RedisPlugin(BasePlugin):
         if RedisPlugin._original_init is None:
             RedisPlugin._original_init = redis_lib.Redis.__init__
 
-            def _patched_init(self_: object, *args: Any, **kwargs: Any) -> None:
+            def _patched_init(self_: object, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
                 assert RedisPlugin._original_init is not None
                 RedisPlugin._original_init(self_, *args, **kwargs)
                 host = kwargs.get("host") or (args[0] if args else "localhost")

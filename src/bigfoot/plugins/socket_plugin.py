@@ -138,7 +138,11 @@ class SocketPlugin(StateMachinePlugin):
             else:
                 host = str(address)
                 port = 0
-            family_str = sock_self.family.name if hasattr(sock_self.family, "name") else str(sock_self.family)
+            family_str = (
+                sock_self.family.name
+                if hasattr(sock_self.family, "name")
+                else str(sock_self.family)
+            )
             fw_request = SocketFirewallRequest(host=host, port=port, family=family_str)
             try:
                 plugin = _get_socket_plugin(firewall_request=fw_request)

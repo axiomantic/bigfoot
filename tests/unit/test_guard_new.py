@@ -1,6 +1,6 @@
 """Tests for bigfoot._guard -- new allow/deny/restrict context managers."""
 
-from bigfoot._firewall import Disposition, FirewallStack, _firewall_stack, get_firewall_stack
+from bigfoot._firewall import Disposition, get_firewall_stack
 from bigfoot._firewall_request import HttpFirewallRequest, RedisFirewallRequest
 from bigfoot._guard import allow, deny, restrict
 from bigfoot._match import M

@@ -2,7 +2,6 @@
 
 from bigfoot._firewall import Disposition, FirewallRule, FirewallStack, RestrictFrame
 from bigfoot._firewall_request import (
-    DnsFirewallRequest,
     HttpFirewallRequest,
     RedisFirewallRequest,
 )

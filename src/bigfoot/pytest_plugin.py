@@ -211,7 +211,6 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None, None, None]:
     from bigfoot._firewall import (  # noqa: PLC0415
         Disposition,
         FirewallRule,
-        FirewallStack,
         _firewall_stack,
     )
     from bigfoot._match import M  # noqa: PLC0415
@@ -242,8 +241,8 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None, None, None]:
         )
 
     # Structured protocol sections (e.g., [tool.bigfoot.firewall.http])
-    _STRUCTURED_PROTOCOLS = ("http", "redis", "subprocess", "boto3", "socket", "file_io")
-    for proto in _STRUCTURED_PROTOCOLS:
+    structured_protocols = ("http", "redis", "subprocess", "boto3", "socket", "file_io")
+    for proto in structured_protocols:
         proto_section = firewall_config.get(proto, {})
         if not isinstance(proto_section, dict):
             continue
@@ -314,7 +313,7 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None, None, None]:
         _firewall_stack.reset(firewall_token)
 
 
-def _parse_toml_rule(rule_str: str) -> M:
+def _parse_toml_rule(rule_str: str) -> M:  # type: ignore[name-defined]  # noqa: F821
     """Parse a TOML rule string into an M() pattern."""
     from bigfoot._match import M  # noqa: PLC0415
 
