@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 try:
-    import psycopg2
+    import psycopg2  # type: ignore[import-untyped]
 
     _PSYCOPG2_AVAILABLE = True
 except ImportError:  # pragma: no cover

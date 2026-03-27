@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 try:
-    import asyncpg
+    import asyncpg  # type: ignore[import-untyped]
 
     _ASYNCPG_AVAILABLE = True
 except ImportError:  # pragma: no cover

@@ -495,9 +495,11 @@ class TestWarnModeBehavior:
         try:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
-                req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
+                # Use http (not dns/socket) so the project-level firewall
+                # allow = ["dns:*", "socket:*"] does not suppress the warning.
+                req = NetworkFirewallRequest(protocol="http", host="example.com", port=80)
                 with pytest.raises(GuardPassThrough):
-                    get_verifier_or_raise("dns:lookup", firewall_request=req)
+                    get_verifier_or_raise("http:request", firewall_request=req)
                 assert len(w) == 1
                 assert issubclass(w[0].category, GuardedCallWarning)
         finally:
@@ -514,9 +516,9 @@ class TestWarnModeBehavior:
         try:
             with warnings.catch_warnings(record=True):
                 warnings.simplefilter("always")
-                req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
+                req = NetworkFirewallRequest(protocol="http", host="example.com", port=80)
                 with pytest.raises(GuardPassThrough):
-                    get_verifier_or_raise("dns:lookup", firewall_request=req)
+                    get_verifier_or_raise("http:request", firewall_request=req)
         finally:
             _guard_active.reset(guard_token)
             _guard_level.reset(level_token)
@@ -532,9 +534,9 @@ class TestWarnModeBehavior:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
                 warnings.filterwarnings("ignore", category=GuardedCallWarning)
-                req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
+                req = NetworkFirewallRequest(protocol="http", host="example.com", port=80)
                 with pytest.raises(GuardPassThrough):
-                    get_verifier_or_raise("dns:lookup", firewall_request=req)
+                    get_verifier_or_raise("http:request", firewall_request=req)
                 assert len(w) == 0
         finally:
             _guard_active.reset(guard_token)
@@ -550,10 +552,10 @@ class TestWarnModeBehavior:
         try:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
-                req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
+                req = NetworkFirewallRequest(protocol="http", host="example.com", port=80)
                 with pytest.raises(GuardPassThrough):
-                    get_verifier_or_raise("dns:lookup", firewall_request=req)
-                assert "'dns:lookup'" in str(w[0].message)
+                    get_verifier_or_raise("http:request", firewall_request=req)
+                assert "'http:request'" in str(w[0].message)
         finally:
             _guard_active.reset(guard_token)
             _guard_level.reset(level_token)
@@ -568,9 +570,9 @@ class TestWarnModeBehavior:
         try:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
-                req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
+                req = NetworkFirewallRequest(protocol="http", host="example.com", port=80)
                 with pytest.raises(GuardPassThrough):
-                    get_verifier_or_raise("dns:lookup", firewall_request=req)
+                    get_verifier_or_raise("http:request", firewall_request=req)
                 msg = str(w[0].message)
                 assert "blocked by firewall" in msg
         finally:
@@ -585,9 +587,9 @@ class TestWarnModeBehavior:
         level_token = _guard_level.set("error")
         guard_token = _guard_active.set(True)
         try:
-            req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
+            req = NetworkFirewallRequest(protocol="http", host="example.com", port=80)
             with pytest.raises(GuardedCallError):
-                get_verifier_or_raise("dns:lookup", firewall_request=req)
+                get_verifier_or_raise("http:request", firewall_request=req)
         finally:
             _guard_active.reset(guard_token)
             _guard_level.reset(level_token)
@@ -744,6 +746,7 @@ class TestGuardPassThroughInDirectPlugins:
         import socket
 
         from bigfoot._context import _guard_level
+        from bigfoot._guard import deny
         from bigfoot._verifier import StrictVerifier
         from bigfoot.plugins.dns_plugin import DnsPlugin
 
@@ -754,10 +757,12 @@ class TestGuardPassThroughInDirectPlugins:
             level_token = _guard_level.set("error")
             guard_token = _guard_active.set(True)
             try:
-                with pytest.raises(GuardedCallError) as exc_info:
-                    socket.getaddrinfo("example.com", 80)
-                assert exc_info.value.plugin_name == "dns"
-                assert exc_info.value.source_id == "dns:lookup"
+                # Explicitly deny dns to override project-level allow = ["dns:*"]
+                with deny("dns"):
+                    with pytest.raises(GuardedCallError) as exc_info:
+                        socket.getaddrinfo("example.com", 80)
+                    assert exc_info.value.plugin_name == "dns"
+                    assert exc_info.value.source_id == "dns:lookup"
             finally:
                 _guard_active.reset(guard_token)
                 _guard_level.reset(level_token)
@@ -796,6 +801,7 @@ class TestGuardPassThroughInDirectPlugins:
         import socket
 
         from bigfoot._context import _guard_level
+        from bigfoot._guard import deny
         from bigfoot._verifier import StrictVerifier
         from bigfoot.plugins.dns_plugin import DnsPlugin
 
@@ -806,9 +812,11 @@ class TestGuardPassThroughInDirectPlugins:
             level_token = _guard_level.set("error")
             guard_token = _guard_active.set(True)
             try:
-                with pytest.raises(GuardedCallError) as exc_info:
-                    socket.gethostbyname("example.com")
-                assert exc_info.value.plugin_name == "dns"
+                # Explicitly deny dns to override project-level allow = ["dns:*"]
+                with deny("dns"):
+                    with pytest.raises(GuardedCallError) as exc_info:
+                        socket.gethostbyname("example.com")
+                    assert exc_info.value.plugin_name == "dns"
             finally:
                 _guard_active.reset(guard_token)
                 _guard_level.reset(level_token)
@@ -849,6 +857,7 @@ class TestGuardPassThroughInStateMachinePlugins:
         import socket as socket_mod
 
         from bigfoot._context import _guard_level
+        from bigfoot._guard import deny
         from bigfoot._verifier import StrictVerifier
         from bigfoot.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
 
@@ -859,14 +868,16 @@ class TestGuardPassThroughInStateMachinePlugins:
             level_token = _guard_level.set("error")
             guard_token = _guard_active.set(True)
             try:
-                sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
-                try:
-                    with pytest.raises(GuardedCallError) as exc_info:
-                        sock.connect(("127.0.0.1", 1))
-                    assert exc_info.value.plugin_name == "socket"
-                    assert exc_info.value.source_id == "socket:connect"
-                finally:
-                    _SOCKET_CLOSE_ORIGINAL(sock)
+                # Explicitly deny socket to override project-level allow = ["socket:*"]
+                with deny("socket"):
+                    sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
+                    try:
+                        with pytest.raises(GuardedCallError) as exc_info:
+                            sock.connect(("127.0.0.1", 1))
+                        assert exc_info.value.plugin_name == "socket"
+                        assert exc_info.value.source_id == "socket:connect"
+                    finally:
+                        _SOCKET_CLOSE_ORIGINAL(sock)
             finally:
                 _guard_active.reset(guard_token)
                 _guard_level.reset(level_token)
@@ -904,6 +915,7 @@ class TestGuardPassThroughInStateMachinePlugins:
         import socket as socket_mod
 
         from bigfoot._context import _guard_level
+        from bigfoot._guard import deny
         from bigfoot._verifier import StrictVerifier
         from bigfoot.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
 
@@ -914,15 +926,17 @@ class TestGuardPassThroughInStateMachinePlugins:
             level_token = _guard_level.set("error")
             guard_token = _guard_active.set(True)
             try:
-                sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
-                try:
-                    with pytest.raises(GuardedCallError) as exc_info:
-                        sock.send(b"hello")
-                    assert exc_info.value.plugin_name == "socket"
-                    # Note: _get_socket_plugin() hardcodes _SOURCE_CONNECT for source_id
-                    assert exc_info.value.source_id == "socket:connect"
-                finally:
-                    _SOCKET_CLOSE_ORIGINAL(sock)
+                # Explicitly deny socket to override project-level allow = ["socket:*"]
+                with deny("socket"):
+                    sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
+                    try:
+                        with pytest.raises(GuardedCallError) as exc_info:
+                            sock.send(b"hello")
+                        assert exc_info.value.plugin_name == "socket"
+                        # Note: _get_socket_plugin() hardcodes _SOURCE_CONNECT for source_id
+                        assert exc_info.value.source_id == "socket:connect"
+                    finally:
+                        _SOCKET_CLOSE_ORIGINAL(sock)
             finally:
                 _guard_active.reset(guard_token)
                 _guard_level.reset(level_token)
@@ -1296,6 +1310,7 @@ class TestGuardModeIntegration:
         import socket as socket_mod
 
         from bigfoot._context import _guard_level
+        from bigfoot._guard import deny
         from bigfoot._verifier import StrictVerifier
         from bigfoot.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
 
@@ -1304,14 +1319,16 @@ class TestGuardModeIntegration:
         sp.activate()
         level_token = _guard_level.set("error")
         try:
-            sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
-            try:
-                with pytest.raises(GuardedCallError) as exc_info:
-                    sock.connect(("127.0.0.1", 1))
-                assert exc_info.value.plugin_name == "socket"
-                assert exc_info.value.source_id == "socket:connect"
-            finally:
-                _SOCKET_CLOSE_ORIGINAL(sock)
+            # Explicitly deny socket to override project-level allow = ["socket:*"]
+            with deny("socket"):
+                sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
+                try:
+                    with pytest.raises(GuardedCallError) as exc_info:
+                        sock.connect(("127.0.0.1", 1))
+                    assert exc_info.value.plugin_name == "socket"
+                    assert exc_info.value.source_id == "socket:connect"
+                finally:
+                    _SOCKET_CLOSE_ORIGINAL(sock)
         finally:
             _guard_level.reset(level_token)
             sp.deactivate()
@@ -1386,19 +1403,21 @@ class TestGuardModeIntegration:
 
         stack_mark = _firewall_stack.get()
         dns_req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
-        sock_req = NetworkFirewallRequest(protocol="socket", host="127.0.0.1", port=80)
+        # Use redis (not socket) as the "not allowed" protocol since the project-level
+        # firewall config allows both dns:* and socket:*.
+        redis_req = NetworkFirewallRequest(protocol="redis", host="127.0.0.1", port=6379)
 
         # Mark already allows "dns"
         assert stack_mark.evaluate(dns_req) == Disposition.ALLOW
-        assert stack_mark.evaluate(sock_req) == Disposition.DENY
+        assert stack_mark.evaluate(redis_req) == Disposition.DENY
 
-        with allow("socket"):
+        with allow("redis"):
             stack_both = _firewall_stack.get()
             assert stack_both.evaluate(dns_req) == Disposition.ALLOW
-            assert stack_both.evaluate(sock_req) == Disposition.ALLOW
+            assert stack_both.evaluate(redis_req) == Disposition.ALLOW
 
-        # After exiting allow(), socket back to DENY
-        assert _firewall_stack.get().evaluate(sock_req) == Disposition.DENY
+        # After exiting allow(), redis back to DENY
+        assert _firewall_stack.get().evaluate(redis_req) == Disposition.DENY
         assert _firewall_stack.get().evaluate(dns_req) == Disposition.ALLOW
 
     def test_guard_pass_through_permits_real_dns_operations(self) -> None:
@@ -1446,6 +1465,7 @@ class TestGuardModeIntegration:
         import socket as socket_mod
 
         from bigfoot._context import _guard_level
+        from bigfoot._guard import deny
         from bigfoot._verifier import StrictVerifier
         from bigfoot.plugins.dns_plugin import DnsPlugin
 
@@ -1454,9 +1474,11 @@ class TestGuardModeIntegration:
         dns.activate()
         level_token = _guard_level.set("error")
         try:
-            with pytest.raises(GuardedCallError) as exc_info:
-                socket_mod.getaddrinfo("example.com", 80)
-            assert exc_info.value.plugin_name == "dns"
+            # Explicitly deny dns to override project-level allow = ["dns:*"]
+            with deny("dns"):
+                with pytest.raises(GuardedCallError) as exc_info:
+                    socket_mod.getaddrinfo("example.com", 80)
+                assert exc_info.value.plugin_name == "dns"
         finally:
             _guard_level.reset(level_token)
             dns.deactivate()
@@ -1585,6 +1607,7 @@ class TestGuardModeIntegration:
         import socket as socket_mod
 
         from bigfoot._context import _guard_level
+        from bigfoot._guard import deny
         from bigfoot._verifier import StrictVerifier
         from bigfoot.plugins.dns_plugin import DnsPlugin
 
@@ -1593,8 +1616,10 @@ class TestGuardModeIntegration:
         dns.activate()
         level_token = _guard_level.set("error")
         try:
-            with pytest.raises(GuardedCallError) as exc_info:
-                socket_mod.getaddrinfo("example.com", 80)
+            # Explicitly deny dns to override project-level allow = ["dns:*"]
+            with deny("dns"):
+                with pytest.raises(GuardedCallError) as exc_info:
+                    socket_mod.getaddrinfo("example.com", 80)
             msg = str(exc_info.value)
             # New firewall message format
             assert "blocked by bigfoot firewall" in msg
