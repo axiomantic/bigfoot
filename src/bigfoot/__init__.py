@@ -59,7 +59,10 @@ from bigfoot._errors import (
     UnusedMocksError,
     VerificationError,
 )
+from bigfoot._firewall import Disposition
+from bigfoot._firewall_request import FirewallRequest
 from bigfoot._guard import allow, deny, restrict
+from bigfoot._match import M
 from bigfoot._mock_plugin import MockPlugin
 from bigfoot._registry import is_guard_eligible, PluginEntry
 from bigfoot._timeline import Interaction, Timeline
@@ -268,6 +271,9 @@ __all__ = [
     "allow",
     "deny",
     "restrict",
+    "M",
+    "Disposition",
+    "FirewallRequest",
     "GuardedCallError",
     "GuardedCallWarning",
     # Errors

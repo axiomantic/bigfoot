@@ -1597,10 +1597,17 @@ class TestGuardModeIntegration:
                 socket_mod.getaddrinfo("example.com", 80)
             msg = str(exc_info.value)
             # New firewall message format
-            assert '@pytest.mark.allow("dns")' in msg
-            assert 'bigfoot.allow("dns")' in msg
-            assert "with bigfoot:" in msg
+            assert "blocked by bigfoot firewall" in msg
+            assert "Attempted:" in msg
+            assert "Fix with @pytest.mark.allow:" in msg
+            assert '@pytest.mark.allow(M(protocol="dns"))' in msg
+            assert "Fix with context manager (scoped to a block):" in msg
+            assert 'bigfoot.allow(M(protocol="dns"))' in msg
+            assert "Fix in pyproject.toml:" in msg
             assert "[tool.bigfoot.firewall]" in msg
+            assert 'allow = ["dns:*"]' in msg
+            assert "Or mock the call with a sandbox:" in msg
+            assert "with bigfoot:" in msg
             assert "https://bigfoot.readthedocs.io/guides/guard-mode/" in msg
             # Old sections removed
             assert "supports_guard" not in msg

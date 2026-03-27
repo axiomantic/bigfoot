@@ -50,8 +50,14 @@ def test_all_contains_expected_names() -> None:
         # Guard mode
         "allow",
         "deny",
+        "restrict",
         "GuardedCallError",
         "GuardedCallWarning",
+        # Firewall
+        "Disposition",
+        "FirewallRequest",
+        # Match
+        "M",
         # Errors
         "AllWildcardAssertionError",
         "BigfootConfigError",
