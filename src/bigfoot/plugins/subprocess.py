@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
+from bigfoot._context import GuardPassThrough, get_verifier_or_raise
 from bigfoot._errors import ConflictError, UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -294,9 +294,6 @@ class SubprocessPlugin(BasePlugin):
         _orig_which = SubprocessPlugin._original_shutil_which
 
         def _run_interceptor(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
-            # Check allowlist FIRST - bypasses both guard and sandbox
-            if "subprocess" in _guard_allowlist.get():
-                return _orig_run(*args, **kwargs)
             try:
                 verifier = get_verifier_or_raise(_SOURCE_RUN)
             except GuardPassThrough:
@@ -305,9 +302,6 @@ class SubprocessPlugin(BasePlugin):
             return plugin._handle_run(*args, **kwargs)
 
         def _which_interceptor(name: str, **kwargs: Any) -> str | None:  # noqa: ANN401
-            # Check allowlist FIRST - bypasses both guard and sandbox
-            if "subprocess" in _guard_allowlist.get():
-                return _orig_which(name, **kwargs)
             try:
                 verifier = get_verifier_or_raise(_SOURCE_WHICH)
             except GuardPassThrough:

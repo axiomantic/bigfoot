@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
-from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
+from bigfoot._context import GuardPassThrough, get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._state_machine_plugin import SessionHandle, StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
@@ -226,9 +226,6 @@ class AsyncWebSocketPlugin(StateMachinePlugin):
         _orig_connect = _ws.connect
 
         def _patched_websockets_connect(*args: Any, **kwargs: Any) -> _FakeAsyncWebSocketCM:  # noqa: ANN401
-            # Check allowlist FIRST - bypasses both guard and sandbox
-            if "websocket" in _guard_allowlist.get() or "async_websocket" in _guard_allowlist.get():
-                return cast(_FakeAsyncWebSocketCM, _orig_connect(*args, **kwargs))
             try:
                 plugin = _get_async_websocket_plugin()
             except GuardPassThrough:
@@ -473,9 +470,6 @@ class SyncWebSocketPlugin(StateMachinePlugin):
         _orig_create = _wsc.create_connection
 
         def _patched_create_connection(*args: Any, **kwargs: Any) -> _FakeSyncWebSocket:  # noqa: ANN401
-            # Check allowlist FIRST - bypasses both guard and sandbox
-            if "websocket" in _guard_allowlist.get() or "sync_websocket" in _guard_allowlist.get():
-                return cast(_FakeSyncWebSocket, _orig_create(*args, **kwargs))
             try:
                 plugin = _get_sync_websocket_plugin()
             except GuardPassThrough:

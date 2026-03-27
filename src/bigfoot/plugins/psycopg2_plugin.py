@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
-from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
+from bigfoot._context import GuardPassThrough, get_verifier_or_raise
 from bigfoot._state_machine_plugin import SessionHandle, StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -163,9 +163,6 @@ def _patched_psycopg2_connect(
 ) -> _FakePsycopg2Connection:
     _original = Psycopg2Plugin._original_connect
     assert _original is not None
-    # Check allowlist FIRST - bypasses both guard and sandbox
-    if "psycopg2" in _guard_allowlist.get():
-        return cast(_FakePsycopg2Connection, _original(dsn, **kwargs))
     try:
         plugin = _get_psycopg2_plugin()
     except GuardPassThrough:

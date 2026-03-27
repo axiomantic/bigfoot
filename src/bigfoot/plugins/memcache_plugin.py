@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
+from bigfoot._context import GuardPassThrough, get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -107,11 +107,6 @@ def _make_patched_method(method_name: str) -> Any:  # noqa: ANN401
     cmd_upper = method_name.upper()
 
     def _patched(client_self: Any, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
-        # Check allowlist FIRST - bypasses both guard and sandbox
-        if "memcache" in _guard_allowlist.get():
-            original = MemcachePlugin._originals.get(method_name)
-            if original is not None:
-                return original(client_self, *args, **kwargs)
         try:
             plugin = _get_memcache_plugin()
         except GuardPassThrough:

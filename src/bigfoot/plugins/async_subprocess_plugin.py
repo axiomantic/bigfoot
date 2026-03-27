@@ -11,7 +11,7 @@ import asyncio.subprocess
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
-from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
+from bigfoot._context import GuardPassThrough, get_verifier_or_raise
 from bigfoot._errors import ConflictError
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
@@ -174,12 +174,6 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
             *args: Any,  # noqa: ANN401
             **kwargs: Any,  # noqa: ANN401
         ) -> _AsyncFakeProcess:
-            # Check allowlist FIRST - bypasses both guard and sandbox
-            if "async_subprocess" in _guard_allowlist.get():
-                return cast(
-                    _AsyncFakeProcess,
-                    await _ORIGINAL_CREATE_SUBPROCESS_EXEC(program, *args, **kwargs),
-                )
             try:
                 plugin = _find_async_subprocess_plugin()
             except GuardPassThrough:
@@ -206,12 +200,6 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
             cmd: str,
             **kwargs: Any,  # noqa: ANN401
         ) -> _AsyncFakeProcess:
-            # Check allowlist FIRST - bypasses both guard and sandbox
-            if "async_subprocess" in _guard_allowlist.get():
-                return cast(
-                    _AsyncFakeProcess,
-                    await _ORIGINAL_CREATE_SUBPROCESS_SHELL(cmd, **kwargs),
-                )
             try:
                 plugin = _find_async_subprocess_plugin()
             except GuardPassThrough:

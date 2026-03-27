@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
-from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
+from bigfoot._context import GuardPassThrough, get_verifier_or_raise
 from bigfoot._state_machine_plugin import SessionHandle, StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -113,9 +113,6 @@ async def _patched_asyncpg_connect(
 ) -> _FakeAsyncpgConnection:
     _original = AsyncpgPlugin._original_connect
     assert _original is not None
-    # Check allowlist FIRST - bypasses both guard and sandbox
-    if "asyncpg" in _guard_allowlist.get():
-        return cast(_FakeAsyncpgConnection, await _original(dsn, **kwargs))
     try:
         plugin = _get_asyncpg_plugin()
     except GuardPassThrough:

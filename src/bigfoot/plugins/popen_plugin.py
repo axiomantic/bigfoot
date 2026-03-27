@@ -12,7 +12,7 @@ restore their respective targets correctly when deactivated.
 import subprocess
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
+from bigfoot._context import GuardPassThrough, get_verifier_or_raise
 from bigfoot._errors import ConflictError
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
@@ -99,9 +99,6 @@ class _FakePopen:
         *pos_args: Any,  # noqa: ANN401
         **kwargs: Any,  # noqa: ANN401
     ) -> Any:  # noqa: ANN401
-        # Check allowlist FIRST - bypasses both guard and sandbox
-        if "subprocess" in _guard_allowlist.get() or "popen" in _guard_allowlist.get():
-            return _ORIGINAL_POPEN(args, *pos_args, **kwargs)
         try:
             _find_popen_plugin()
         except GuardPassThrough:

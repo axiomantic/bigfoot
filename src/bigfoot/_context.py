@@ -10,6 +10,7 @@ import contextvars
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from bigfoot._firewall_request import FirewallRequest
     from bigfoot._verifier import StrictVerifier
 
 # ---------------------------------------------------------------------------
@@ -30,10 +31,6 @@ _current_test_verifier: contextvars.ContextVar[StrictVerifier | None] = contextv
 
 _guard_active: contextvars.ContextVar[bool] = contextvars.ContextVar(
     "bigfoot_guard_active", default=False
-)
-
-_guard_allowlist: contextvars.ContextVar[frozenset[str]] = contextvars.ContextVar(
-    "bigfoot_guard_allowlist", default=frozenset()
 )
 
 _guard_level: contextvars.ContextVar[str] = contextvars.ContextVar(
@@ -64,65 +61,81 @@ def get_active_verifier() -> StrictVerifier | None:
     return _active_verifier.get()
 
 
-def get_verifier_or_raise(source_id: str) -> StrictVerifier:
+def get_verifier_or_raise(
+    source_id: str,
+    firewall_request: FirewallRequest | None = None,
+) -> StrictVerifier:
     """Return the active verifier, or handle guard mode, or raise.
 
-    Called by interceptors when they fire. Decision tree:
+    Decision tree:
 
-    1. Sandbox active (_active_verifier set): return verifier.
-    2. Guard-eligible plugin (source_id prefix in GUARD_ELIGIBLE_PREFIXES):
-       a. Guard active + not in allowlist: raise GuardedCallError (blocked).
-       b. Guard active + in allowlist, or guard not active but patches
-          installed: raise GuardPassThrough (call original).
-    3. Non-guard-eligible plugin (e.g., "mock:", "logging:"):
-       raise SandboxNotActiveError (existing behavior, guard is irrelevant).
-    4. No sandbox, no guard: raise SandboxNotActiveError.
+    1. Sandbox active: return verifier (firewall not consulted).
+    2. Guard-eligible plugin (determined by supports_guard ClassVar):
+       a. Guard active + firewall_request provided:
+          - Evaluate request against firewall stack.
+          - ALLOW: raise GuardPassThrough (call original).
+          - DENY + level "warn": warn and raise GuardPassThrough.
+          - DENY + level "error": raise GuardedCallError.
+       b. Guard active + no firewall_request (should not happen post-migration,
+          but safe fallback): raise GuardedCallError.
+       c. Guard not active but patches installed: raise GuardPassThrough.
+    3. Non-guard-eligible plugin: raise SandboxNotActiveError.
     """
     verifier = _active_verifier.get()
     if verifier is not None:
         return verifier
 
-    # No sandbox active. Check if this is a guard-eligible plugin.
-    from bigfoot._registry import GUARD_ELIGIBLE_PREFIXES  # noqa: PLC0415
-
+    # Determine guard eligibility from plugin ClassVar, not GUARD_ELIGIBLE_PREFIXES
     plugin_name = source_id.split(":")[0]
-    is_guard_eligible = plugin_name in GUARD_ELIGIBLE_PREFIXES
 
-    if is_guard_eligible:
+    # Use the new unified eligibility check
+    from bigfoot._registry import is_guard_eligible  # noqa: PLC0415
+
+    if is_guard_eligible(plugin_name):
         if _guard_active.get():
-            # Guard active: check allowlist
-            allowlist = _guard_allowlist.get()
-            if plugin_name not in allowlist:
+            if firewall_request is not None:
+                from bigfoot._firewall import Disposition, get_firewall_stack  # noqa: PLC0415
+
+                disposition = get_firewall_stack().evaluate(firewall_request)
+                if disposition == Disposition.ALLOW:
+                    raise GuardPassThrough()
+
+                # DENY
                 level = _guard_level.get()
                 if level == "warn":
                     import warnings  # noqa: PLC0415
-
                     from bigfoot._errors import GuardedCallWarning  # noqa: PLC0415
 
                     warnings.warn(
-                        f"{source_id!r} called outside sandbox. "
-                        f'Silence with @pytest.mark.allow("{plugin_name}") or '
-                        f'set guard = "error" in [tool.bigfoot] to make this an error.',
+                        f"{source_id!r} blocked by firewall. "
+                        f"See GuardedCallError docs for fix options.",
                         GuardedCallWarning,
                         stacklevel=4,
                     )
                     raise GuardPassThrough()
+
                 # level == "error"
                 from bigfoot._errors import GuardedCallError  # noqa: PLC0415
 
                 raise GuardedCallError(
-                    source_id=source_id, plugin_name=plugin_name,
+                    source_id=source_id,
+                    plugin_name=plugin_name,
+                    firewall_request=firewall_request,
                 )
-            # In allowlist: pass through to original
-            raise GuardPassThrough()
+            else:
+                # No firewall_request: fail closed
+                from bigfoot._errors import GuardedCallError  # noqa: PLC0415
+
+                raise GuardedCallError(
+                    source_id=source_id,
+                    plugin_name=plugin_name,
+                    firewall_request=None,
+                )
+
         if _guard_patches_installed.get():
-            # Patches installed but guard not active (fixture teardown).
-            # Pass through to original.
             raise GuardPassThrough()
 
-    # Non-guard-eligible plugin, or no guard infrastructure active.
     from bigfoot._errors import SandboxNotActiveError  # noqa: PLC0415
-
     raise SandboxNotActiveError(source_id=source_id)
 
 

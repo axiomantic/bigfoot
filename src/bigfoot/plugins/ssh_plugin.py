@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
+from bigfoot._context import GuardPassThrough, get_verifier_or_raise
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -180,15 +180,8 @@ class _FakeSSHClient:
         key_filename: Any = None,  # noqa: ANN401
         **kwargs: Any,  # noqa: ANN401
     ) -> Any:  # noqa: ANN401
-        # Check allowlist FIRST - bypasses both guard and sandbox
         _orig_cls = SshPlugin._original_ssh_client
         assert _orig_cls is not None
-        if "ssh" in _guard_allowlist.get():
-            self._real_client = _orig_cls()
-            return self._real_client.connect(
-                hostname, port=port, username=username, password=password,
-                pkey=pkey, key_filename=key_filename, **kwargs,
-            )
         try:
             plugin = _find_ssh_plugin()
         except GuardPassThrough:

@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
+from bigfoot._context import GuardPassThrough, get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -97,9 +97,6 @@ async def _patched_call_tool(
 ) -> Any:  # noqa: ANN401
     _original = McpPlugin._original_call_tool
     assert _original is not None
-    # Check allowlist FIRST - bypasses both guard and sandbox
-    if "mcp" in _guard_allowlist.get():
-        return await _original(self, name, arguments, *args, **kwargs)
     try:
         plugin = _get_mcp_plugin()
     except GuardPassThrough:
@@ -151,9 +148,6 @@ async def _patched_read_resource(
 ) -> Any:  # noqa: ANN401
     _original = McpPlugin._original_read_resource
     assert _original is not None
-    # Check allowlist FIRST - bypasses both guard and sandbox
-    if "mcp" in _guard_allowlist.get():
-        return await _original(self, uri, *args, **kwargs)
     try:
         plugin = _get_mcp_plugin()
     except GuardPassThrough:
@@ -205,9 +199,6 @@ async def _patched_get_prompt(
 ) -> Any:  # noqa: ANN401
     _original = McpPlugin._original_get_prompt
     assert _original is not None
-    # Check allowlist FIRST - bypasses both guard and sandbox
-    if "mcp" in _guard_allowlist.get():
-        return await _original(self, name, arguments, *args, **kwargs)
     try:
         plugin = _get_mcp_plugin()
     except GuardPassThrough:
@@ -269,12 +260,6 @@ async def _patched_handle_request(
 
     _original = McpPlugin._original_handle_request
     assert _original is not None
-    # Check allowlist FIRST - bypasses both guard and sandbox
-    if "mcp" in _guard_allowlist.get():
-        await _original(
-            self, message, req, session, lifespan_context, raise_exceptions,
-        )
-        return
     try:
         plugin = _get_mcp_plugin()
     except GuardPassThrough:

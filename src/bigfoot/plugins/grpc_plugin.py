@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
+from bigfoot._context import GuardPassThrough, get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -241,9 +241,6 @@ def _patched_insecure_channel(target: str, *args: Any, **kwargs: Any) -> _FakeCh
 
     _original = GrpcPlugin._original_insecure_channel
     assert _original is not None
-    # Check allowlist FIRST - bypasses both guard and sandbox
-    if "grpc" in _guard_allowlist.get():
-        return cast(_FakeChannel, _original(target, *args, **kwargs))
     try:
         get_verifier_or_raise("grpc:channel")
     except GuardPassThrough:
@@ -261,9 +258,6 @@ def _patched_secure_channel(  # noqa: ANN401
 
     _original = GrpcPlugin._original_secure_channel
     assert _original is not None
-    # Check allowlist FIRST - bypasses both guard and sandbox
-    if "grpc" in _guard_allowlist.get():
-        return cast(_FakeChannel, _original(target, credentials, *args, **kwargs))
     try:
         get_verifier_or_raise("grpc:channel")
     except GuardPassThrough:

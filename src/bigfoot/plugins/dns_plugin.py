@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
+from bigfoot._context import GuardPassThrough, get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -78,8 +78,6 @@ def _resolve_dns_plugin() -> DnsPlugin | None:
     3. If no ``DnsPlugin`` is registered on the active verifier, return ``None``.
     4. Otherwise return the plugin instance.
     """
-    if "dns" in _guard_allowlist.get():
-        return None
     try:
         return _get_dns_plugin()
     except GuardPassThrough:

@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
+from bigfoot._context import GuardPassThrough, get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -109,9 +109,6 @@ def _patched_make_api_call(
 ) -> Any:  # noqa: ANN401
     _original = Boto3Plugin._original_make_api_call
     assert _original is not None
-    # Check allowlist FIRST - bypasses both guard and sandbox
-    if "boto3" in _guard_allowlist.get():
-        return _original(client_self, operation_name, api_params)
     try:
         plugin = _get_boto3_plugin()
     except GuardPassThrough:

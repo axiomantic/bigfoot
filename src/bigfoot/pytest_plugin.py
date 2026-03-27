@@ -11,7 +11,6 @@ from bigfoot._config import load_bigfoot_config
 from bigfoot._context import (
     _current_test_verifier,
     _guard_active,
-    _guard_allowlist,
     _guard_level,
     _guard_patches_installed,
 )
@@ -221,9 +220,12 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None, None, None]:
     # Validate names
     if marker_allowlist or denylist:
         from bigfoot._errors import BigfootConfigError  # noqa: PLC0415
-        from bigfoot._registry import GUARD_ELIGIBLE_PREFIXES, VALID_PLUGIN_NAMES  # noqa: PLC0415
+        from bigfoot._registry import is_guard_eligible, VALID_PLUGIN_NAMES  # noqa: PLC0415
 
-        valid = VALID_PLUGIN_NAMES | GUARD_ELIGIBLE_PREFIXES
+        # Build the full set of valid names (registry names + guard prefixes)
+        if not hasattr(is_guard_eligible, "_cache"):
+            is_guard_eligible("")  # trigger cache build
+        valid = VALID_PLUGIN_NAMES | is_guard_eligible._cache
         unknown = (marker_allowlist | denylist) - valid
         if unknown:
             raise BigfootConfigError(
@@ -232,16 +234,32 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None, None, None]:
                 f"Valid names: {sorted(valid)}"
             )
 
-    # Merge existing fixture-set allowlist with marker allowlist, then subtract deny
-    existing = _guard_allowlist.get()
-    allowlist = (existing | marker_allowlist) - denylist
+    # Build firewall rules from marker allowlist and denylist
+    from bigfoot._firewall import (  # noqa: PLC0415
+        Disposition,
+        FirewallRule,
+        FirewallStack,
+        _firewall_stack,
+    )
+    from bigfoot._match import M  # noqa: PLC0415
+
+    frames = []
+    # Deny rules take priority (pushed first, so they are outermost)
+    for name in sorted(denylist):
+        frames.append(FirewallRule(pattern=M(protocol=name), disposition=Disposition.DENY))
+    # Allow rules are innermost (pushed last, evaluated first)
+    for name in sorted(marker_allowlist - denylist):
+        frames.append(FirewallRule(pattern=M(protocol=name), disposition=Disposition.ALLOW))
+
+    current_stack = _firewall_stack.get()
+    new_stack = current_stack.push(*frames) if frames else current_stack
+    firewall_token = _firewall_stack.set(new_stack)
 
     level_token = _guard_level.set(guard_level)
-    allowlist_token = _guard_allowlist.set(allowlist)
     guard_token = _guard_active.set(True)
     try:
         yield
     finally:
         _guard_active.reset(guard_token)
-        _guard_allowlist.reset(allowlist_token)
         _guard_level.reset(level_token)
+        _firewall_stack.reset(firewall_token)
