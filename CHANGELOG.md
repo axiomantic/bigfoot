@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Guard mode no longer blocks non-connect socket operations:** `socket.send()`, `socket.sendall()`, `socket.recv()`, and `socket.close()` now pass through to the originals when no sandbox is active. Previously, these operations hit the "fail closed" guard path because they had no `FirewallRequest` to evaluate, causing `GuardedCallError` on asyncio internal socket cleanup (self-pipe sockets) and any other non-bigfoot-managed socket. The firewall decision is made at `socket.connect()` time; subsequent operations on the same socket are implicitly allowed.
 - **`_get_socket_plugin` now accepts `source_id` parameter:** Previously hardcoded `_SOURCE_CONNECT` regardless of which operation called it, producing misleading error messages in sandbox mode.
 
+### Changed
+
+- **`require_response` now defaults to `True`:** `HttpPlugin` now requires response assertions by default. Calling `assert_request()` returns an `HttpAssertionBuilder` that must be completed with `.assert_response(status, headers, body)`. To opt out, pass `require_response=False` per-call or set `require_response = false` in `[tool.bigfoot.http]` config. This aligns with bigfoot's "certainty is the contract" philosophy: if you mock a response, you should assert you got it.
+
 ### Improved
 
 - **Field-level diffs in `InteractionMismatchError`:** Mismatch errors now show per-field `expected:` / `actual:` comparisons for only the fields that differ, with `difflib.unified_diff` for long strings. Matching fields are collapsed to a single "N fields matched" line.

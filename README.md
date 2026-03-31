@@ -58,7 +58,7 @@ def test_payment():
     bigfoot.http.assert_request(
         "POST", "https://api.stripe.com/v1/charges",
         headers=IsInstance(dict), body='{"amount": 5000}',
-    )
+    ).assert_response(200, IsInstance(dict), '{"id": "ch_123"}')
     assert result["id"] == "ch_123"
 ```
 
@@ -95,7 +95,7 @@ def test_payment_flow():
     bigfoot.http.assert_request(
         "POST", "https://api.stripe.com/v1/charges",
         headers=IsInstance(dict), body='{"amount": 5000}',
-    )
+    ).assert_response(200, IsInstance(dict), '{"id": "ch_123"}')
     assert result["id"] == "ch_123"
 ```
 
@@ -109,6 +109,11 @@ E           "POST",
 E           "https://api.stripe.com/v1/charges",
 E           headers={'host': 'api.stripe.com', ...},
 E           body='{"amount":5000}',
+E           require_response=True,
+E       ).assert_response(
+E           status=200,
+E           headers={'content-type': 'application/json'},
+E           body='{"id": "ch_123"}',
 E       )
 E       # ^ [sequence=0] [HttpPlugin] POST https://api.stripe.com/v1/charges (status=200)
 ```
@@ -174,7 +179,7 @@ def test_fetch_user():
     bigfoot.http.assert_request(
         "GET", "https://api.example.com/users/42",
         headers=IsInstance(dict), body=None,
-    )
+    ).assert_response(200, IsInstance(dict), '{"name": "Alice"}')
     assert user["name"] == "Alice"
 ```
 
@@ -332,8 +337,10 @@ svc.charge.returns({"status": "ok"})
 
 ```python
 with bigfoot.in_any_order():
-    bigfoot.http.assert_request(method="GET", url=".../a", headers=IsInstance(dict), body=None)
-    bigfoot.http.assert_request(method="GET", url=".../b", headers=IsInstance(dict), body=None)
+    bigfoot.http.assert_request(method="GET", url=".../a", headers=IsInstance(dict), body=None,
+                                require_response=False)
+    bigfoot.http.assert_request(method="GET", url=".../b", headers=IsInstance(dict), body=None,
+                                require_response=False)
 ```
 
 **Mock / spy** -- composable mocks with import-site patching:
@@ -390,7 +397,7 @@ bigfoot.http.pass_through("GET", url)
 
 ```toml
 [tool.bigfoot.http]
-require_response = true  # Every assert_request() must be followed by .assert_response()
+require_response = true  # This is the default; set to false to opt out
 ```
 
 Per-call arguments override project-level settings. See the [configuration guide](https://axiomantic.github.io/bigfoot/guides/configuration/).
