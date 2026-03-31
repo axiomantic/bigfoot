@@ -180,7 +180,11 @@ class MissingAssertionFieldsError(BigfootError):
         missing_fields: frozenset of field names that were required but absent.
     """
 
-    def __init__(self, missing_fields: frozenset[str], provided_fields: frozenset[str] | None = None) -> None:
+    def __init__(
+        self,
+        missing_fields: frozenset[str],
+        provided_fields: frozenset[str] | None = None,
+    ) -> None:
         self.missing_fields = missing_fields
         self.provided_fields = provided_fields
         missing_str = ", ".join(sorted(missing_fields))
@@ -191,8 +195,13 @@ class MissingAssertionFieldsError(BigfootError):
             provided_str = ", ".join(sorted(provided_fields))
             lines.append(f"  Provided: {provided_str}")
         lines.append("")
-        lines.append("Include them in **expected or use a dirty-equals matcher (e.g., IsAnything())")
-        lines.append("if the value is not the focus of this assertion.")
+        lines.append(
+            "Include them in **expected or use a dirty-equals"
+            " matcher (e.g., IsAnything())"
+        )
+        lines.append(
+            "if the value is not the focus of this assertion."
+        )
         super().__init__("\n".join(lines))
 
 

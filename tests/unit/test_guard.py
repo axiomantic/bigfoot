@@ -921,7 +921,6 @@ class TestGuardPassThroughInStateMachinePlugins:
         from bigfoot._verifier import StrictVerifier
         from bigfoot.plugins.socket_plugin import (
             _SOCKET_CLOSE_ORIGINAL,
-            _SOCKET_SEND_ORIGINAL,
             SocketPlugin,
         )
 

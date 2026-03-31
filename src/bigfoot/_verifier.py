@@ -202,7 +202,10 @@ class StrictVerifier:
             required_fields = candidate.plugin.assertable_fields(candidate)
             missing = required_fields - set(expected.keys())
             if missing:
-                raise MissingAssertionFieldsError(missing_fields=frozenset(missing), provided_fields=frozenset(expected.keys()))
+                raise MissingAssertionFieldsError(
+                    missing_fields=frozenset(missing),
+                    provided_fields=frozenset(expected.keys()),
+                )
             # Detect all-wildcard assertions
             if expected and self._all_wildcards(expected):
                 hint = candidate.plugin.format_assert_hint(candidate)
@@ -237,7 +240,10 @@ class StrictVerifier:
             required_fields = interaction.plugin.assertable_fields(interaction)
             missing = required_fields - set(expected.keys())
             if missing:
-                raise MissingAssertionFieldsError(missing_fields=frozenset(missing), provided_fields=frozenset(expected.keys()))
+                raise MissingAssertionFieldsError(
+                    missing_fields=frozenset(missing),
+                    provided_fields=frozenset(expected.keys()),
+                )
             # Detect all-wildcard assertions
             if expected and self._all_wildcards(expected):
                 hint = interaction.plugin.format_assert_hint(interaction)
@@ -346,7 +352,7 @@ class StrictVerifier:
                     if act_val is _MISSING:
                         lines.append(f"  {key}:")
                         lines.append(f"    expected: {exp_val!r}")
-                        lines.append(f"    actual:   (missing)")
+                        lines.append("    actual:   (missing)")
                     elif exp_val != act_val:
                         exp_repr = repr(exp_val)
                         act_repr = repr(act_val)
@@ -377,7 +383,15 @@ class StrictVerifier:
                     lines.append(f"  ({matched} field{'s' if matched != 1 else ''} matched)")
 
         # Compact timeline: skip when there's exactly 1 remaining and it's the actual
-        if remaining and not (len(remaining) == 1 and actual is not None and remaining[0] is actual):
+        show_remaining = (
+            remaining
+            and not (
+                len(remaining) == 1
+                and actual is not None
+                and remaining[0] is actual
+            )
+        )
+        if show_remaining:
             lines.append("")
             lines.append(f"  Remaining timeline ({len(remaining)} interaction(s)):")
             for r in remaining:
