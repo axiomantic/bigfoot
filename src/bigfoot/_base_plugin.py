@@ -1,6 +1,7 @@
 """BasePlugin abstract base class for all bigfoot plugins."""
 
 import threading
+import warnings
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -47,6 +48,36 @@ class BasePlugin(ABC):
         cls._install_count = 0
         cls._install_lock = threading.Lock()
 
+        # Warn about common authoring mistakes
+        if "activate" in cls.__dict__:
+            warnings.warn(
+                f"{cls.__name__} overrides activate() directly. "
+                "Override install_patches()/restore_patches() instead. "
+                "BasePlugin.activate() handles reference counting internally.",
+                stacklevel=2,
+            )
+        if "deactivate" in cls.__dict__:
+            warnings.warn(
+                f"{cls.__name__} overrides deactivate() directly. "
+                "Override install_patches()/restore_patches() instead. "
+                "BasePlugin.deactivate() handles reference counting internally.",
+                stacklevel=2,
+            )
+        if "_install_patches" in cls.__dict__:
+            warnings.warn(
+                f"{cls.__name__} defines _install_patches() (private). "
+                "Use install_patches() (no underscore prefix) instead. "
+                "BasePlugin calls self.install_patches(), not self._install_patches().",
+                stacklevel=2,
+            )
+        if "_restore_patches" in cls.__dict__:
+            warnings.warn(
+                f"{cls.__name__} defines _restore_patches() (private). "
+                "Use restore_patches() (no underscore prefix) instead. "
+                "BasePlugin calls self.restore_patches(), not self._restore_patches().",
+                stacklevel=2,
+            )
+
     def __init__(self, verifier: "StrictVerifier") -> None:
         self.verifier = verifier
         verifier._register_plugin(self)
@@ -55,13 +86,20 @@ class BasePlugin(ABC):
         """Reference-counted activation. Calls check_conflicts() and
         install_patches() on first activation.
 
-        Plugins that need custom activation logic can override this method
-        directly. Plugins that use standard ref-counting should override
-        install_patches() and restore_patches() instead.
+        Do not override this method. Override install_patches() and
+        restore_patches() instead. BasePlugin.activate() handles
+        reference counting internally.
         """
         with type(self)._install_lock:
             if type(self)._install_count == 0:
                 self.check_conflicts()
+                if type(self).install_patches is BasePlugin.install_patches:
+                    warnings.warn(
+                        f"{type(self).__name__}.install_patches() is not overridden. "
+                        "A plugin that does not patch anything may be misconfigured. "
+                        "Override install_patches() to apply monkeypatches.",
+                        stacklevel=2,
+                    )
                 self.install_patches()
             type(self)._install_count += 1
 
@@ -69,9 +107,9 @@ class BasePlugin(ABC):
         """Reference-counted deactivation. Calls restore_patches() when
         count reaches 0.
 
-        Plugins that need custom deactivation logic can override this method
-        directly. Plugins that use standard ref-counting should override
-        install_patches() and restore_patches() instead.
+        Do not override this method. Override install_patches() and
+        restore_patches() instead. BasePlugin.deactivate() handles
+        reference counting internally.
         """
         with type(self)._install_lock:
             type(self)._install_count = max(0, type(self)._install_count - 1)

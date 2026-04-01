@@ -16,25 +16,37 @@ from bigfoot._timeline import Interaction
 from bigfoot._verifier import StrictVerifier
 ```
 
+## Lifecycle methods
+
+`BasePlugin.activate()` and `BasePlugin.deactivate()` implement reference-counted patching. You do **not** override these methods. Instead, override the two hooks they call:
+
+### install_patches()
+
+```python
+def install_patches(self) -> None: ...
+```
+
+Called once when the install count transitions from 0 to 1 (first activation). Install your monkeypatches here. Must be public (no underscore prefix).
+
+### restore_patches()
+
+```python
+def restore_patches(self) -> None: ...
+```
+
+Called once when the install count reaches 0 (last deactivation). Restore original functions here. Must be public (no underscore prefix).
+
+### Common mistakes
+
+bigfoot emits runtime warnings for two frequent plugin authoring errors:
+
+1. **Overriding `activate()` or `deactivate()` directly.** These methods own the reference counting logic. Overriding them bypasses ref counting and breaks nested sandboxes. Override `install_patches()` and `restore_patches()` instead.
+
+2. **Using private underscore names** (`_install_patches`, `_restore_patches`). `BasePlugin` calls `self.install_patches()`, not `self._install_patches()`. The private-name variant will never be called and your plugin will silently do nothing.
+
+If `install_patches()` is not overridden when `activate()` runs, bigfoot warns that the plugin may be misconfigured.
+
 ## Abstract methods
-
-### activate()
-
-```python
-def activate(self) -> None: ...
-```
-
-Called when the sandbox is entered. Install your interceptors here. Must be thread-safe. Use class-level reference counting (increment a `_install_count` under a `_install_lock`) so nested sandboxes work correctly. Only install if count transitions from 0 to 1.
-
-Check for conflicts before installing. If another library has already patched your target, raise `ConflictError`.
-
-### deactivate()
-
-```python
-def deactivate(self) -> None: ...
-```
-
-Called when the sandbox exits. Remove interceptors and decrement the count. Only restore originals if the count reaches 0. Must not raise; collect errors for the caller to raise after ContextVar reset.
 
 ### matches()
 
