@@ -59,7 +59,7 @@ def test_payment():
 | Scenario | unittest.mock | bigfoot |
 |----------|---------------|---------|
 | Mocked function is never called | Passes silently | `UnusedMocksError` |
-| Wrong arguments | Only caught if you add `assert_called_with` | Recorded, must be asserted with exact args |
+| Wrong arguments | Only caught if you add `assert_called_with` | `InteractionMismatchError` |
 | Real HTTP/DB/Redis call leaks through | Goes to production | `UnmockedInteractionError` |
 | Forgot to assert a call | Passes silently | `UnassertedInteractionsError` |
 | `MagicMock` returns wrong type | Auto-generates attributes forever | You declare explicit return values |
@@ -69,23 +69,28 @@ def test_payment():
 
 Firewall mode is on by default. When your test session starts, bigfoot installs interceptors that catch any real I/O call happening outside a sandbox.
 
-In `"warn"` mode (the default), accidental calls emit a `GuardedCallWarning` and proceed normally, so your existing suite keeps working while showing you exactly which calls are unguarded. Set `guard = "error"` for strict enforcement.
+In `"warn"` mode (the default), accidental calls emit a `GuardedCallWarning` and proceed normally, so your existing suite keeps working while showing you exactly which calls are unguarded. Set `guard = "error"` under `[tool.bigfoot]` in your `pyproject.toml` for strict enforcement.
 
 ```python
-# Selectively permit real calls
-bigfoot.allow("dns", "socket")
+from bigfoot import M
 
-# Or via marker
+# Selectively permit real calls within a scope
+with bigfoot.allow("dns", "socket"):
+    ...
+
+# Or via marker for an entire test
 @pytest.mark.allow("dns", "socket")
 
 # Granular patterns
-bigfoot.allow(M(protocol="http", host="*.example.com"))
+with bigfoot.allow(M(protocol="http", host="*.example.com")):
+    ...
 
 # Set a ceiling that inner blocks cannot widen
-bigfoot.restrict("http", "subprocess")
+with bigfoot.restrict("http", "subprocess"):
+    ...
 ```
 
-Configure project-wide rules in `[tool.bigfoot.firewall]` in your `pyproject.toml`.
+Configure project-wide allow/deny rules in `[tool.bigfoot.firewall]` in your `pyproject.toml`.
 
 ## Quick Start
 
