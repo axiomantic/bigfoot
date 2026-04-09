@@ -1405,6 +1405,56 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#lifecycle-methods" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lifecycle methods
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Lifecycle methods">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#install_patches" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        install_patches()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#restore_patches" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        restore_patches()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#common-mistakes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common mistakes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#abstract-methods" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1415,28 +1465,6 @@
   
     <nav class="md-nav" aria-label="Abstract methods">
       <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#activate" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        activate()
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#deactivate" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        deactivate()
-      
-    </span>
-  </a>
-  
-</li>
         
           <li class="md-nav__item">
   <a href="#matches" class="md-nav__link">
@@ -2920,6 +2948,56 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#lifecycle-methods" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lifecycle methods
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Lifecycle methods">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#install_patches" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        install_patches()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#restore_patches" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        restore_patches()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#common-mistakes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common mistakes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#abstract-methods" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2930,28 +3008,6 @@
   
     <nav class="md-nav" aria-label="Abstract methods">
       <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#activate" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        activate()
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#deactivate" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        deactivate()
-      
-    </span>
-  </a>
-  
-</li>
         
           <li class="md-nav__item">
   <a href="#matches" class="md-nav__link">
@@ -3372,16 +3428,28 @@
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">bigfoot._timeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">Interaction</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">bigfoot._verifier</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrictVerifier</span>
 </code></pre></div>
+<h2 id="lifecycle-methods">Lifecycle methods<a class="headerlink" href="#lifecycle-methods" title="Permanent link">&para;</a></h2>
+<p><code>BasePlugin.activate()</code> and <code>BasePlugin.deactivate()</code> implement reference-counted patching. You do <strong>not</strong> override these methods. Instead, override the two hooks they call:</p>
+<h3 id="install_patches">install_patches()<a class="headerlink" href="#install_patches" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">install_patches</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+</code></pre></div>
+<p>Called once when the install count transitions from 0 to 1 (first activation). Install your monkeypatches here. Must be public (no underscore prefix).</p>
+<h3 id="restore_patches">restore_patches()<a class="headerlink" href="#restore_patches" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">restore_patches</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+</code></pre></div>
+<p>Called once when the install count reaches 0 (last deactivation). Restore original functions here. Must be public (no underscore prefix).</p>
+<h3 id="common-mistakes">Common mistakes<a class="headerlink" href="#common-mistakes" title="Permanent link">&para;</a></h3>
+<p>bigfoot emits runtime warnings for two frequent plugin authoring errors:</p>
+<ol>
+<li>
+<p><strong>Overriding <code>activate()</code> or <code>deactivate()</code> directly.</strong> These methods own the reference counting logic. Overriding them bypasses ref counting and breaks nested sandboxes. Override <code>install_patches()</code> and <code>restore_patches()</code> instead.</p>
+</li>
+<li>
+<p><strong>Using private underscore names</strong> (<code>_install_patches</code>, <code>_restore_patches</code>). <code>BasePlugin</code> calls <code>self.install_patches()</code>, not <code>self._install_patches()</code>. The private-name variant will never be called and your plugin will silently do nothing.</p>
+</li>
+</ol>
+<p>If <code>install_patches()</code> is not overridden when <code>activate()</code> runs, bigfoot warns that the plugin may be misconfigured.</p>
 <h2 id="abstract-methods">Abstract methods<a class="headerlink" href="#abstract-methods" title="Permanent link">&para;</a></h2>
-<h3 id="activate">activate()<a class="headerlink" href="#activate" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">activate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
-</code></pre></div>
-<p>Called when the sandbox is entered. Install your interceptors here. Must be thread-safe. Use class-level reference counting (increment a <code>_install_count</code> under a <code>_install_lock</code>) so nested sandboxes work correctly. Only install if count transitions from 0 to 1.</p>
-<p>Check for conflicts before installing. If another library has already patched your target, raise <code>ConflictError</code>.</p>
-<h3 id="deactivate">deactivate()<a class="headerlink" href="#deactivate" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">deactivate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
-</code></pre></div>
-<p>Called when the sandbox exits. Remove interceptors and decrement the count. Only restore originals if the count reaches 0. Must not raise; collect errors for the caller to raise after ContextVar reset.</p>
 <h3 id="matches">matches()<a class="headerlink" href="#matches" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">matches</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interaction</span><span class="p">:</span> <span class="n">Interaction</span><span class="p">,</span> <span class="n">expected</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span> <span class="o">...</span>
 </code></pre></div>
