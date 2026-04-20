@@ -12,13 +12,13 @@ This installs `pymemcache`.
 
 ## Setup
 
-In pytest, access `MemcachePlugin` through the `bigfoot.memcache_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `MemcachePlugin` through the `bigfoot.memcache` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
 import bigfoot
 
 def test_session_cache():
-    bigfoot.memcache_mock.mock_command("GET", returns=b"user:42")
+    bigfoot.memcache.mock_command("GET", returns=b"user:42")
 
     with bigfoot:
         from pymemcache.client.base import Client
@@ -27,7 +27,7 @@ def test_session_cache():
 
     assert value == b"user:42"
 
-    bigfoot.memcache_mock.assert_get(command="GET", key="session:abc")
+    bigfoot.memcache.assert_get(command="GET", key="session:abc")
 ```
 
 For manual use outside pytest, construct `MemcachePlugin` explicitly:
@@ -37,18 +37,18 @@ from bigfoot import StrictVerifier
 from bigfoot.plugins.memcache_plugin import MemcachePlugin
 
 verifier = StrictVerifier()
-memcache_mock = MemcachePlugin(verifier)
+memcache = MemcachePlugin(verifier)
 ```
 
 Each verifier may have at most one `MemcachePlugin`. A second `MemcachePlugin(verifier)` raises `ValueError`.
 
 ## Registering mock commands
 
-Use `bigfoot.memcache_mock.mock_command(command, *, returns, ...)` to register a mock before entering the sandbox:
+Use `bigfoot.memcache.mock_command(command, *, returns, ...)` to register a mock before entering the sandbox:
 
 ```python
-bigfoot.memcache_mock.mock_command("SET", returns=True)
-bigfoot.memcache_mock.mock_command("GET", returns=b"cached")
+bigfoot.memcache.mock_command("SET", returns=True)
+bigfoot.memcache.mock_command("GET", returns=b"cached")
 ```
 
 ### Parameters
@@ -80,8 +80,8 @@ Each command name has its own independent FIFO queue. Multiple `mock_command("GE
 
 ```python
 def test_multiple_gets():
-    bigfoot.memcache_mock.mock_command("GET", returns=b"first")
-    bigfoot.memcache_mock.mock_command("GET", returns=b"second")
+    bigfoot.memcache.mock_command("GET", returns=b"first")
+    bigfoot.memcache.mock_command("GET", returns=b"second")
 
     with bigfoot:
         from pymemcache.client.base import Client
@@ -92,22 +92,22 @@ def test_multiple_gets():
     assert v1 == b"first"
     assert v2 == b"second"
 
-    bigfoot.memcache_mock.assert_get(command="GET", key="key1")
-    bigfoot.memcache_mock.assert_get(command="GET", key="key2")
+    bigfoot.memcache.assert_get(command="GET", key="key1")
+    bigfoot.memcache.assert_get(command="GET", key="key2")
 ```
 
 Command names are case-insensitive: `mock_command("get", ...)` matches a `client.get(...)` call.
 
 ## Asserting interactions
 
-Use the typed assertion helpers on `bigfoot.memcache_mock`. Each helper requires all detail fields for its operation type.
+Use the typed assertion helpers on `bigfoot.memcache`. Each helper requires all detail fields for its operation type.
 
 ### `assert_get(command, key)`
 
 Asserts the next read interaction (GET, GETS, DELETE).
 
 ```python
-bigfoot.memcache_mock.assert_get(command="GET", key="session:abc")
+bigfoot.memcache.assert_get(command="GET", key="session:abc")
 ```
 
 | Parameter | Type | Description |
@@ -120,7 +120,7 @@ bigfoot.memcache_mock.assert_get(command="GET", key="session:abc")
 Asserts the next write interaction (SET, ADD, REPLACE, CAS, APPEND, PREPEND).
 
 ```python
-bigfoot.memcache_mock.assert_set(command="SET", key="session:abc", value=b"user:42", expire=3600)
+bigfoot.memcache.assert_set(command="SET", key="session:abc", value=b"user:42", expire=3600)
 ```
 
 | Parameter | Type | Default | Description |
@@ -135,7 +135,7 @@ bigfoot.memcache_mock.assert_set(command="SET", key="session:abc", value=b"user:
 Asserts the next delete interaction.
 
 ```python
-bigfoot.memcache_mock.assert_delete(command="DELETE", key="session:abc")
+bigfoot.memcache.assert_delete(command="DELETE", key="session:abc")
 ```
 
 | Parameter | Type | Description |
@@ -148,7 +148,7 @@ bigfoot.memcache_mock.assert_delete(command="DELETE", key="session:abc")
 Asserts the next counter interaction (INCR, DECR).
 
 ```python
-bigfoot.memcache_mock.assert_incr(command="INCR", key="page_views", value=1)
+bigfoot.memcache.assert_incr(command="INCR", key="page_views", value=1)
 ```
 
 | Parameter | Type | Default | Description |
@@ -165,7 +165,7 @@ Use the `raises` parameter to simulate memcache errors:
 import bigfoot
 
 def test_memcache_connection_error():
-    bigfoot.memcache_mock.mock_command(
+    bigfoot.memcache.mock_command(
         "GET",
         returns=None,
         raises=ConnectionError("memcached unreachable"),
@@ -177,7 +177,7 @@ def test_memcache_connection_error():
         with pytest.raises(ConnectionError):
             client.get("mykey")
 
-    bigfoot.memcache_mock.assert_get(command="GET", key="mykey")
+    bigfoot.memcache.assert_get(command="GET", key="mykey")
 ```
 
 ## Full example
@@ -199,7 +199,7 @@ def test_memcache_connection_error():
 Mark a mock as optional with `required=False`:
 
 ```python
-bigfoot.memcache_mock.mock_command("DELETE", returns=True, required=False)
+bigfoot.memcache.mock_command("DELETE", returns=True, required=False)
 ```
 
 An optional mock that is never triggered does not cause `UnusedMocksError` at teardown.
@@ -211,5 +211,5 @@ When code calls a memcache method that has no remaining mocks in its queue, bigf
 ```
 memcache.GET(...) was called but no mock was registered.
 Register a mock with:
-    bigfoot.memcache_mock.mock_command('GET', returns=...)
+    bigfoot.memcache.mock_command('GET', returns=...)
 ```

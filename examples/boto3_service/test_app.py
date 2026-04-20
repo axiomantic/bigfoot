@@ -1,4 +1,4 @@
-"""Test boto3 S3 upload with SQS notification using bigfoot boto3_mock."""
+"""Test boto3 S3 upload with SQS notification using bigfoot boto3."""
 
 import logging
 
@@ -17,8 +17,8 @@ def _silence_botocore():
 
 
 def test_upload_and_notify():
-    bigfoot.boto3_mock.mock_call("s3", "PutObject", returns={})
-    bigfoot.boto3_mock.mock_call("sqs", "SendMessage", returns={"MessageId": "msg-001"})
+    bigfoot.boto3.mock_call("s3", "PutObject", returns={})
+    bigfoot.boto3.mock_call("sqs", "SendMessage", returns={"MessageId": "msg-001"})
 
     with bigfoot:
         upload_and_notify(
@@ -26,11 +26,11 @@ def test_upload_and_notify():
             "https://sqs.us-east-1.amazonaws.com/123/notifications",
         )
 
-    bigfoot.boto3_mock.assert_boto3_call(
+    bigfoot.boto3.assert_boto3_call(
         service="s3", operation="PutObject",
         params={"Bucket": "data-bucket", "Key": "reports/q1.csv", "Body": b"revenue,100"},
     )
-    bigfoot.boto3_mock.assert_boto3_call(
+    bigfoot.boto3.assert_boto3_call(
         service="sqs", operation="SendMessage",
         params={
             "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123/notifications",

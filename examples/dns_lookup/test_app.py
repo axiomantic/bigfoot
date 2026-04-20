@@ -1,4 +1,4 @@
-"""Test DNS service resolution using bigfoot dns_mock."""
+"""Test DNS service resolution using bigfoot dns."""
 
 import socket
 
@@ -8,7 +8,7 @@ from .app import resolve_service_endpoint
 
 
 def test_resolve_service_endpoint():
-    bigfoot.dns_mock.mock_getaddrinfo(
+    bigfoot.dns.mock_getaddrinfo(
         "payments.internal",
         returns=[
             (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.0.2.15", 443)),
@@ -20,7 +20,7 @@ def test_resolve_service_endpoint():
 
     assert addr == ("10.0.2.15", 443)
 
-    bigfoot.dns_mock.assert_getaddrinfo(
+    bigfoot.dns.assert_getaddrinfo(
         host="payments.internal",
         port=443,
         family=socket.AF_INET,

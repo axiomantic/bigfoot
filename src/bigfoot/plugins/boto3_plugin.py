@@ -314,7 +314,7 @@ class Boto3Plugin(BasePlugin):
     def format_mock_hint(self, interaction: Interaction) -> str:
         service = interaction.details.get("service", "?")
         operation = interaction.details.get("operation", "?")
-        return f"    bigfoot.boto3_mock.mock_call({service!r}, {operation!r}, returns=...)"
+        return f"    bigfoot.boto3.mock_call({service!r}, {operation!r}, returns=...)"
 
     def format_unmocked_hint(
         self,
@@ -328,7 +328,7 @@ class Boto3Plugin(BasePlugin):
         return (
             f"{service}.{operation}(...) was called but no mock was registered.\n"
             f"Register a mock with:\n"
-            f"    bigfoot.boto3_mock.mock_call({service!r}, {operation!r}, returns=...)"
+            f"    bigfoot.boto3.mock_call({service!r}, {operation!r}, returns=...)"
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:
@@ -336,7 +336,7 @@ class Boto3Plugin(BasePlugin):
         operation = interaction.details.get("operation", "?")
         params = interaction.details.get("params", {})
         return (
-            f"    bigfoot.boto3_mock.assert_boto3_call(\n"
+            f"    bigfoot.boto3.assert_boto3_call(\n"
             f"        service={service!r},\n"
             f"        operation={operation!r},\n"
             f"        params={params!r},\n"

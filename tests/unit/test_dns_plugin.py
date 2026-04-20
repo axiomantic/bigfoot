@@ -158,12 +158,12 @@ def test_mock_getaddrinfo_full_assertion(bigfoot_verifier: StrictVerifier) -> No
     expected_result = [
         (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 80))
     ]
-    bigfoot.dns_mock.mock_getaddrinfo("example.com", returns=expected_result)
+    bigfoot.dns.mock_getaddrinfo("example.com", returns=expected_result)
 
     with bigfoot.sandbox():
         socket.getaddrinfo("example.com", 80, socket.AF_INET, socket.SOCK_STREAM, 6)
 
-    bigfoot.dns_mock.assert_getaddrinfo(
+    bigfoot.dns.assert_getaddrinfo(
         host="example.com",
         port=80,
         family=socket.AF_INET,
@@ -179,12 +179,12 @@ def test_mock_getaddrinfo_default_args(bigfoot_verifier: StrictVerifier) -> None
     expected_result = [
         (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 80))
     ]
-    bigfoot.dns_mock.mock_getaddrinfo("example.com", returns=expected_result)
+    bigfoot.dns.mock_getaddrinfo("example.com", returns=expected_result)
 
     with bigfoot.sandbox():
         socket.getaddrinfo("example.com", 80)
 
-    bigfoot.dns_mock.assert_getaddrinfo(
+    bigfoot.dns.assert_getaddrinfo(
         host="example.com",
         port=80,
         family=0,
@@ -213,12 +213,12 @@ def test_mock_gethostbyname_full_assertion(bigfoot_verifier: StrictVerifier) -> 
     """assert_gethostbyname asserts hostname field."""
     import bigfoot
 
-    bigfoot.dns_mock.mock_gethostbyname("example.com", returns="93.184.216.34")
+    bigfoot.dns.mock_gethostbyname("example.com", returns="93.184.216.34")
 
     with bigfoot.sandbox():
         socket.gethostbyname("example.com")
 
-    bigfoot.dns_mock.assert_gethostbyname(hostname="example.com")
+    bigfoot.dns.assert_gethostbyname(hostname="example.com")
 
 
 # ---------------------------------------------------------------------------
@@ -286,7 +286,7 @@ def test_missing_assertion_fields_getaddrinfo(bigfoot_verifier: StrictVerifier) 
     import bigfoot
     from bigfoot.plugins.dns_plugin import _DnsSentinel
 
-    bigfoot.dns_mock.mock_getaddrinfo("example.com", returns=[])
+    bigfoot.dns.mock_getaddrinfo("example.com", returns=[])
 
     with bigfoot.sandbox():
         socket.getaddrinfo("example.com", 80)
@@ -298,7 +298,7 @@ def test_missing_assertion_fields_getaddrinfo(bigfoot_verifier: StrictVerifier) 
 
     assert "port" in exc_info.value.missing_fields
     # Now assert fully so teardown passes
-    bigfoot.dns_mock.assert_getaddrinfo(
+    bigfoot.dns.assert_getaddrinfo(
         host="example.com", port=80, family=0, type=0, proto=0,
     )
 
@@ -362,7 +362,7 @@ def test_dns_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) ->
     """DNS interactions are NOT auto-asserted -- they land on the timeline unasserted."""
     import bigfoot
 
-    bigfoot.dns_mock.mock_gethostbyname("example.com", returns="1.2.3.4")
+    bigfoot.dns.mock_gethostbyname("example.com", returns="1.2.3.4")
     with bigfoot.sandbox():
         socket.gethostbyname("example.com")
 
@@ -371,7 +371,7 @@ def test_dns_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) ->
     assert len(interactions) == 1
     assert interactions[0].source_id == "dns:gethostbyname:example.com"
     # Assert it so verify_all() at teardown succeeds
-    bigfoot.dns_mock.assert_gethostbyname(hostname="example.com")
+    bigfoot.dns.assert_gethostbyname(hostname="example.com")
 
 
 # ---------------------------------------------------------------------------
@@ -443,7 +443,7 @@ def test_format_mock_hint_getaddrinfo() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    bigfoot.dns_mock.mock_getaddrinfo('example.com', returns=...)"
+    assert result == "    bigfoot.dns.mock_getaddrinfo('example.com', returns=...)"
 
 
 def test_format_unmocked_hint() -> None:
@@ -452,7 +452,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "socket.getaddrinfo('example.com', ...) was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    bigfoot.dns_mock.mock_getaddrinfo('example.com', returns=...)"
+        "    bigfoot.dns.mock_getaddrinfo('example.com', returns=...)"
     )
 
 
@@ -466,7 +466,7 @@ def test_format_assert_hint_getaddrinfo() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    bigfoot.dns_mock.assert_getaddrinfo(\n"
+        "    bigfoot.dns.assert_getaddrinfo(\n"
         "        host='example.com',\n"
         "        port=80,\n"
         "        family=0,\n"
@@ -488,24 +488,24 @@ def test_format_unused_mock_hint() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.dns_mock
+# Module-level proxy: bigfoot.dns
 # ---------------------------------------------------------------------------
 
 
 def test_dns_mock_proxy_mock_getaddrinfo(bigfoot_verifier: StrictVerifier) -> None:
-    """bigfoot.dns_mock.mock_getaddrinfo works via the proxy."""
+    """bigfoot.dns.mock_getaddrinfo works via the proxy."""
     import bigfoot
 
     expected_result = [
         (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 80))
     ]
-    bigfoot.dns_mock.mock_getaddrinfo("example.com", returns=expected_result)
+    bigfoot.dns.mock_getaddrinfo("example.com", returns=expected_result)
 
     with bigfoot.sandbox():
         result = socket.getaddrinfo("example.com", 80)
 
     assert result == expected_result
-    bigfoot.dns_mock.assert_getaddrinfo(
+    bigfoot.dns.assert_getaddrinfo(
         host="example.com",
         port=80,
         family=0,
@@ -515,14 +515,14 @@ def test_dns_mock_proxy_mock_getaddrinfo(bigfoot_verifier: StrictVerifier) -> No
 
 
 def test_dns_mock_proxy_raises_outside_context() -> None:
-    """Accessing bigfoot.dns_mock outside a test context raises NoActiveVerifierError."""
+    """Accessing bigfoot.dns outside a test context raises NoActiveVerifierError."""
     import bigfoot
     from bigfoot._errors import NoActiveVerifierError
 
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.dns_mock.mock_getaddrinfo
+            _ = bigfoot.dns.mock_getaddrinfo
     finally:
         _current_test_verifier.reset(token)
 
@@ -533,12 +533,12 @@ def test_dns_mock_proxy_raises_outside_context() -> None:
 
 
 def test_dns_plugin_in_all() -> None:
-    """DnsPlugin and dns_mock are exported from bigfoot."""
+    """DnsPlugin and dns are exported from bigfoot."""
     import bigfoot
 
     assert "DnsPlugin" in bigfoot.__all__
-    assert "dns_mock" in bigfoot.__all__
-    assert type(bigfoot.dns_mock).__name__ == "_DnsProxy"
+    assert "dns" in bigfoot.__all__
+    assert type(bigfoot.dns).__name__ == "_DnsProxy"
 
 
 # ---------------------------------------------------------------------------
@@ -550,13 +550,13 @@ def test_assert_getaddrinfo_wrong_args_raises(bigfoot_verifier: StrictVerifier) 
     """assert_getaddrinfo with wrong values raises InteractionMismatchError."""
     import bigfoot
 
-    bigfoot.dns_mock.mock_getaddrinfo("example.com", returns=[])
+    bigfoot.dns.mock_getaddrinfo("example.com", returns=[])
 
     with bigfoot.sandbox():
         socket.getaddrinfo("example.com", 80)
 
     with pytest.raises(InteractionMismatchError):
-        bigfoot.dns_mock.assert_getaddrinfo(
+        bigfoot.dns.assert_getaddrinfo(
             host="wrong.com",
             port=80,
             family=0,
@@ -564,7 +564,7 @@ def test_assert_getaddrinfo_wrong_args_raises(bigfoot_verifier: StrictVerifier) 
             proto=0,
         )
     # Assert correctly so teardown passes
-    bigfoot.dns_mock.assert_getaddrinfo(
+    bigfoot.dns.assert_getaddrinfo(
         host="example.com",
         port=80,
         family=0,
@@ -601,14 +601,14 @@ class TestDnsResolve:
         """assert_resolve asserts qname and rdtype fields."""
         import bigfoot
 
-        bigfoot.dns_mock.mock_resolve("example.com", "A", returns=["93.184.216.34"])
+        bigfoot.dns.mock_resolve("example.com", "A", returns=["93.184.216.34"])
 
         with bigfoot.sandbox():
             import dns.resolver
 
             dns.resolver.resolve("example.com", "A")
 
-        bigfoot.dns_mock.assert_resolve(qname="example.com", rdtype="A")
+        bigfoot.dns.assert_resolve(qname="example.com", rdtype="A")
 
     def test_unmocked_resolve_raises(self) -> None:
         """resolve without mock raises UnmockedInteractionError."""

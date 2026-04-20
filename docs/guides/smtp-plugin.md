@@ -4,13 +4,13 @@
 
 ## Setup
 
-In pytest, access `SmtpPlugin` through the `bigfoot.smtp_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `SmtpPlugin` through the `bigfoot.smtp` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
 import bigfoot
 
 def test_send_email():
-    (bigfoot.smtp_mock
+    (bigfoot.smtp
         .new_session()
         .expect("connect",  returns=None)
         .expect("ehlo",     returns=(250, b"OK"))
@@ -24,14 +24,14 @@ def test_send_email():
         smtp.sendmail("from@example.com", ["to@example.com"], "Subject: hi\r\n\r\nhello")
         smtp.quit()
 
-    bigfoot.smtp_mock.assert_connect(host="mail.example.com", port=25)
-    bigfoot.smtp_mock.assert_ehlo(name="")
-    bigfoot.smtp_mock.assert_sendmail(
+    bigfoot.smtp.assert_connect(host="mail.example.com", port=25)
+    bigfoot.smtp.assert_ehlo(name="")
+    bigfoot.smtp.assert_sendmail(
         from_addr="from@example.com",
         to_addrs=["to@example.com"],
         msg="Subject: hi\r\n\r\nhello",
     )
-    bigfoot.smtp_mock.assert_quit()
+    bigfoot.smtp.assert_quit()
 ```
 
 For manual use outside pytest, construct `SmtpPlugin` explicitly:
@@ -63,7 +63,7 @@ The `connect` step fires automatically during `smtplib.SMTP(host, port)` constru
 Use `new_session()` to create a `SessionHandle` and chain `.expect()` calls:
 
 ```python
-(bigfoot.smtp_mock
+(bigfoot.smtp
     .new_session()
     .expect("connect",  returns=None)
     .expect("ehlo",     returns=(250, b"OK"))
@@ -97,24 +97,24 @@ Use `new_session()` to create a `SessionHandle` and chain `.expect()` calls:
 
 ## Asserting interactions
 
-Each step records an interaction on the timeline. Use the typed assertion helpers on `bigfoot.smtp_mock`:
+Each step records an interaction on the timeline. Use the typed assertion helpers on `bigfoot.smtp`:
 
 ### `assert_connect(*, host, port)`
 
 ```python
-bigfoot.smtp_mock.assert_connect(host="mail.example.com", port=587)
+bigfoot.smtp.assert_connect(host="mail.example.com", port=587)
 ```
 
 ### `assert_ehlo(*, name)`
 
 ```python
-bigfoot.smtp_mock.assert_ehlo(name="")
+bigfoot.smtp.assert_ehlo(name="")
 ```
 
 ### `assert_helo(*, name)`
 
 ```python
-bigfoot.smtp_mock.assert_helo(name="")
+bigfoot.smtp.assert_helo(name="")
 ```
 
 ### `assert_starttls()`
@@ -122,19 +122,19 @@ bigfoot.smtp_mock.assert_helo(name="")
 No fields are required.
 
 ```python
-bigfoot.smtp_mock.assert_starttls()
+bigfoot.smtp.assert_starttls()
 ```
 
 ### `assert_login(*, user, password)`
 
 ```python
-bigfoot.smtp_mock.assert_login(user="user@example.com", password="s3cret")
+bigfoot.smtp.assert_login(user="user@example.com", password="s3cret")
 ```
 
 ### `assert_sendmail(*, from_addr, to_addrs, msg)`
 
 ```python
-bigfoot.smtp_mock.assert_sendmail(
+bigfoot.smtp.assert_sendmail(
     from_addr="from@example.com",
     to_addrs=["to@example.com"],
     msg="Subject: hello\r\n\r\nhello",
@@ -144,7 +144,7 @@ bigfoot.smtp_mock.assert_sendmail(
 ### `assert_send_message(*, msg)`
 
 ```python
-bigfoot.smtp_mock.assert_send_message(msg=email_message_object)
+bigfoot.smtp.assert_send_message(msg=email_message_object)
 ```
 
 ### `assert_quit()`
@@ -152,7 +152,7 @@ bigfoot.smtp_mock.assert_send_message(msg=email_message_object)
 No fields are required.
 
 ```python
-bigfoot.smtp_mock.assert_quit()
+bigfoot.smtp.assert_quit()
 ```
 
 ## Full authenticated flow
@@ -172,7 +172,7 @@ def send_secure_email(host, port, user, password, from_addr, to_addrs, body):
     smtp.quit()
 
 def test_send_secure_email():
-    (bigfoot.smtp_mock
+    (bigfoot.smtp
         .new_session()
         .expect("connect",  returns=None)
         .expect("ehlo",     returns=(250, b"OK"))
@@ -189,16 +189,16 @@ def test_send_secure_email():
             "Subject: Report\r\n\r\nSee attached.",
         )
 
-    bigfoot.smtp_mock.assert_connect(host="smtp.example.com", port=587)
-    bigfoot.smtp_mock.assert_ehlo(name="")
-    bigfoot.smtp_mock.assert_starttls()
-    bigfoot.smtp_mock.assert_login(user="user@example.com", password="s3cret")
-    bigfoot.smtp_mock.assert_sendmail(
+    bigfoot.smtp.assert_connect(host="smtp.example.com", port=587)
+    bigfoot.smtp.assert_ehlo(name="")
+    bigfoot.smtp.assert_starttls()
+    bigfoot.smtp.assert_login(user="user@example.com", password="s3cret")
+    bigfoot.smtp.assert_sendmail(
         from_addr="user@example.com",
         to_addrs=["recipient@example.com"],
         msg="Subject: Report\r\n\r\nSee attached.",
     )
-    bigfoot.smtp_mock.assert_quit()
+    bigfoot.smtp.assert_quit()
 ```
 
 ## Unauthenticated flow
@@ -207,7 +207,7 @@ Skip `starttls` and `login` for servers that do not require authentication:
 
 ```python
 def test_send_unauthenticated_email():
-    (bigfoot.smtp_mock
+    (bigfoot.smtp
         .new_session()
         .expect("connect",  returns=None)
         .expect("ehlo",     returns=(250, b"OK"))
@@ -220,14 +220,14 @@ def test_send_unauthenticated_email():
         smtp.sendmail("from@example.com", ["to@example.com"], "Subject: test\r\n\r\ntest")
         smtp.quit()
 
-    bigfoot.smtp_mock.assert_connect(host="mail.example.com", port=25)
-    bigfoot.smtp_mock.assert_ehlo(name="")
-    bigfoot.smtp_mock.assert_sendmail(
+    bigfoot.smtp.assert_connect(host="mail.example.com", port=25)
+    bigfoot.smtp.assert_ehlo(name="")
+    bigfoot.smtp.assert_sendmail(
         from_addr="from@example.com",
         to_addrs=["to@example.com"],
         msg="Subject: test\r\n\r\ntest",
     )
-    bigfoot.smtp_mock.assert_quit()
+    bigfoot.smtp.assert_quit()
 ```
 
 The state machine validates that `sendmail` is called from `greeted` (after `ehlo` without login) or from `authenticated` (after login). Calling `sendmail` from `connected` (skipping `ehlo`) raises `InvalidStateError`.
@@ -238,7 +238,7 @@ Some legacy servers use `HELO` instead of `EHLO`. The state machine treats both 
 
 ```python
 def test_helo_flow():
-    (bigfoot.smtp_mock
+    (bigfoot.smtp
         .new_session()
         .expect("connect",  returns=None)
         .expect("helo",     returns=(250, b"OK"))
@@ -251,14 +251,14 @@ def test_helo_flow():
         smtp.sendmail("from@example.com", ["to@example.com"], "Subject: test\r\n\r\ntest")
         smtp.quit()
 
-    bigfoot.smtp_mock.assert_connect(host="mail.example.com", port=25)
-    bigfoot.smtp_mock.assert_helo(name="")
-    bigfoot.smtp_mock.assert_sendmail(
+    bigfoot.smtp.assert_connect(host="mail.example.com", port=25)
+    bigfoot.smtp.assert_helo(name="")
+    bigfoot.smtp.assert_sendmail(
         from_addr="from@example.com",
         to_addrs=["to@example.com"],
         msg="Subject: test\r\n\r\ntest",
     )
-    bigfoot.smtp_mock.assert_quit()
+    bigfoot.smtp.assert_quit()
 ```
 
 ## Using `send_message`
@@ -275,7 +275,7 @@ def test_send_message():
     msg["To"] = "to@example.com"
     msg.set_content("See attached.")
 
-    (bigfoot.smtp_mock
+    (bigfoot.smtp
         .new_session()
         .expect("connect",      returns=None)
         .expect("ehlo",         returns=(250, b"OK"))
@@ -288,8 +288,8 @@ def test_send_message():
         smtp.send_message(msg)
         smtp.quit()
 
-    bigfoot.smtp_mock.assert_connect(host="mail.example.com", port=25)
-    bigfoot.smtp_mock.assert_ehlo(name="")
-    bigfoot.smtp_mock.assert_send_message(msg=msg)
-    bigfoot.smtp_mock.assert_quit()
+    bigfoot.smtp.assert_connect(host="mail.example.com", port=25)
+    bigfoot.smtp.assert_ehlo(name="")
+    bigfoot.smtp.assert_send_message(msg=msg)
+    bigfoot.smtp.assert_quit()
 ```

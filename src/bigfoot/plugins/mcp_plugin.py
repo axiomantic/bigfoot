@@ -584,7 +584,7 @@ class McpPlugin(BasePlugin):
     def format_mock_hint(self, interaction: Interaction) -> str:
         direction = interaction.details.get("direction", "?")
         method = interaction.details.get("method", "?")
-        prefix = "bigfoot.mcp_mock"
+        prefix = "bigfoot.mcp"
         if direction == "server":
             if method == "call_tool":
                 tool_name = interaction.details.get("tool_name", "?")
@@ -618,7 +618,7 @@ class McpPlugin(BasePlugin):
         direction = parts[1] if len(parts) > 1 else "?"
         method = parts[2] if len(parts) > 2 else "?"
         key = parts[3] if len(parts) > 3 else "?"
-        prefix = "bigfoot.mcp_mock"
+        prefix = "bigfoot.mcp"
 
         if direction == "server":
             mock_fn = f"mock_server_{method}"
@@ -632,7 +632,7 @@ class McpPlugin(BasePlugin):
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:
-        sm = "bigfoot.mcp_mock"
+        sm = "bigfoot.mcp"
         direction = interaction.details.get("direction", "?")
         method = interaction.details.get("method", "?")
 

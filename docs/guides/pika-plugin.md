@@ -12,13 +12,13 @@ This installs `pika`.
 
 ## Setup
 
-In pytest, access `PikaPlugin` through the `bigfoot.pika_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `PikaPlugin` through the `bigfoot.pika` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
 import bigfoot
 
 def test_publish_message():
-    (bigfoot.pika_mock
+    (bigfoot.pika
         .new_session()
         .expect("connect",  returns=None)
         .expect("channel",  returns=None)
@@ -34,12 +34,12 @@ def test_publish_message():
         channel.basic_publish(exchange="", routing_key="tasks", body=b"hello")
         connection.close()
 
-    bigfoot.pika_mock.assert_connect(host="rabbitmq.example.com", port=5672, virtual_host="/")
-    bigfoot.pika_mock.assert_channel()
-    bigfoot.pika_mock.assert_publish(
+    bigfoot.pika.assert_connect(host="rabbitmq.example.com", port=5672, virtual_host="/")
+    bigfoot.pika.assert_channel()
+    bigfoot.pika.assert_publish(
         exchange="", routing_key="tasks", body=b"hello", properties=None,
     )
-    bigfoot.pika_mock.assert_close()
+    bigfoot.pika.assert_close()
 ```
 
 For manual use outside pytest, construct `PikaPlugin` explicitly:
@@ -49,7 +49,7 @@ from bigfoot import StrictVerifier
 from bigfoot.plugins.pika_plugin import PikaPlugin
 
 verifier = StrictVerifier()
-pika_mock = PikaPlugin(verifier)
+pika = PikaPlugin(verifier)
 ```
 
 Each verifier may have at most one `PikaPlugin`. A second `PikaPlugin(verifier)` raises `ValueError`.
@@ -74,7 +74,7 @@ The `connect` step fires automatically during `pika.BlockingConnection(...)` con
 Use `new_session()` to create a `SessionHandle` and chain `.expect()` calls:
 
 ```python
-(bigfoot.pika_mock
+(bigfoot.pika
     .new_session()
     .expect("connect",  returns=None)
     .expect("channel",  returns=None)
@@ -106,12 +106,12 @@ Use `new_session()` to create a `SessionHandle` and chain `.expect()` calls:
 
 ## Asserting interactions
 
-Each step records an interaction on the timeline. Use the typed assertion helpers on `bigfoot.pika_mock`:
+Each step records an interaction on the timeline. Use the typed assertion helpers on `bigfoot.pika`:
 
 ### `assert_connect(*, host, port, virtual_host)`
 
 ```python
-bigfoot.pika_mock.assert_connect(host="rabbitmq.example.com", port=5672, virtual_host="/")
+bigfoot.pika.assert_connect(host="rabbitmq.example.com", port=5672, virtual_host="/")
 ```
 
 ### `assert_channel()`
@@ -119,13 +119,13 @@ bigfoot.pika_mock.assert_connect(host="rabbitmq.example.com", port=5672, virtual
 No fields are required.
 
 ```python
-bigfoot.pika_mock.assert_channel()
+bigfoot.pika.assert_channel()
 ```
 
 ### `assert_publish(*, exchange, routing_key, body, properties)`
 
 ```python
-bigfoot.pika_mock.assert_publish(
+bigfoot.pika.assert_publish(
     exchange="", routing_key="tasks", body=b"process this", properties=None,
 )
 ```
@@ -133,19 +133,19 @@ bigfoot.pika_mock.assert_publish(
 ### `assert_consume(*, queue, auto_ack)`
 
 ```python
-bigfoot.pika_mock.assert_consume(queue="tasks", auto_ack=False)
+bigfoot.pika.assert_consume(queue="tasks", auto_ack=False)
 ```
 
 ### `assert_ack(*, delivery_tag)`
 
 ```python
-bigfoot.pika_mock.assert_ack(delivery_tag=1)
+bigfoot.pika.assert_ack(delivery_tag=1)
 ```
 
 ### `assert_nack(*, delivery_tag, requeue)`
 
 ```python
-bigfoot.pika_mock.assert_nack(delivery_tag=1, requeue=True)
+bigfoot.pika.assert_nack(delivery_tag=1, requeue=True)
 ```
 
 ### `assert_close()`
@@ -153,7 +153,7 @@ bigfoot.pika_mock.assert_nack(delivery_tag=1, requeue=True)
 No fields are required.
 
 ```python
-bigfoot.pika_mock.assert_close()
+bigfoot.pika.assert_close()
 ```
 
 ## Full example
@@ -179,7 +179,7 @@ import pika
 import bigfoot
 
 def test_consume_and_ack():
-    (bigfoot.pika_mock
+    (bigfoot.pika
         .new_session()
         .expect("connect",  returns=None)
         .expect("channel",  returns=None)
@@ -195,11 +195,11 @@ def test_consume_and_ack():
         channel.basic_ack(delivery_tag=1)
         connection.close()
 
-    bigfoot.pika_mock.assert_connect(host="localhost", port=5672, virtual_host="/")
-    bigfoot.pika_mock.assert_channel()
-    bigfoot.pika_mock.assert_consume(queue="work", auto_ack=False)
-    bigfoot.pika_mock.assert_ack(delivery_tag=1)
-    bigfoot.pika_mock.assert_close()
+    bigfoot.pika.assert_connect(host="localhost", port=5672, virtual_host="/")
+    bigfoot.pika.assert_channel()
+    bigfoot.pika.assert_consume(queue="work", auto_ack=False)
+    bigfoot.pika.assert_ack(delivery_tag=1)
+    bigfoot.pika.assert_close()
 ```
 
 ## Negative acknowledgement
@@ -208,7 +208,7 @@ Use `nack` to reject and optionally requeue a message:
 
 ```python
 def test_nack_and_requeue():
-    (bigfoot.pika_mock
+    (bigfoot.pika
         .new_session()
         .expect("connect",  returns=None)
         .expect("channel",  returns=None)
@@ -224,9 +224,9 @@ def test_nack_and_requeue():
         channel.basic_nack(delivery_tag=1, requeue=True)
         connection.close()
 
-    bigfoot.pika_mock.assert_connect(host="localhost", port=5672, virtual_host="/")
-    bigfoot.pika_mock.assert_channel()
-    bigfoot.pika_mock.assert_consume(queue="work", auto_ack=False)
-    bigfoot.pika_mock.assert_nack(delivery_tag=1, requeue=True)
-    bigfoot.pika_mock.assert_close()
+    bigfoot.pika.assert_connect(host="localhost", port=5672, virtual_host="/")
+    bigfoot.pika.assert_channel()
+    bigfoot.pika.assert_consume(queue="work", auto_ack=False)
+    bigfoot.pika.assert_nack(delivery_tag=1, requeue=True)
+    bigfoot.pika.assert_close()
 ```

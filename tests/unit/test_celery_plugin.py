@@ -200,12 +200,12 @@ def test_mock_apply_async_returns_value() -> None:
 def test_assert_delay_full_assertion(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.celery_mock.mock_delay("myapp.tasks.add", returns="mock-id")
+    bigfoot.celery.mock_delay("myapp.tasks.add", returns="mock-id")
 
     with bigfoot.sandbox():
         add_task.delay(1, 2)
 
-    bigfoot.celery_mock.assert_delay(
+    bigfoot.celery.assert_delay(
         task_name="myapp.tasks.add",
         args=(1, 2),
         kwargs={},
@@ -216,12 +216,12 @@ def test_assert_delay_full_assertion(bigfoot_verifier: StrictVerifier) -> None:
 def test_assert_apply_async_full_assertion(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.celery_mock.mock_apply_async("myapp.tasks.add", returns="mock-id")
+    bigfoot.celery.mock_apply_async("myapp.tasks.add", returns="mock-id")
 
     with bigfoot.sandbox():
         add_task.apply_async(args=(1, 2), countdown=10)
 
-    bigfoot.celery_mock.assert_apply_async(
+    bigfoot.celery.assert_apply_async(
         task_name="myapp.tasks.add",
         args=(1, 2),
         kwargs={},
@@ -361,7 +361,7 @@ def test_missing_assertion_fields(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
     from bigfoot.plugins.celery_plugin import _CelerySentinel
 
-    bigfoot.celery_mock.mock_delay("myapp.tasks.add", returns="mock-id")
+    bigfoot.celery.mock_delay("myapp.tasks.add", returns="mock-id")
 
     with bigfoot.sandbox():
         add_task.delay(1, 2)
@@ -373,7 +373,7 @@ def test_missing_assertion_fields(bigfoot_verifier: StrictVerifier) -> None:
 
     assert "dispatch_method" in exc_info.value.missing_fields
     # Now assert fully so teardown passes
-    bigfoot.celery_mock.assert_delay(
+    bigfoot.celery.assert_delay(
         task_name="myapp.tasks.add",
         args=(1, 2),
         kwargs={},
@@ -389,7 +389,7 @@ def test_missing_assertion_fields(bigfoot_verifier: StrictVerifier) -> None:
 def test_celery_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.celery_mock.mock_delay("myapp.tasks.add", returns="mock-id")
+    bigfoot.celery.mock_delay("myapp.tasks.add", returns="mock-id")
 
     with bigfoot.sandbox():
         add_task.delay(1, 2)
@@ -399,7 +399,7 @@ def test_celery_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier)
     assert len(interactions) == 1
     assert interactions[0].source_id == "celery:myapp.tasks.add:delay"
     # Assert it so verify_all() at teardown succeeds
-    bigfoot.celery_mock.assert_delay(
+    bigfoot.celery.assert_delay(
         task_name="myapp.tasks.add",
         args=(1, 2),
         kwargs={},
@@ -485,7 +485,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    bigfoot.celery_mock.mock_delay('myapp.tasks.add', returns=...)"
+    assert result == "    bigfoot.celery.mock_delay('myapp.tasks.add', returns=...)"
 
 
 def test_format_unmocked_hint() -> None:
@@ -494,7 +494,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "celery.delay('myapp.tasks.add', ...) was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    bigfoot.celery_mock.mock_delay('myapp.tasks.add', returns=...)"
+        "    bigfoot.celery.mock_delay('myapp.tasks.add', returns=...)"
     )
 
 
@@ -514,7 +514,7 @@ def test_format_assert_hint() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    bigfoot.celery_mock.assert_delay(\n"
+        "    bigfoot.celery.assert_delay(\n"
         "        task_name='myapp.tasks.add',\n"
         "        dispatch_method='delay',\n"
         "        args=(1, 2),\n"
@@ -540,20 +540,20 @@ def test_format_unused_mock_hint() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.celery_mock
+# Module-level proxy: bigfoot.celery
 # ---------------------------------------------------------------------------
 
 
 def test_celery_mock_proxy_mock_delay(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.celery_mock.mock_delay("myapp.tasks.add", returns="proxy-result")
+    bigfoot.celery.mock_delay("myapp.tasks.add", returns="proxy-result")
 
     with bigfoot.sandbox():
         result = add_task.delay(1, 2)
 
     assert result == "proxy-result"
-    bigfoot.celery_mock.assert_delay(
+    bigfoot.celery.assert_delay(
         task_name="myapp.tasks.add",
         args=(1, 2),
         kwargs={},
@@ -568,7 +568,7 @@ def test_celery_mock_proxy_raises_outside_context() -> None:
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.celery_mock.mock_delay
+            _ = bigfoot.celery.mock_delay
     finally:
         _current_test_verifier.reset(token)
 
@@ -582,8 +582,8 @@ def test_celery_plugin_in_all() -> None:
     import bigfoot
 
     assert "CeleryPlugin" in bigfoot.__all__
-    assert "celery_mock" in bigfoot.__all__
-    assert type(bigfoot.celery_mock).__name__ == "_CeleryProxy"
+    assert "celery" in bigfoot.__all__
+    assert type(bigfoot.celery).__name__ == "_CeleryProxy"
 
 
 # ---------------------------------------------------------------------------
@@ -594,20 +594,20 @@ def test_celery_plugin_in_all() -> None:
 def test_assert_delay_wrong_args_raises(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.celery_mock.mock_delay("myapp.tasks.add", returns="mock-id")
+    bigfoot.celery.mock_delay("myapp.tasks.add", returns="mock-id")
 
     with bigfoot.sandbox():
         add_task.delay(1, 2)
 
     with pytest.raises(InteractionMismatchError):
-        bigfoot.celery_mock.assert_delay(
+        bigfoot.celery.assert_delay(
             task_name="myapp.tasks.add",
             args=(99, 99),
             kwargs={},
             options={},
         )
     # Assert correctly so teardown passes
-    bigfoot.celery_mock.assert_delay(
+    bigfoot.celery.assert_delay(
         task_name="myapp.tasks.add",
         args=(1, 2),
         kwargs={},

@@ -1,4 +1,4 @@
-"""Test Elasticsearch error log search using bigfoot elasticsearch_mock."""
+"""Test Elasticsearch error log search using bigfoot elasticsearch."""
 
 import bigfoot
 
@@ -6,7 +6,7 @@ from .app import search_error_logs
 
 
 def test_search_error_logs():
-    bigfoot.elasticsearch_mock.mock_operation(
+    bigfoot.elasticsearch.mock_operation(
         "search",
         returns={
             "hits": {
@@ -28,7 +28,7 @@ def test_search_error_logs():
     assert logs[0]["message"] == "timeout"
     assert logs[1]["message"] == "connection refused"
 
-    bigfoot.elasticsearch_mock.assert_search(
+    bigfoot.elasticsearch.assert_search(
         index="app-logs",
         query={
             "bool": {

@@ -263,7 +263,7 @@ class DatabasePlugin(StateMachinePlugin):
 
     def format_mock_hint(self, interaction: Interaction) -> str:
         method = interaction.details.get("method", "?")
-        return f"    bigfoot.db_mock.new_session().expect({method!r}, returns=...)"
+        return f"    bigfoot.db.new_session().expect({method!r}, returns=...)"
 
     def format_unmocked_hint(
         self,
@@ -275,11 +275,11 @@ class DatabasePlugin(StateMachinePlugin):
         return (
             f"sqlite3.{method}(...) was called but no session was queued.\n"
             f"Register a session with:\n"
-            f"    bigfoot.db_mock.new_session().expect({method!r}, returns=...)"
+            f"    bigfoot.db.new_session().expect({method!r}, returns=...)"
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:
-        sm = "bigfoot.db_mock"
+        sm = "bigfoot.db"
         sid = interaction.source_id
         if sid == _SOURCE_CONNECT:
             database = interaction.details.get("database", "?")

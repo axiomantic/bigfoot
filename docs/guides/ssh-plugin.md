@@ -12,13 +12,13 @@ This installs `paramiko`.
 
 ## Setup
 
-In pytest, access `SshPlugin` through the `bigfoot.ssh_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `SshPlugin` through the `bigfoot.ssh` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
 import bigfoot
 
 def test_remote_command():
-    (bigfoot.ssh_mock
+    (bigfoot.ssh
         .new_session()
         .expect("connect",      returns=None)
         .expect("exec_command", returns=(None, b"hello\n", b""))
@@ -32,11 +32,11 @@ def test_remote_command():
         stdin, stdout, stderr = client.exec_command("echo hello")
         client.close()
 
-    bigfoot.ssh_mock.assert_connect(
+    bigfoot.ssh.assert_connect(
         hostname="server.example.com", port=22, username="deploy", auth_method="password",
     )
-    bigfoot.ssh_mock.assert_exec_command(command="echo hello")
-    bigfoot.ssh_mock.assert_close()
+    bigfoot.ssh.assert_exec_command(command="echo hello")
+    bigfoot.ssh.assert_close()
 ```
 
 For manual use outside pytest, construct `SshPlugin` explicitly:
@@ -46,7 +46,7 @@ from bigfoot import StrictVerifier
 from bigfoot.plugins.ssh_plugin import SshPlugin
 
 verifier = StrictVerifier()
-ssh_mock = SshPlugin(verifier)
+ssh = SshPlugin(verifier)
 ```
 
 Each verifier may have at most one `SshPlugin`. A second `SshPlugin(verifier)` raises `ValueError`.
@@ -69,7 +69,7 @@ Unlike pika.BlockingConnection, `paramiko.SSHClient()` does not connect on const
 Use `new_session()` to create a `SessionHandle` and chain `.expect()` calls:
 
 ```python
-(bigfoot.ssh_mock
+(bigfoot.ssh
     .new_session()
     .expect("connect",      returns=None)
     .expect("exec_command", returns=(None, b"output", b""))
@@ -103,14 +103,14 @@ Use `new_session()` to create a `SessionHandle` and chain `.expect()` calls:
 
 ## Asserting interactions
 
-Each step records an interaction on the timeline. Use the typed assertion helpers on `bigfoot.ssh_mock`:
+Each step records an interaction on the timeline. Use the typed assertion helpers on `bigfoot.ssh`:
 
 ### `assert_connect(*, hostname, port, username, auth_method)`
 
 The `auth_method` is automatically determined: `"key"` if `pkey` or `key_filename` is passed to `connect()`, otherwise `"password"`.
 
 ```python
-bigfoot.ssh_mock.assert_connect(
+bigfoot.ssh.assert_connect(
     hostname="server.example.com", port=22, username="deploy", auth_method="password",
 )
 ```
@@ -118,7 +118,7 @@ bigfoot.ssh_mock.assert_connect(
 ### `assert_exec_command(*, command)`
 
 ```python
-bigfoot.ssh_mock.assert_exec_command(command="systemctl restart nginx")
+bigfoot.ssh.assert_exec_command(command="systemctl restart nginx")
 ```
 
 ### `assert_open_sftp()`
@@ -126,43 +126,43 @@ bigfoot.ssh_mock.assert_exec_command(command="systemctl restart nginx")
 No fields are required.
 
 ```python
-bigfoot.ssh_mock.assert_open_sftp()
+bigfoot.ssh.assert_open_sftp()
 ```
 
 ### `assert_sftp_get(*, remotepath, localpath)`
 
 ```python
-bigfoot.ssh_mock.assert_sftp_get(remotepath="/var/log/app.log", localpath="/tmp/app.log")
+bigfoot.ssh.assert_sftp_get(remotepath="/var/log/app.log", localpath="/tmp/app.log")
 ```
 
 ### `assert_sftp_put(*, localpath, remotepath)`
 
 ```python
-bigfoot.ssh_mock.assert_sftp_put(localpath="/tmp/config.yaml", remotepath="/etc/app/config.yaml")
+bigfoot.ssh.assert_sftp_put(localpath="/tmp/config.yaml", remotepath="/etc/app/config.yaml")
 ```
 
 ### `assert_sftp_listdir(*, path)`
 
 ```python
-bigfoot.ssh_mock.assert_sftp_listdir(path="/var/log")
+bigfoot.ssh.assert_sftp_listdir(path="/var/log")
 ```
 
 ### `assert_sftp_stat(*, path)`
 
 ```python
-bigfoot.ssh_mock.assert_sftp_stat(path="/etc/app/config.yaml")
+bigfoot.ssh.assert_sftp_stat(path="/etc/app/config.yaml")
 ```
 
 ### `assert_sftp_mkdir(*, path)`
 
 ```python
-bigfoot.ssh_mock.assert_sftp_mkdir(path="/var/data/exports")
+bigfoot.ssh.assert_sftp_mkdir(path="/var/data/exports")
 ```
 
 ### `assert_sftp_remove(*, path)`
 
 ```python
-bigfoot.ssh_mock.assert_sftp_remove(path="/tmp/old-backup.tar.gz")
+bigfoot.ssh.assert_sftp_remove(path="/tmp/old-backup.tar.gz")
 ```
 
 ### `assert_close()`
@@ -170,7 +170,7 @@ bigfoot.ssh_mock.assert_sftp_remove(path="/tmp/old-backup.tar.gz")
 No fields are required.
 
 ```python
-bigfoot.ssh_mock.assert_close()
+bigfoot.ssh.assert_close()
 ```
 
 ## Full example
@@ -193,7 +193,7 @@ When `pkey` or `key_filename` is passed to `connect()`, the `auth_method` detail
 
 ```python
 def test_key_auth():
-    (bigfoot.ssh_mock
+    (bigfoot.ssh
         .new_session()
         .expect("connect",      returns=None)
         .expect("exec_command", returns=(None, b"ok", b""))
@@ -206,11 +206,11 @@ def test_key_auth():
         client.exec_command("whoami")
         client.close()
 
-    bigfoot.ssh_mock.assert_connect(
+    bigfoot.ssh.assert_connect(
         hostname="bastion.example.com", port=22, username="ops", auth_method="key",
     )
-    bigfoot.ssh_mock.assert_exec_command(command="whoami")
-    bigfoot.ssh_mock.assert_close()
+    bigfoot.ssh.assert_exec_command(command="whoami")
+    bigfoot.ssh.assert_close()
 ```
 
 ## SFTP file operations
@@ -219,7 +219,7 @@ A full SFTP session with multiple file operations:
 
 ```python
 def test_sftp_operations():
-    (bigfoot.ssh_mock
+    (bigfoot.ssh
         .new_session()
         .expect("connect",       returns=None)
         .expect("open_sftp",     returns=None)
@@ -242,14 +242,14 @@ def test_sftp_operations():
         sftp.remove("/data/incoming/data.csv")
         client.close()
 
-    bigfoot.ssh_mock.assert_connect(
+    bigfoot.ssh.assert_connect(
         hostname="fileserver.example.com", port=22, username="sync", auth_method="password",
     )
-    bigfoot.ssh_mock.assert_open_sftp()
-    bigfoot.ssh_mock.assert_sftp_listdir(path="/data/incoming")
-    bigfoot.ssh_mock.assert_sftp_get(remotepath="/data/incoming/data.csv", localpath="/tmp/data.csv")
-    bigfoot.ssh_mock.assert_sftp_mkdir(path="/data/processed")
-    bigfoot.ssh_mock.assert_sftp_put(localpath="/tmp/result.csv", remotepath="/data/processed/result.csv")
-    bigfoot.ssh_mock.assert_sftp_remove(path="/data/incoming/data.csv")
-    bigfoot.ssh_mock.assert_close()
+    bigfoot.ssh.assert_open_sftp()
+    bigfoot.ssh.assert_sftp_listdir(path="/data/incoming")
+    bigfoot.ssh.assert_sftp_get(remotepath="/data/incoming/data.csv", localpath="/tmp/data.csv")
+    bigfoot.ssh.assert_sftp_mkdir(path="/data/processed")
+    bigfoot.ssh.assert_sftp_put(localpath="/tmp/result.csv", remotepath="/data/processed/result.csv")
+    bigfoot.ssh.assert_sftp_remove(path="/data/incoming/data.csv")
+    bigfoot.ssh.assert_close()
 ```

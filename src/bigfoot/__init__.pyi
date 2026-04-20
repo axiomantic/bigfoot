@@ -4,7 +4,7 @@ Enables Pyright/mypy to resolve:
 - ``with bigfoot:`` context manager protocol
 - Module-level functions (current_verifier, sandbox, assert_interaction, etc.)
 - Module-level factories (mock, spy)
-- Plugin proxy attributes (http, subprocess_mock, etc.)
+- Plugin proxy attributes (http, subprocess, etc.)
 - All error classes
 """
 
@@ -167,29 +167,62 @@ spy: _SpyFactory
 # ---------------------------------------------------------------------------
 
 http: Any  # HttpPlugin proxy; typed as Any because httpx/requests are optional
-subprocess_mock: Any  # SubprocessPlugin proxy
-popen_mock: Any  # PopenPlugin proxy
-smtp_mock: Any  # SmtpPlugin proxy
-socket_mock: Any  # SocketPlugin proxy
-db_mock: Any  # DatabasePlugin proxy
-async_websocket_mock: Any  # AsyncWebSocketPlugin proxy
-sync_websocket_mock: Any  # SyncWebSocketPlugin proxy
-redis_mock: Any  # RedisPlugin proxy
-mongo_mock: Any  # MongoPlugin proxy
-dns_mock: Any  # DnsPlugin proxy
-memcache_mock: Any  # MemcachePlugin proxy
-celery_mock: Any  # CeleryPlugin proxy
-log_mock: Any  # LoggingPlugin proxy
-async_subprocess_mock: Any  # AsyncSubprocessPlugin proxy
-psycopg2_mock: Any  # Psycopg2Plugin proxy
-asyncpg_mock: Any  # AsyncpgPlugin proxy
-boto3_mock: Any  # Boto3Plugin proxy
-elasticsearch_mock: Any  # ElasticsearchPlugin proxy
-jwt_mock: Any  # JwtPlugin proxy
-crypto_mock: Any  # CryptoPlugin proxy
-file_io_mock: Any  # FileIoPlugin proxy
-pika_mock: Any  # PikaPlugin proxy
-ssh_mock: Any  # SshPlugin proxy
-grpc_mock: Any  # GrpcPlugin proxy
-mcp_mock: Any  # McpPlugin proxy
-native_mock: Any  # NativePlugin proxy
+subprocess: Any  # SubprocessPlugin proxy
+popen: Any  # PopenPlugin proxy
+smtp: Any  # SmtpPlugin proxy
+socket: Any  # SocketPlugin proxy
+db: Any  # DatabasePlugin proxy
+async_websocket: Any  # AsyncWebSocketPlugin proxy
+sync_websocket: Any  # SyncWebSocketPlugin proxy
+redis: Any  # RedisPlugin proxy
+mongo: Any  # MongoPlugin proxy
+dns: Any  # DnsPlugin proxy
+memcache: Any  # MemcachePlugin proxy
+celery: Any  # CeleryPlugin proxy
+log: Any  # LoggingPlugin proxy
+async_subprocess: Any  # AsyncSubprocessPlugin proxy
+psycopg2: Any  # Psycopg2Plugin proxy
+asyncpg: Any  # AsyncpgPlugin proxy
+boto3: Any  # Boto3Plugin proxy
+elasticsearch: Any  # ElasticsearchPlugin proxy
+jwt: Any  # JwtPlugin proxy
+crypto: Any  # CryptoPlugin proxy
+file_io: Any  # FileIoPlugin proxy
+pika: Any  # PikaPlugin proxy
+ssh: Any  # SshPlugin proxy
+grpc: Any  # GrpcPlugin proxy
+mcp: Any  # McpPlugin proxy
+native: Any  # NativePlugin proxy
+
+# ---------------------------------------------------------------------------
+# Deprecated ``_mock`` aliases (backward compatibility, scheduled for removal)
+# ---------------------------------------------------------------------------
+# Kept for type-checker compatibility so existing user code resolves. At runtime,
+# accessing any of these names triggers a DeprecationWarning pointing at the new
+# un-suffixed name. Use the canonical names above in new code.
+subprocess_mock: Any  # Deprecated: use bigfoot.subprocess
+popen_mock: Any  # Deprecated: use bigfoot.popen
+smtp_mock: Any  # Deprecated: use bigfoot.smtp
+socket_mock: Any  # Deprecated: use bigfoot.socket
+db_mock: Any  # Deprecated: use bigfoot.db
+async_websocket_mock: Any  # Deprecated: use bigfoot.async_websocket
+sync_websocket_mock: Any  # Deprecated: use bigfoot.sync_websocket
+redis_mock: Any  # Deprecated: use bigfoot.redis
+mongo_mock: Any  # Deprecated: use bigfoot.mongo
+dns_mock: Any  # Deprecated: use bigfoot.dns
+memcache_mock: Any  # Deprecated: use bigfoot.memcache
+celery_mock: Any  # Deprecated: use bigfoot.celery
+log_mock: Any  # Deprecated: use bigfoot.log
+async_subprocess_mock: Any  # Deprecated: use bigfoot.async_subprocess
+psycopg2_mock: Any  # Deprecated: use bigfoot.psycopg2
+asyncpg_mock: Any  # Deprecated: use bigfoot.asyncpg
+boto3_mock: Any  # Deprecated: use bigfoot.boto3
+elasticsearch_mock: Any  # Deprecated: use bigfoot.elasticsearch
+jwt_mock: Any  # Deprecated: use bigfoot.jwt
+crypto_mock: Any  # Deprecated: use bigfoot.crypto
+file_io_mock: Any  # Deprecated: use bigfoot.file_io
+pika_mock: Any  # Deprecated: use bigfoot.pika
+ssh_mock: Any  # Deprecated: use bigfoot.ssh
+grpc_mock: Any  # Deprecated: use bigfoot.grpc
+mcp_mock: Any  # Deprecated: use bigfoot.mcp
+native_mock: Any  # Deprecated: use bigfoot.native

@@ -287,15 +287,15 @@ class PopenPlugin(StateMachinePlugin):
 
     def format_mock_hint(self, interaction: Interaction) -> str:
         if interaction.source_id == _SOURCE_SPAWN:
-            return "    bigfoot.popen_mock.new_session().expect('spawn', returns=None)"
+            return "    bigfoot.popen.new_session().expect('spawn', returns=None)"
         if interaction.source_id == _SOURCE_COMMUNICATE:
             return (
-                "    bigfoot.popen_mock.new_session()"
+                "    bigfoot.popen.new_session()"
                 ".expect('communicate', returns=(b'', b'', 0))"
             )
         if interaction.source_id == _SOURCE_WAIT:
-            return "    bigfoot.popen_mock.new_session().expect('wait', returns=0)"
-        return "    bigfoot.popen_mock.new_session().expect('?', returns=...)"
+            return "    bigfoot.popen.new_session().expect('wait', returns=0)"
+        return "    bigfoot.popen.new_session().expect('?', returns=...)"
 
     def format_unmocked_hint(
         self,
@@ -307,11 +307,11 @@ class PopenPlugin(StateMachinePlugin):
         return (
             f"subprocess.Popen.{method}(...) was called but no session was queued.\n"
             f"Register a session with:\n"
-            f"    bigfoot.popen_mock.new_session().expect({method!r}, returns=...)"
+            f"    bigfoot.popen.new_session().expect({method!r}, returns=...)"
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:
-        pm = "bigfoot.popen_mock"
+        pm = "bigfoot.popen"
         sid = interaction.source_id
         if sid == _SOURCE_SPAWN:
             command = interaction.details.get("command", [])

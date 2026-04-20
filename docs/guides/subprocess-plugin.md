@@ -4,18 +4,18 @@
 
 ## Setup
 
-In pytest, access `SubprocessPlugin` through the `bigfoot.subprocess_mock` proxy. It auto-creates the plugin for the current test on first use — no explicit instantiation needed:
+In pytest, access `SubprocessPlugin` through the `bigfoot.subprocess` proxy. It auto-creates the plugin for the current test on first use — no explicit instantiation needed:
 
 ```python
 import bigfoot
 
 def test_build():
-    bigfoot.subprocess_mock.mock_run(["make", "all"], returncode=0)
+    bigfoot.subprocess.mock_run(["make", "all"], returncode=0)
 
     with bigfoot:
         run_build()
 
-    bigfoot.subprocess_mock.assert_run(command=["make", "all"], returncode=0, stdout="", stderr="")
+    bigfoot.subprocess.assert_run(command=["make", "all"], returncode=0, stdout="", stderr="")
 ```
 
 For manual use outside pytest, construct `SubprocessPlugin` explicitly:
@@ -32,10 +32,10 @@ Each verifier may have at most one `SubprocessPlugin`. A second `SubprocessPlugi
 
 ## Registering `subprocess.run` mocks
 
-Use `bigfoot.subprocess_mock.mock_run(command, ...)` to register a mock before entering the sandbox:
+Use `bigfoot.subprocess.mock_run(command, ...)` to register a mock before entering the sandbox:
 
 ```python
-bigfoot.subprocess_mock.mock_run(["git", "status"], returncode=0, stdout="On branch main\n")
+bigfoot.subprocess.mock_run(["git", "status"], returncode=0, stdout="On branch main\n")
 ```
 
 Parameters:
@@ -54,8 +54,8 @@ Parameters:
 `subprocess.run` uses a strict FIFO queue. Each registered mock is consumed in registration order. If code calls `subprocess.run` with a command that does not match the next entry in the queue, `UnmockedInteractionError` is raised immediately at call time.
 
 ```python
-bigfoot.subprocess_mock.mock_run(["git", "fetch"], returncode=0)
-bigfoot.subprocess_mock.mock_run(["git", "merge", "origin/main"], returncode=0)
+bigfoot.subprocess.mock_run(["git", "fetch"], returncode=0)
+bigfoot.subprocess.mock_run(["git", "merge", "origin/main"], returncode=0)
 # The first subprocess.run call must be ["git", "fetch"],
 # the second must be ["git", "merge", "origin/main"].
 ```
@@ -64,31 +64,31 @@ Calling `subprocess.run` with an unregistered command or in the wrong order rais
 
 ## Asserting `subprocess.run` interactions
 
-Use `bigfoot.subprocess_mock.assert_run()` to assert subprocess interactions:
+Use `bigfoot.subprocess.assert_run()` to assert subprocess interactions:
 
 ```python
-bigfoot.subprocess_mock.assert_run(command=["git", "fetch"], returncode=0, stdout="", stderr="")
-bigfoot.subprocess_mock.assert_run(command=["git", "merge", "origin/main"], returncode=0, stdout="", stderr="")
+bigfoot.subprocess.assert_run(command=["git", "fetch"], returncode=0, stdout="", stderr="")
+bigfoot.subprocess.assert_run(command=["git", "merge", "origin/main"], returncode=0, stdout="", stderr="")
 ```
 
 `assert_run()` is a convenience wrapper around the lower-level `assert_interaction()` call:
 
 ```python
 # Convenience (recommended):
-bigfoot.subprocess_mock.assert_run(command=["git", "fetch"], returncode=0, stdout="", stderr="")
+bigfoot.subprocess.assert_run(command=["git", "fetch"], returncode=0, stdout="", stderr="")
 
 # Equivalent low-level call:
-bigfoot.assert_interaction(bigfoot.subprocess_mock.run, command=["git", "fetch"],
+bigfoot.assert_interaction(bigfoot.subprocess.run, command=["git", "fetch"],
                            returncode=0, stdout="", stderr="")
 ```
 
 ## Registering `shutil.which` mocks
 
-Use `bigfoot.subprocess_mock.mock_which(name, returns, ...)` to register a mock before entering the sandbox:
+Use `bigfoot.subprocess.mock_which(name, returns, ...)` to register a mock before entering the sandbox:
 
 ```python
-bigfoot.subprocess_mock.mock_which("git", returns="/usr/bin/git")
-bigfoot.subprocess_mock.mock_which("svn", returns=None)  # simulate not found
+bigfoot.subprocess.mock_which("git", returns="/usr/bin/git")
+bigfoot.subprocess.mock_which("svn", returns=None)  # simulate not found
 ```
 
 Parameters:
@@ -107,31 +107,31 @@ This differs from `subprocess.run`, which enforces a strict queue. The rationale
 
 ## Asserting `shutil.which` interactions
 
-Use `bigfoot.subprocess_mock.assert_which()` to assert `shutil.which` interactions:
+Use `bigfoot.subprocess.assert_which()` to assert `shutil.which` interactions:
 
 ```python
-bigfoot.subprocess_mock.assert_which(name="git", returns="/usr/bin/git")
+bigfoot.subprocess.assert_which(name="git", returns="/usr/bin/git")
 ```
 
 `assert_which()` is a convenience wrapper around the lower-level `assert_interaction()` call:
 
 ```python
 # Convenience (recommended):
-bigfoot.subprocess_mock.assert_which(name="git", returns="/usr/bin/git")
+bigfoot.subprocess.assert_which(name="git", returns="/usr/bin/git")
 
 # Equivalent low-level call:
-bigfoot.assert_interaction(bigfoot.subprocess_mock.which, name="git", returns="/usr/bin/git")
+bigfoot.assert_interaction(bigfoot.subprocess.which, name="git", returns="/usr/bin/git")
 ```
 
 Only registered names record interactions. Calls to unregistered names are not recorded and cannot be asserted.
 
 ## Activating without mocks
 
-`subprocess_mock.install()` activates the bouncer with no mocks registered. Any call to `subprocess.run` during the sandbox will raise `UnmockedInteractionError` immediately. Use this when you want to assert that a code path does not call subprocess at all:
+`bigfoot.subprocess.install()` activates the bouncer with no mocks registered. Any call to `subprocess.run` during the sandbox will raise `UnmockedInteractionError` immediately. Use this when you want to assert that a code path does not call subprocess at all:
 
 ```python
 def test_no_subprocess_calls():
-    bigfoot.subprocess_mock.install()  # any subprocess.run call will raise UnmockedInteractionError
+    bigfoot.subprocess.install()  # any subprocess.run call will raise UnmockedInteractionError
 
     with bigfoot:
         result = function_that_should_not_call_subprocess()

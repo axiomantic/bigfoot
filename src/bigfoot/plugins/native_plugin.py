@@ -376,7 +376,7 @@ class NativePlugin(BasePlugin):
     def format_mock_hint(self, interaction: Interaction) -> str:
         library = interaction.details.get("library", "?")
         function = interaction.details.get("function", "?")
-        return f"    bigfoot.native_mock.mock_call({library!r}, {function!r}, returns=...)"
+        return f"    bigfoot.native.mock_call({library!r}, {function!r}, returns=...)"
 
     def format_unmocked_hint(
         self,
@@ -391,11 +391,11 @@ class NativePlugin(BasePlugin):
         return (
             f"{library}.{function}(...) was called but no mock was registered.\n"
             f"Register a mock with:\n"
-            f"    bigfoot.native_mock.mock_call({library!r}, {function!r}, returns=...)"
+            f"    bigfoot.native.mock_call({library!r}, {function!r}, returns=...)"
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:
-        sm = "bigfoot.native_mock"
+        sm = "bigfoot.native"
         library = interaction.details.get("library", "?")
         function = interaction.details.get("function", "?")
         args = interaction.details.get("args", ())

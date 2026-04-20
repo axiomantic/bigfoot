@@ -12,13 +12,13 @@ This installs `pymongo`.
 
 ## Setup
 
-In pytest, access `MongoPlugin` through the `bigfoot.mongo_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `MongoPlugin` through the `bigfoot.mongo` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
 import bigfoot
 
 def test_find_user():
-    bigfoot.mongo_mock.mock_operation("find_one", returns={"_id": "abc", "name": "Alice"})
+    bigfoot.mongo.mock_operation("find_one", returns={"_id": "abc", "name": "Alice"})
 
     with bigfoot:
         import pymongo
@@ -27,7 +27,7 @@ def test_find_user():
 
     assert user == {"_id": "abc", "name": "Alice"}
 
-    bigfoot.mongo_mock.assert_find_one(
+    bigfoot.mongo.assert_find_one(
         database="mydb",
         collection="users",
         filter={"email": "alice@example.com"},
@@ -42,18 +42,18 @@ from bigfoot import StrictVerifier
 from bigfoot.plugins.mongo_plugin import MongoPlugin
 
 verifier = StrictVerifier()
-mongo_mock = MongoPlugin(verifier)
+mongo = MongoPlugin(verifier)
 ```
 
 Each verifier may have at most one `MongoPlugin`. A second `MongoPlugin(verifier)` raises `ValueError`.
 
 ## Registering mock operations
 
-Use `bigfoot.mongo_mock.mock_operation(operation, *, returns, ...)` to register a mock before entering the sandbox:
+Use `bigfoot.mongo.mock_operation(operation, *, returns, ...)` to register a mock before entering the sandbox:
 
 ```python
-bigfoot.mongo_mock.mock_operation("find_one", returns={"_id": "1", "status": "active"})
-bigfoot.mongo_mock.mock_operation("insert_one", returns=type("Result", (), {"inserted_id": "2"})())
+bigfoot.mongo.mock_operation("find_one", returns={"_id": "1", "status": "active"})
+bigfoot.mongo.mock_operation("insert_one", returns=type("Result", (), {"inserted_id": "2"})())
 ```
 
 ### Parameters
@@ -86,8 +86,8 @@ Each operation name has its own independent FIFO queue. Multiple `mock_operation
 
 ```python
 def test_sequential_queries():
-    bigfoot.mongo_mock.mock_operation("find_one", returns={"_id": "1", "role": "admin"})
-    bigfoot.mongo_mock.mock_operation("find_one", returns=None)
+    bigfoot.mongo.mock_operation("find_one", returns={"_id": "1", "role": "admin"})
+    bigfoot.mongo.mock_operation("find_one", returns=None)
 
     with bigfoot:
         import pymongo
@@ -100,11 +100,11 @@ def test_sequential_queries():
     assert admin == {"_id": "1", "role": "admin"}
     assert ghost is None
 
-    bigfoot.mongo_mock.assert_find_one(
+    bigfoot.mongo.assert_find_one(
         database="mydb", collection="users",
         filter={"role": "admin"}, projection=None,
     )
-    bigfoot.mongo_mock.assert_find_one(
+    bigfoot.mongo.assert_find_one(
         database="mydb", collection="users",
         filter={"role": "ghost"}, projection=None,
     )
@@ -112,12 +112,12 @@ def test_sequential_queries():
 
 ## Asserting interactions
 
-Use the typed assertion helpers on `bigfoot.mongo_mock`. Each helper requires `database` and `collection` plus the operation-specific fields.
+Use the typed assertion helpers on `bigfoot.mongo`. Each helper requires `database` and `collection` plus the operation-specific fields.
 
 ### `assert_find(database, collection, filter, projection=None)`
 
 ```python
-bigfoot.mongo_mock.assert_find(
+bigfoot.mongo.assert_find(
     database="mydb", collection="users",
     filter={"active": True}, projection=None,
 )
@@ -126,7 +126,7 @@ bigfoot.mongo_mock.assert_find(
 ### `assert_find_one(database, collection, filter, projection=None)`
 
 ```python
-bigfoot.mongo_mock.assert_find_one(
+bigfoot.mongo.assert_find_one(
     database="mydb", collection="users",
     filter={"_id": "abc"}, projection=None,
 )
@@ -135,7 +135,7 @@ bigfoot.mongo_mock.assert_find_one(
 ### `assert_insert_one(database, collection, document)`
 
 ```python
-bigfoot.mongo_mock.assert_insert_one(
+bigfoot.mongo.assert_insert_one(
     database="mydb", collection="users",
     document={"name": "Alice", "email": "alice@example.com"},
 )
@@ -144,7 +144,7 @@ bigfoot.mongo_mock.assert_insert_one(
 ### `assert_insert_many(database, collection, documents)`
 
 ```python
-bigfoot.mongo_mock.assert_insert_many(
+bigfoot.mongo.assert_insert_many(
     database="mydb", collection="events",
     documents=[{"type": "click"}, {"type": "view"}],
 )
@@ -153,7 +153,7 @@ bigfoot.mongo_mock.assert_insert_many(
 ### `assert_update_one(database, collection, filter, update)`
 
 ```python
-bigfoot.mongo_mock.assert_update_one(
+bigfoot.mongo.assert_update_one(
     database="mydb", collection="users",
     filter={"_id": "abc"},
     update={"$set": {"last_login": "2025-01-15"}},
@@ -163,7 +163,7 @@ bigfoot.mongo_mock.assert_update_one(
 ### `assert_update_many(database, collection, filter, update)`
 
 ```python
-bigfoot.mongo_mock.assert_update_many(
+bigfoot.mongo.assert_update_many(
     database="mydb", collection="sessions",
     filter={"expired": True},
     update={"$set": {"cleaned": True}},
@@ -173,7 +173,7 @@ bigfoot.mongo_mock.assert_update_many(
 ### `assert_delete_one(database, collection, filter)`
 
 ```python
-bigfoot.mongo_mock.assert_delete_one(
+bigfoot.mongo.assert_delete_one(
     database="mydb", collection="users",
     filter={"_id": "abc"},
 )
@@ -182,7 +182,7 @@ bigfoot.mongo_mock.assert_delete_one(
 ### `assert_delete_many(database, collection, filter)`
 
 ```python
-bigfoot.mongo_mock.assert_delete_many(
+bigfoot.mongo.assert_delete_many(
     database="mydb", collection="sessions",
     filter={"expired": True},
 )
@@ -191,7 +191,7 @@ bigfoot.mongo_mock.assert_delete_many(
 ### `assert_aggregate(database, collection, pipeline)`
 
 ```python
-bigfoot.mongo_mock.assert_aggregate(
+bigfoot.mongo.assert_aggregate(
     database="mydb", collection="orders",
     pipeline=[{"$match": {"status": "complete"}}, {"$group": {"_id": "$customer", "total": {"$sum": "$amount"}}}],
 )
@@ -200,7 +200,7 @@ bigfoot.mongo_mock.assert_aggregate(
 ### `assert_count_documents(database, collection, filter)`
 
 ```python
-bigfoot.mongo_mock.assert_count_documents(
+bigfoot.mongo.assert_count_documents(
     database="mydb", collection="users",
     filter={"active": True},
 )
@@ -215,7 +215,7 @@ import pymongo.errors
 import bigfoot
 
 def test_duplicate_key():
-    bigfoot.mongo_mock.mock_operation(
+    bigfoot.mongo.mock_operation(
         "insert_one",
         returns=None,
         raises=pymongo.errors.DuplicateKeyError("E11000 duplicate key error"),
@@ -227,7 +227,7 @@ def test_duplicate_key():
         with pytest.raises(pymongo.errors.DuplicateKeyError):
             client.mydb.users.insert_one({"_id": "abc", "name": "Alice"})
 
-    bigfoot.mongo_mock.assert_insert_one(
+    bigfoot.mongo.assert_insert_one(
         database="mydb", collection="users",
         document={"_id": "abc", "name": "Alice"},
     )
@@ -252,7 +252,7 @@ def test_duplicate_key():
 Mark a mock as optional with `required=False`:
 
 ```python
-bigfoot.mongo_mock.mock_operation("count_documents", returns=0, required=False)
+bigfoot.mongo.mock_operation("count_documents", returns=0, required=False)
 ```
 
 An optional mock that is never triggered does not cause `UnusedMocksError` at teardown.
@@ -264,5 +264,5 @@ When code calls a MongoDB collection method that has no remaining mocks in its q
 ```
 mongo.find_one(...) was called but no mock was registered.
 Register a mock with:
-    bigfoot.mongo_mock.mock_operation('find_one', returns=...)
+    bigfoot.mongo.mock_operation('find_one', returns=...)
 ```

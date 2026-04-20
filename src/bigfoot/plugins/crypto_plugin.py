@@ -338,7 +338,7 @@ class CryptoPlugin(BasePlugin):
         source_id = interaction.source_id
         operation = source_id.split(":", 1)[-1] if ":" in source_id else "?"
         mock_name = _OPERATION_MOCK_NAMES.get(operation, f"mock_{operation}")
-        return f"    bigfoot.crypto_mock.{mock_name}(returns=...)"
+        return f"    bigfoot.crypto.{mock_name}(returns=...)"
 
     def format_unmocked_hint(
         self,
@@ -351,7 +351,7 @@ class CryptoPlugin(BasePlugin):
         return (
             f"crypto.{operation}(...) was called but no mock was registered.\n"
             f"Register a mock with:\n"
-            f"    bigfoot.crypto_mock.{mock_name}(returns=...)"
+            f"    bigfoot.crypto.{mock_name}(returns=...)"
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:
@@ -366,7 +366,7 @@ class CryptoPlugin(BasePlugin):
             "generate_key": "assert_generate_key",
         }.get(operation, f"assert_{operation}")
         return (
-            f"    bigfoot.crypto_mock.{helper_name}(\n"
+            f"    bigfoot.crypto.{helper_name}(\n"
             f"{lines}\n"
             f"    )"
         )

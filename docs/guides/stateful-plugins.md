@@ -32,7 +32,7 @@ Every stateful plugin (except `RedisPlugin`, which is stateless) extends `StateM
 disconnected --connect--> connected --send/sendall/recv--> connected --close--> closed
 ```
 
-**Proxy:** `bigfoot.socket_mock`
+**Proxy:** `bigfoot.socket`
 
 ### Quickstart
 
@@ -41,7 +41,7 @@ import socket
 import bigfoot
 
 def test_echo_client():
-    (bigfoot.socket_mock
+    (bigfoot.socket
         .new_session()
         .expect("connect",  returns=None)
         .expect("sendall",  returns=None)
@@ -59,7 +59,7 @@ def test_echo_client():
     # verify_all() called automatically at teardown
 ```
 
-No imports other than `bigfoot` and `socket`. The proxy `bigfoot.socket_mock` auto-creates the plugin on the current test verifier the first time it is accessed.
+No imports other than `bigfoot` and `socket`. The proxy `bigfoot.socket` auto-creates the plugin on the current test verifier the first time it is accessed.
 
 ### Scripting multiple connections
 
@@ -67,13 +67,13 @@ Sessions are consumed in registration order:
 
 ```python
 def test_two_connections():
-    (bigfoot.socket_mock
+    (bigfoot.socket
         .new_session()
         .expect("connect", returns=None)
         .expect("recv",    returns=b"first")
         .expect("close",   returns=None))
 
-    (bigfoot.socket_mock
+    (bigfoot.socket
         .new_session()
         .expect("connect", returns=None)
         .expect("recv",    returns=b"second")
@@ -96,7 +96,7 @@ Calling a method from the wrong state raises `InvalidStateError` immediately:
 
 ```python
 def test_recv_before_connect():
-    bigfoot.socket_mock.new_session()  # empty session
+    bigfoot.socket.new_session()  # empty session
 
     with bigfoot:
         sock = socket.socket()
@@ -131,7 +131,7 @@ in_transaction --commit/rollback--> connected
 connected/in_transaction --close--> closed
 ```
 
-**Proxy:** `bigfoot.db_mock`
+**Proxy:** `bigfoot.db`
 
 ### Quickstart
 
@@ -140,7 +140,7 @@ import sqlite3
 import bigfoot
 
 def test_select_users():
-    (bigfoot.db_mock
+    (bigfoot.db
         .new_session()
         .expect("execute", returns=[[1, "Alice"], [2, "Bob"]])
         .expect("close",   returns=None))
@@ -158,7 +158,7 @@ def test_select_users():
 
 ```python
 def test_cursor_style():
-    (bigfoot.db_mock
+    (bigfoot.db
         .new_session()
         .expect("execute", returns=[["x"], ["y"]])
         .expect("close",   returns=None))
@@ -181,7 +181,7 @@ Each `execute()` moves the connection into `in_transaction`. `commit()` and `rol
 
 ```python
 def test_commit_then_execute():
-    (bigfoot.db_mock
+    (bigfoot.db
         .new_session()
         .expect("execute",  returns=[])
         .expect("commit",   returns=None)
@@ -223,7 +223,7 @@ assert exc_info.value.valid_states == frozenset({"in_transaction"})
 connecting --connect (on __aenter__)--> open --send/recv--> open --close--> closed
 ```
 
-**Proxy:** `bigfoot.async_websocket_mock`
+**Proxy:** `bigfoot.async_websocket`
 
 ### Quickstart
 
@@ -233,7 +233,7 @@ import bigfoot
 import pytest
 
 async def test_ws_echo():
-    (bigfoot.async_websocket_mock
+    (bigfoot.async_websocket
         .new_session()
         .expect("connect", returns=None)
         .expect("send",    returns=None)
@@ -257,13 +257,13 @@ Sessions are popped at `websockets.connect()` call time, not at `__aenter__` tim
 
 ```python
 async def test_two_ws_connections():
-    (bigfoot.async_websocket_mock
+    (bigfoot.async_websocket
         .new_session()
         .expect("connect", returns=None)
         .expect("recv",    returns="first")
         .expect("close",   returns=None))
 
-    (bigfoot.async_websocket_mock
+    (bigfoot.async_websocket
         .new_session()
         .expect("connect", returns=None)
         .expect("recv",    returns="second")
@@ -292,7 +292,7 @@ async def test_two_ws_connections():
 connecting --connect--> open --send/recv--> open --close--> closed
 ```
 
-**Proxy:** `bigfoot.sync_websocket_mock`
+**Proxy:** `bigfoot.sync_websocket`
 
 ### Quickstart
 
@@ -301,7 +301,7 @@ import websocket
 import bigfoot
 
 def test_sync_ws():
-    (bigfoot.sync_websocket_mock
+    (bigfoot.sync_websocket
         .new_session()
         .expect("connect", returns=None)
         .expect("send",    returns=None)
@@ -333,7 +333,7 @@ running --communicate--> terminated
 running --wait--> terminated (also releases the session)
 ```
 
-**Proxy:** `bigfoot.popen_mock`
+**Proxy:** `bigfoot.popen`
 
 **Coexistence with SubprocessPlugin:** `SubprocessPlugin` patches `subprocess.run` and `shutil.which`. `PopenPlugin` patches `subprocess.Popen`. Both can be active in the same sandbox without interference.
 
@@ -346,7 +346,7 @@ import subprocess
 import bigfoot
 
 def test_run_command():
-    (bigfoot.popen_mock
+    (bigfoot.popen
         .new_session()
         .expect("init",        returns=None)
         .expect("communicate", returns=(b"hello\n", b"", 0)))
@@ -364,7 +364,7 @@ def test_run_command():
 
 ```python
 def test_failing_command():
-    (bigfoot.popen_mock
+    (bigfoot.popen
         .new_session()
         .expect("init",        returns=None)
         .expect("communicate", returns=(b"", b"command not found", 127)))
@@ -383,7 +383,7 @@ def test_failing_command():
 
 ```python
 def test_wait():
-    (bigfoot.popen_mock
+    (bigfoot.popen
         .new_session()
         .expect("init", returns=None)
         .expect("wait", returns=0))
@@ -402,7 +402,7 @@ For code that reads `proc.stdout` and `proc.stderr` directly rather than using `
 
 ```python
 def test_stream_read():
-    (bigfoot.popen_mock
+    (bigfoot.popen
         .new_session()
         .expect("init",        returns=None)
         .expect("stdout.read", returns=b"output data"))
@@ -432,7 +432,7 @@ sending/greeted/authenticated --quit--> closed
 
 `starttls` and `login` are optional steps. Skip them in your session script for an unauthenticated flow.
 
-**Proxy:** `bigfoot.smtp_mock`
+**Proxy:** `bigfoot.smtp`
 
 ### Full authenticated flow (ehlo + starttls + login + sendmail + quit)
 
@@ -441,7 +441,7 @@ import smtplib
 import bigfoot
 
 def test_send_authenticated_email():
-    (bigfoot.smtp_mock
+    (bigfoot.smtp
         .new_session()
         .expect("connect",  returns=None)
         .expect("ehlo",     returns=(250, b"OK"))
@@ -467,7 +467,7 @@ def test_send_authenticated_email():
 
 ```python
 def test_send_unauthenticated_email():
-    (bigfoot.smtp_mock
+    (bigfoot.smtp
         .new_session()
         .expect("connect",  returns=None)
         .expect("ehlo",     returns=(250, b"OK"))
@@ -495,7 +495,7 @@ The state machine validates that `sendmail` is called from `greeted` (after `ehl
 
 **Requires:** `pip install bigfoot[redis]`
 
-**Proxy:** `bigfoot.redis_mock`
+**Proxy:** `bigfoot.redis`
 
 ### Quickstart
 
@@ -504,7 +504,7 @@ import redis
 import bigfoot
 
 def test_cache_lookup():
-    bigfoot.redis_mock.mock_command("GET", returns="cached_value")
+    bigfoot.redis.mock_command("GET", returns="cached_value")
 
     with bigfoot:
         r = redis.Redis()
@@ -519,9 +519,9 @@ Each command name has its own independent FIFO queue. Multiple `mock_command("GE
 
 ```python
 def test_get_set():
-    bigfoot.redis_mock.mock_command("SET", returns=True)
-    bigfoot.redis_mock.mock_command("GET", returns="first")
-    bigfoot.redis_mock.mock_command("GET", returns="second")
+    bigfoot.redis.mock_command("SET", returns=True)
+    bigfoot.redis.mock_command("GET", returns="first")
+    bigfoot.redis.mock_command("GET", returns="second")
 
     with bigfoot:
         r = redis.Redis()
@@ -540,7 +540,7 @@ Command names are case-insensitive: `mock_command("get", ...)` matches `execute_
 ```python
 def test_redis_error():
     import redis as redis_lib
-    bigfoot.redis_mock.mock_command(
+    bigfoot.redis.mock_command(
         "GET",
         returns=None,
         raises=redis_lib.exceptions.ResponseError("WRONGTYPE"),
@@ -574,10 +574,10 @@ Raised when a connection entry point fires (e.g., `socket.connect()`, `sqlite3.c
 UnmockedInteractionError: source_id='socket:connect'
 hint='socket.socket.connect(...) was called but no session was queued.
 Register a session with:
-    bigfoot.socket_mock.new_session().expect("connect", returns=...)'
+    bigfoot.socket.new_session().expect("connect", returns=...)'
 ```
 
-**Fix:** Call `bigfoot.socket_mock.new_session()` (or the appropriate proxy) before entering the sandbox.
+**Fix:** Call `bigfoot.socket.new_session()` (or the appropriate proxy) before entering the sandbox.
 
 Also raised when the session script is exhausted but the code under test makes another call. In this case the hint shows the method that ran out of steps.
 

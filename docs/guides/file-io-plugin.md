@@ -2,17 +2,17 @@
 
 `FileIoPlugin` intercepts file system operations across `builtins.open`, `pathlib.Path` read/write methods, `os` file operations, and `shutil` copy/remove operations. Each operation+path combination has its own independent FIFO queue. The plugin uses a `ContextVar`-based reentrancy guard to prevent self-interference with bigfoot's own file I/O.
 
-**Important:** `FileIoPlugin` is always available (no extra install required) but is NOT default enabled. You must explicitly enable it via `enabled_plugins = ["file_io"]` in your bigfoot config, or access it through the `bigfoot.file_io_mock` proxy.
+**Important:** `FileIoPlugin` is always available (no extra install required) but is NOT default enabled. You must explicitly enable it via `enabled_plugins = ["file_io"]` in your bigfoot config, or access it through the `bigfoot.file_io` proxy.
 
 ## Setup
 
-In pytest, access `FileIoPlugin` through the `bigfoot.file_io_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `FileIoPlugin` through the `bigfoot.file_io` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
 import bigfoot
 
 def test_read_config():
-    bigfoot.file_io_mock.mock_operation(
+    bigfoot.file_io.mock_operation(
         "read_text", "/etc/myapp/config.yaml",
         returns="database:\n  host: localhost\n  port: 5432",
     )
@@ -23,7 +23,7 @@ def test_read_config():
 
     assert "localhost" in config
 
-    bigfoot.file_io_mock.assert_read_text(path="/etc/myapp/config.yaml")
+    bigfoot.file_io.assert_read_text(path="/etc/myapp/config.yaml")
 ```
 
 For manual use outside pytest, construct `FileIoPlugin` explicitly:
@@ -33,18 +33,18 @@ from bigfoot import StrictVerifier
 from bigfoot.plugins.file_io_plugin import FileIoPlugin
 
 verifier = StrictVerifier()
-file_io_mock = FileIoPlugin(verifier)
+file_io = FileIoPlugin(verifier)
 ```
 
 Each verifier may have at most one `FileIoPlugin`. A second `FileIoPlugin(verifier)` raises `ValueError`.
 
 ## Registering mocks
 
-Use `bigfoot.file_io_mock.mock_operation(operation, path_pattern, *, returns, ...)` to register a mock before entering the sandbox:
+Use `bigfoot.file_io.mock_operation(operation, path_pattern, *, returns, ...)` to register a mock before entering the sandbox:
 
 ```python
-bigfoot.file_io_mock.mock_operation("open", "/tmp/data.csv", returns="id,name\n1,Alice")
-bigfoot.file_io_mock.mock_operation("remove", "/tmp/data.csv", returns=None)
+bigfoot.file_io.mock_operation("open", "/tmp/data.csv", returns="id,name\n1,Alice")
+bigfoot.file_io.mock_operation("remove", "/tmp/data.csv", returns=None)
 ```
 
 ### Parameters
@@ -83,8 +83,8 @@ Each operation+path combination has its own independent FIFO queue. Multiple moc
 
 ```python
 def test_multiple_reads():
-    bigfoot.file_io_mock.mock_operation("read_text", "/etc/myapp/config.yaml", returns="v1")
-    bigfoot.file_io_mock.mock_operation("read_text", "/etc/myapp/config.yaml", returns="v2")
+    bigfoot.file_io.mock_operation("read_text", "/etc/myapp/config.yaml", returns="v1")
+    bigfoot.file_io.mock_operation("read_text", "/etc/myapp/config.yaml", returns="v2")
 
     with bigfoot:
         from pathlib import Path
@@ -94,44 +94,44 @@ def test_multiple_reads():
     assert first == "v1"
     assert second == "v2"
 
-    bigfoot.file_io_mock.assert_read_text(path="/etc/myapp/config.yaml")
-    bigfoot.file_io_mock.assert_read_text(path="/etc/myapp/config.yaml")
+    bigfoot.file_io.assert_read_text(path="/etc/myapp/config.yaml")
+    bigfoot.file_io.assert_read_text(path="/etc/myapp/config.yaml")
 ```
 
 ## Asserting interactions
 
-Use the typed assertion helpers on `bigfoot.file_io_mock`:
+Use the typed assertion helpers on `bigfoot.file_io`:
 
 ### `assert_open(**expected)`
 
 All three fields (`path`, `mode`, `encoding`) are required:
 
 ```python
-bigfoot.file_io_mock.assert_open(path="/tmp/data.csv", mode="r", encoding="utf-8")
+bigfoot.file_io.assert_open(path="/tmp/data.csv", mode="r", encoding="utf-8")
 ```
 
 ### `assert_read_text(path)`
 
 ```python
-bigfoot.file_io_mock.assert_read_text(path="/etc/myapp/config.yaml")
+bigfoot.file_io.assert_read_text(path="/etc/myapp/config.yaml")
 ```
 
 ### `assert_read_bytes(path)`
 
 ```python
-bigfoot.file_io_mock.assert_read_bytes(path="/var/data/image.png")
+bigfoot.file_io.assert_read_bytes(path="/var/data/image.png")
 ```
 
 ### `assert_write_text(path, data)`
 
 ```python
-bigfoot.file_io_mock.assert_write_text(path="/tmp/output.txt", data="result: success")
+bigfoot.file_io.assert_write_text(path="/tmp/output.txt", data="result: success")
 ```
 
 ### `assert_write_bytes(path, data)`
 
 ```python
-bigfoot.file_io_mock.assert_write_bytes(path="/tmp/output.bin", data=b"\x00\x01\x02")
+bigfoot.file_io.assert_write_bytes(path="/tmp/output.bin", data=b"\x00\x01\x02")
 ```
 
 ### `assert_remove(path)`
@@ -139,7 +139,7 @@ bigfoot.file_io_mock.assert_write_bytes(path="/tmp/output.bin", data=b"\x00\x01\
 Matches both `os.remove` and `os.unlink` interactions:
 
 ```python
-bigfoot.file_io_mock.assert_remove(path="/tmp/old-file.txt")
+bigfoot.file_io.assert_remove(path="/tmp/old-file.txt")
 ```
 
 ### `assert_rename(src, dst)`
@@ -147,19 +147,19 @@ bigfoot.file_io_mock.assert_remove(path="/tmp/old-file.txt")
 Matches both `os.rename` and `os.replace` interactions:
 
 ```python
-bigfoot.file_io_mock.assert_rename(src="/tmp/draft.txt", dst="/tmp/final.txt")
+bigfoot.file_io.assert_rename(src="/tmp/draft.txt", dst="/tmp/final.txt")
 ```
 
 ### `assert_makedirs(path, exist_ok)`
 
 ```python
-bigfoot.file_io_mock.assert_makedirs(path="/var/data/exports", exist_ok=True)
+bigfoot.file_io.assert_makedirs(path="/var/data/exports", exist_ok=True)
 ```
 
 ### `assert_mkdir(path)`
 
 ```python
-bigfoot.file_io_mock.assert_mkdir(path="/tmp/workdir")
+bigfoot.file_io.assert_mkdir(path="/tmp/workdir")
 ```
 
 ### `assert_copy(src, dst)`
@@ -167,19 +167,19 @@ bigfoot.file_io_mock.assert_mkdir(path="/tmp/workdir")
 Matches both `shutil.copy` and `shutil.copy2` interactions:
 
 ```python
-bigfoot.file_io_mock.assert_copy(src="/etc/myapp/config.yaml", dst="/tmp/config-backup.yaml")
+bigfoot.file_io.assert_copy(src="/etc/myapp/config.yaml", dst="/tmp/config-backup.yaml")
 ```
 
 ### `assert_copytree(src, dst)`
 
 ```python
-bigfoot.file_io_mock.assert_copytree(src="/var/data/source", dst="/var/data/archive")
+bigfoot.file_io.assert_copytree(src="/var/data/source", dst="/var/data/archive")
 ```
 
 ### `assert_rmtree(path)`
 
 ```python
-bigfoot.file_io_mock.assert_rmtree(path="/tmp/build-artifacts")
+bigfoot.file_io.assert_rmtree(path="/tmp/build-artifacts")
 ```
 
 ## Simulating errors
@@ -190,7 +190,7 @@ Use the `raises` parameter to simulate file system errors:
 import bigfoot
 
 def test_file_not_found():
-    bigfoot.file_io_mock.mock_operation(
+    bigfoot.file_io.mock_operation(
         "read_text", "/etc/myapp/config.yaml",
         raises=FileNotFoundError("[Errno 2] No such file or directory: '/etc/myapp/config.yaml'"),
     )
@@ -200,7 +200,7 @@ def test_file_not_found():
         with pytest.raises(FileNotFoundError):
             Path("/etc/myapp/config.yaml").read_text()
 
-    bigfoot.file_io_mock.assert_read_text(path="/etc/myapp/config.yaml")
+    bigfoot.file_io.assert_read_text(path="/etc/myapp/config.yaml")
 ```
 
 ## Full example
@@ -227,7 +227,7 @@ When mocking `open()`, the return value is automatically wrapped in the appropri
 
 ```python
 def test_open_read():
-    bigfoot.file_io_mock.mock_operation(
+    bigfoot.file_io.mock_operation(
         "open", "/tmp/data.csv",
         returns="id,name\n1,Alice\n2,Bob",
     )
@@ -238,7 +238,7 @@ def test_open_read():
 
     assert len(lines) == 3
 
-    bigfoot.file_io_mock.assert_open(path="/tmp/data.csv", mode="r", encoding="utf-8")
+    bigfoot.file_io.assert_open(path="/tmp/data.csv", mode="r", encoding="utf-8")
 ```
 
 ## Optional mocks
@@ -246,7 +246,7 @@ def test_open_read():
 Mark a mock as optional with `required=False`:
 
 ```python
-bigfoot.file_io_mock.mock_operation("read_text", "/tmp/cache.json", returns="{}", required=False)
+bigfoot.file_io.mock_operation("read_text", "/tmp/cache.json", returns="{}", required=False)
 ```
 
 An optional mock that is never triggered does not cause `UnusedMocksError` at teardown.
@@ -258,5 +258,5 @@ When code performs a file operation that has no remaining mocks in its queue, bi
 ```
 Path.read_text('/etc/myapp/config.yaml', ...) was called but no mock was registered.
 Register a mock with:
-    bigfoot.file_io_mock.mock_operation('read_text', '/etc/myapp/config.yaml', returns=...)
+    bigfoot.file_io.mock_operation('read_text', '/etc/myapp/config.yaml', returns=...)
 ```

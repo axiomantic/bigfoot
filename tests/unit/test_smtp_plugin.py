@@ -484,12 +484,12 @@ def test_smtp_with_empty_queue_raises_unmocked() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.smtp_mock
+# Module-level proxy: bigfoot.smtp
 # ---------------------------------------------------------------------------
 
 
 # ESCAPE: test_smtp_mock_proxy_new_session
-#   CLAIM: bigfoot.smtp_mock.new_session() returns a SessionHandle that can
+#   CLAIM: bigfoot.smtp.new_session() returns a SessionHandle that can
 #          be used to configure a session without importing SmtpPlugin directly.
 #   PATH:  _SmtpProxy.__getattr__("new_session") -> get verifier -> find/create SmtpPlugin ->
 #          return plugin.new_session.
@@ -499,14 +499,14 @@ def test_smtp_with_empty_queue_raises_unmocked() -> None:
 def test_smtp_mock_proxy_new_session(bigfoot_verifier: StrictVerifier) -> None:
     from bigfoot._state_machine_plugin import SessionHandle
 
-    session = bigfoot.smtp_mock.new_session()
+    session = bigfoot.smtp.new_session()
     assert isinstance(session, SessionHandle)
     result = session.expect("connect", returns=None, required=False)
     assert result is session  # expect() returns self for chaining
 
 
 # ESCAPE: test_smtp_mock_proxy_raises_outside_context
-#   CLAIM: Accessing bigfoot.smtp_mock outside a test context raises NoActiveVerifierError.
+#   CLAIM: Accessing bigfoot.smtp outside a test context raises NoActiveVerifierError.
 #   PATH:  _SmtpProxy.__getattr__ -> _get_test_verifier_or_raise -> NoActiveVerifierError.
 #   CHECK: NoActiveVerifierError raised.
 #   MUTATION: Silently returning None would not raise and hide context failures.
@@ -517,7 +517,7 @@ def test_smtp_mock_proxy_raises_outside_context() -> None:
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.smtp_mock.new_session
+            _ = bigfoot.smtp.new_session
     finally:
         _current_test_verifier.reset(token)
 
@@ -530,13 +530,13 @@ def test_smtp_mock_proxy_raises_outside_context() -> None:
 # ESCAPE: test_full_session_via_sandbox
 #   CLAIM: A complete SMTP session (connect -> ehlo -> sendmail -> quit) runs end-to-end
 #          through the module-level bigfoot.sandbox() API, returning the scripted values.
-#   PATH:  bigfoot.smtp_mock.new_session() -> sandbox -> _FakeSMTP.__init__ ->
+#   PATH:  bigfoot.smtp.new_session() -> sandbox -> _FakeSMTP.__init__ ->
 #          ehlo -> sendmail -> quit.
 #   CHECK: sendmail_result == {}; quit_result == (221, b"Bye").
 #   MUTATION: Returning wrong sendmail result would fail the equality check.
 #   ESCAPE: Nothing reasonable -- exact equality on both returns.
 def test_full_session_via_sandbox(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.smtp_mock.new_session()
+    session = bigfoot.smtp.new_session()
     session.expect("connect", returns=None)
     session.expect("ehlo", returns=(250, b"OK"))
     session.expect("sendmail", returns={})
@@ -553,11 +553,11 @@ def test_full_session_via_sandbox(bigfoot_verifier: StrictVerifier) -> None:
     assert sendmail_result == {}
     assert quit_result == (221, b"Bye")
 
-    bigfoot.smtp_mock.assert_connect(host="mail.example.com", port=25)
-    bigfoot.smtp_mock.assert_ehlo(name="")
-    bigfoot.smtp_mock.assert_sendmail(
+    bigfoot.smtp.assert_connect(host="mail.example.com", port=25)
+    bigfoot.smtp.assert_ehlo(name="")
+    bigfoot.smtp.assert_sendmail(
         from_addr="from@example.com",
         to_addrs=["to@example.com"],
         msg="Subject: test\r\n\r\ntest",
     )
-    bigfoot.smtp_mock.assert_quit()
+    bigfoot.smtp.assert_quit()

@@ -4,13 +4,13 @@
 
 ## Setup
 
-In pytest, access `SocketPlugin` through the `bigfoot.socket_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `SocketPlugin` through the `bigfoot.socket` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
 import bigfoot
 
 def test_echo_client():
-    (bigfoot.socket_mock
+    (bigfoot.socket
         .new_session()
         .expect("connect",  returns=None)
         .expect("sendall",  returns=None)
@@ -27,10 +27,10 @@ def test_echo_client():
 
     assert data == b"pong"
 
-    bigfoot.socket_mock.assert_connect(host="127.0.0.1", port=9999)
-    bigfoot.socket_mock.assert_sendall(data=b"ping")
-    bigfoot.socket_mock.assert_recv(size=1024, data=b"pong")
-    bigfoot.socket_mock.assert_close()
+    bigfoot.socket.assert_connect(host="127.0.0.1", port=9999)
+    bigfoot.socket.assert_sendall(data=b"ping")
+    bigfoot.socket.assert_recv(size=1024, data=b"pong")
+    bigfoot.socket.assert_close()
 ```
 
 For manual use outside pytest, construct `SocketPlugin` explicitly:
@@ -58,7 +58,7 @@ disconnected --connect--> connected --send/sendall/recv--> connected --close--> 
 Use `new_session()` to create a `SessionHandle` and chain `.expect()` calls:
 
 ```python
-(bigfoot.socket_mock
+(bigfoot.socket
     .new_session()
     .expect("connect",  returns=None)
     .expect("send",     returns=5)
@@ -87,24 +87,24 @@ Use `new_session()` to create a `SessionHandle` and chain `.expect()` calls:
 
 ## Asserting interactions
 
-Each step records an interaction on the timeline. Use the typed assertion helpers on `bigfoot.socket_mock`:
+Each step records an interaction on the timeline. Use the typed assertion helpers on `bigfoot.socket`:
 
 ### `assert_connect(*, host, port)`
 
 ```python
-bigfoot.socket_mock.assert_connect(host="127.0.0.1", port=8080)
+bigfoot.socket.assert_connect(host="127.0.0.1", port=8080)
 ```
 
 ### `assert_send(*, data)`
 
 ```python
-bigfoot.socket_mock.assert_send(data=b"hello")
+bigfoot.socket.assert_send(data=b"hello")
 ```
 
 ### `assert_sendall(*, data)`
 
 ```python
-bigfoot.socket_mock.assert_sendall(data=b"hello")
+bigfoot.socket.assert_sendall(data=b"hello")
 ```
 
 ### `assert_recv(*, size, data)`
@@ -112,7 +112,7 @@ bigfoot.socket_mock.assert_sendall(data=b"hello")
 Both `size` and `data` are required. `size` is the buffer size passed to `recv()`, and `data` is the bytes actually returned.
 
 ```python
-bigfoot.socket_mock.assert_recv(size=1024, data=b"response")
+bigfoot.socket.assert_recv(size=1024, data=b"response")
 ```
 
 ### `assert_close()`
@@ -120,7 +120,7 @@ bigfoot.socket_mock.assert_recv(size=1024, data=b"response")
 No fields are required.
 
 ```python
-bigfoot.socket_mock.assert_close()
+bigfoot.socket.assert_close()
 ```
 
 ## Multiple connections
@@ -129,13 +129,13 @@ Sessions are consumed in registration order. The first `socket.connect()` pops t
 
 ```python
 def test_two_connections():
-    (bigfoot.socket_mock
+    (bigfoot.socket
         .new_session()
         .expect("connect", returns=None)
         .expect("recv",    returns=b"first")
         .expect("close",   returns=None))
 
-    (bigfoot.socket_mock
+    (bigfoot.socket
         .new_session()
         .expect("connect", returns=None)
         .expect("recv",    returns=b"second")
@@ -151,12 +151,12 @@ def test_two_connections():
         s1.close()
         s2.close()
 
-    bigfoot.socket_mock.assert_connect(host="127.0.0.1", port=9001)
-    bigfoot.socket_mock.assert_connect(host="127.0.0.1", port=9002)
-    bigfoot.socket_mock.assert_recv(size=1024, data=b"first")
-    bigfoot.socket_mock.assert_recv(size=1024, data=b"second")
-    bigfoot.socket_mock.assert_close()
-    bigfoot.socket_mock.assert_close()
+    bigfoot.socket.assert_connect(host="127.0.0.1", port=9001)
+    bigfoot.socket.assert_connect(host="127.0.0.1", port=9002)
+    bigfoot.socket.assert_recv(size=1024, data=b"first")
+    bigfoot.socket.assert_recv(size=1024, data=b"second")
+    bigfoot.socket.assert_close()
+    bigfoot.socket.assert_close()
 ```
 
 ## Full example

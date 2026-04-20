@@ -478,7 +478,7 @@ async def test_format_assert_hint() -> None:
 
     interactions = v._timeline._interactions
     hint = p.format_assert_hint(interactions[0])
-    assert "async_subprocess_mock" in hint
+    assert "bigfoot.async_subprocess" in hint
     assert "assert_spawn" in hint
 
     v.assert_interaction(p.spawn, command=["cmd"], stdin=None)
@@ -494,7 +494,7 @@ async def test_format_mock_hint() -> None:
 
     interactions = v._timeline._interactions
     hint = p.format_mock_hint(interactions[0])
-    assert "async_subprocess_mock" in hint
+    assert "bigfoot.async_subprocess" in hint
     assert "spawn" in hint
 
     v.assert_interaction(p.spawn, command=["cmd"], stdin=None)
@@ -509,7 +509,7 @@ def test_format_unmocked_hint() -> None:
     v, p = _make_verifier_with_plugin()
     hint = p.format_unmocked_hint("asyncio:subprocess:spawn", (), {})
     assert "asyncio.create_subprocess" in hint
-    assert "async_subprocess_mock" in hint
+    assert "bigfoot.async_subprocess" in hint
 
 
 # ---------------------------------------------------------------------------
@@ -529,14 +529,14 @@ def test_format_unused_mock_hint() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.async_subprocess_mock
+# Module-level proxy: bigfoot.async_subprocess
 # ---------------------------------------------------------------------------
 
 
 def test_async_subprocess_mock_proxy_new_session(bigfoot_verifier: StrictVerifier) -> None:
     from bigfoot._state_machine_plugin import SessionHandle
 
-    session = bigfoot.async_subprocess_mock.new_session()
+    session = bigfoot.async_subprocess.new_session()
     assert isinstance(session, SessionHandle)
     result = session.expect("spawn", returns=None, required=False)
     assert result is session
@@ -548,7 +548,7 @@ def test_async_subprocess_mock_proxy_raises_outside_context() -> None:
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.async_subprocess_mock.new_session
+            _ = bigfoot.async_subprocess.new_session
     finally:
         _current_test_verifier.reset(token)
 
@@ -598,7 +598,7 @@ def test_conflict_error_shell_already_patched() -> None:
 
 
 async def test_assertion_helpers_via_proxy(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.async_subprocess_mock.new_session()
+    session = bigfoot.async_subprocess.new_session()
     session.expect("spawn", returns=None)
     session.expect("communicate", returns=(b"output", b"", 0))
 
@@ -606,8 +606,8 @@ async def test_assertion_helpers_via_proxy(bigfoot_verifier: StrictVerifier) -> 
         proc = await asyncio.create_subprocess_exec("make", "all")
         stdout, stderr = await proc.communicate()
 
-    bigfoot.async_subprocess_mock.assert_spawn(command=["make", "all"], stdin=None)
-    bigfoot.async_subprocess_mock.assert_communicate(input=None)
+    bigfoot.async_subprocess.assert_spawn(command=["make", "all"], stdin=None)
+    bigfoot.async_subprocess.assert_communicate(input=None)
 
     assert stdout == b"output"
     assert stderr == b""
@@ -615,7 +615,7 @@ async def test_assertion_helpers_via_proxy(bigfoot_verifier: StrictVerifier) -> 
 
 
 async def test_assertion_helpers_wait_via_proxy(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.async_subprocess_mock.new_session()
+    session = bigfoot.async_subprocess.new_session()
     session.expect("spawn", returns=None)
     session.expect("wait", returns=0)
 
@@ -623,8 +623,8 @@ async def test_assertion_helpers_wait_via_proxy(bigfoot_verifier: StrictVerifier
         proc = await asyncio.create_subprocess_exec("cmd")
         await proc.wait()
 
-    bigfoot.async_subprocess_mock.assert_spawn(command=["cmd"], stdin=None)
-    bigfoot.async_subprocess_mock.assert_wait()
+    bigfoot.async_subprocess.assert_spawn(command=["cmd"], stdin=None)
+    bigfoot.async_subprocess.assert_wait()
 
 
 # ---------------------------------------------------------------------------
@@ -633,7 +633,7 @@ async def test_assertion_helpers_wait_via_proxy(bigfoot_verifier: StrictVerifier
 
 
 async def test_full_session_via_sandbox(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.async_subprocess_mock.new_session()
+    session = bigfoot.async_subprocess.new_session()
     session.expect("spawn", returns=None)
     session.expect("communicate", returns=(b"build output", b"", 0))
 
@@ -641,8 +641,8 @@ async def test_full_session_via_sandbox(bigfoot_verifier: StrictVerifier) -> Non
         proc = await asyncio.create_subprocess_exec("make", "all")
         stdout, stderr = await proc.communicate()
 
-    bigfoot.async_subprocess_mock.assert_spawn(command=["make", "all"], stdin=None)
-    bigfoot.async_subprocess_mock.assert_communicate(input=None)
+    bigfoot.async_subprocess.assert_spawn(command=["make", "all"], stdin=None)
+    bigfoot.async_subprocess.assert_communicate(input=None)
 
     assert stdout == b"build output"
     assert stderr == b""
@@ -650,7 +650,7 @@ async def test_full_session_via_sandbox(bigfoot_verifier: StrictVerifier) -> Non
 
 
 async def test_full_shell_session_via_sandbox(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.async_subprocess_mock.new_session()
+    session = bigfoot.async_subprocess.new_session()
     session.expect("spawn", returns=None)
     session.expect("communicate", returns=(b"shell output", b"", 0))
 
@@ -658,10 +658,10 @@ async def test_full_shell_session_via_sandbox(bigfoot_verifier: StrictVerifier) 
         proc = await asyncio.create_subprocess_shell("echo hello | tr a-z A-Z")
         stdout, stderr = await proc.communicate()
 
-    bigfoot.async_subprocess_mock.assert_spawn(
+    bigfoot.async_subprocess.assert_spawn(
         command="echo hello | tr a-z A-Z", stdin=None
     )
-    bigfoot.async_subprocess_mock.assert_communicate(input=None)
+    bigfoot.async_subprocess.assert_communicate(input=None)
 
     assert stdout == b"shell output"
     assert stderr == b""

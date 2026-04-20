@@ -12,13 +12,13 @@ This installs `redis>=4.0.0`.
 
 ## Setup
 
-In pytest, access `RedisPlugin` through the `bigfoot.redis_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `RedisPlugin` through the `bigfoot.redis` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
 import bigfoot
 
 def test_cache_lookup():
-    bigfoot.redis_mock.mock_command("GET", returns="cached_value")
+    bigfoot.redis.mock_command("GET", returns="cached_value")
 
     with bigfoot:
         import redis
@@ -27,7 +27,7 @@ def test_cache_lookup():
 
     assert value == "cached_value"
 
-    bigfoot.redis_mock.assert_command("GET", args=("mykey",), kwargs={})
+    bigfoot.redis.assert_command("GET", args=("mykey",), kwargs={})
 ```
 
 For manual use outside pytest, construct `RedisPlugin` explicitly:
@@ -37,18 +37,18 @@ from bigfoot import StrictVerifier
 from bigfoot.plugins.redis_plugin import RedisPlugin
 
 verifier = StrictVerifier()
-redis_mock = RedisPlugin(verifier)
+redis = RedisPlugin(verifier)
 ```
 
 Each verifier may have at most one `RedisPlugin`. A second `RedisPlugin(verifier)` raises `ValueError`.
 
 ## Registering mock commands
 
-Use `bigfoot.redis_mock.mock_command(command, *, returns, ...)` to register a mock before entering the sandbox:
+Use `bigfoot.redis.mock_command(command, *, returns, ...)` to register a mock before entering the sandbox:
 
 ```python
-bigfoot.redis_mock.mock_command("SET", returns=True)
-bigfoot.redis_mock.mock_command("GET", returns="hello")
+bigfoot.redis.mock_command("SET", returns=True)
+bigfoot.redis.mock_command("GET", returns="hello")
 ```
 
 ### Parameters
@@ -66,8 +66,8 @@ Each command name has its own independent FIFO queue. Multiple `mock_command("GE
 
 ```python
 def test_multiple_gets():
-    bigfoot.redis_mock.mock_command("GET", returns="first")
-    bigfoot.redis_mock.mock_command("GET", returns="second")
+    bigfoot.redis.mock_command("GET", returns="first")
+    bigfoot.redis.mock_command("GET", returns="second")
 
     with bigfoot:
         r = redis.Redis()
@@ -77,20 +77,20 @@ def test_multiple_gets():
     assert v1 == "first"
     assert v2 == "second"
 
-    bigfoot.redis_mock.assert_command("GET", args=("key1",), kwargs={})
-    bigfoot.redis_mock.assert_command("GET", args=("key2",), kwargs={})
+    bigfoot.redis.assert_command("GET", args=("key1",), kwargs={})
+    bigfoot.redis.assert_command("GET", args=("key2",), kwargs={})
 ```
 
 Command names are case-insensitive: `mock_command("get", ...)` matches `execute_command("GET", ...)`.
 
 ## Asserting interactions
 
-Use the `assert_command` helper on `bigfoot.redis_mock`. All three fields (`command`, `args`, `kwargs`) are required:
+Use the `assert_command` helper on `bigfoot.redis`. All three fields (`command`, `args`, `kwargs`) are required:
 
 ### `assert_command(command, args, kwargs)`
 
 ```python
-bigfoot.redis_mock.assert_command("SET", args=("mykey", "myvalue"), kwargs={})
+bigfoot.redis.assert_command("SET", args=("mykey", "myvalue"), kwargs={})
 ```
 
 | Parameter | Type | Default | Description |
@@ -108,7 +108,7 @@ import redis as redis_lib
 import bigfoot
 
 def test_redis_error():
-    bigfoot.redis_mock.mock_command(
+    bigfoot.redis.mock_command(
         "GET",
         returns=None,
         raises=redis_lib.exceptions.ResponseError("WRONGTYPE"),
@@ -119,7 +119,7 @@ def test_redis_error():
         with pytest.raises(redis_lib.exceptions.ResponseError):
             r.execute_command("GET", "badkey")
 
-    bigfoot.redis_mock.assert_command("GET", args=("badkey",), kwargs={})
+    bigfoot.redis.assert_command("GET", args=("badkey",), kwargs={})
 ```
 
 ## Full example
@@ -141,7 +141,7 @@ def test_redis_error():
 Mark a mock as optional with `required=False`:
 
 ```python
-bigfoot.redis_mock.mock_command("PING", returns="PONG", required=False)
+bigfoot.redis.mock_command("PING", returns="PONG", required=False)
 ```
 
 An optional mock that is never triggered does not cause `UnusedMocksError` at teardown.
@@ -153,5 +153,5 @@ When code calls `execute_command` with a command that has no remaining mocks in 
 ```
 redis.GET(...) was called but no mock was registered.
 Register a mock with:
-    bigfoot.redis_mock.mock_command('GET', returns=...)
+    bigfoot.redis.mock_command('GET', returns=...)
 ```

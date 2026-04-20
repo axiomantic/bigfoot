@@ -291,7 +291,7 @@ class Psycopg2Plugin(StateMachinePlugin):
 
     def format_mock_hint(self, interaction: Interaction) -> str:
         method = interaction.details.get("method", "?")
-        return f"    bigfoot.psycopg2_mock.new_session().expect({method!r}, returns=...)"
+        return f"    bigfoot.psycopg2.new_session().expect({method!r}, returns=...)"
 
     def format_unmocked_hint(
         self,
@@ -303,11 +303,11 @@ class Psycopg2Plugin(StateMachinePlugin):
         return (
             f"psycopg2.{method}(...) was called but no session was queued.\n"
             f"Register a session with:\n"
-            f"    bigfoot.psycopg2_mock.new_session().expect({method!r}, returns=...)"
+            f"    bigfoot.psycopg2.new_session().expect({method!r}, returns=...)"
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:
-        sm = "bigfoot.psycopg2_mock"
+        sm = "bigfoot.psycopg2"
         sid = interaction.source_id
         if sid == _SOURCE_CONNECT:
             # Show whichever connect fields were recorded

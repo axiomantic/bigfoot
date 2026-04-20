@@ -337,7 +337,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    bigfoot.boto3_mock.mock_call('s3', 'GetObject', returns=...)"
+    assert result == "    bigfoot.boto3.mock_call('s3', 'GetObject', returns=...)"
 
 
 def test_format_unmocked_hint() -> None:
@@ -346,7 +346,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "s3.GetObject(...) was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    bigfoot.boto3_mock.mock_call('s3', 'GetObject', returns=...)"
+        "    bigfoot.boto3.mock_call('s3', 'GetObject', returns=...)"
     )
 
 
@@ -360,7 +360,7 @@ def test_format_assert_hint() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    bigfoot.boto3_mock.assert_boto3_call(\n"
+        "    bigfoot.boto3.assert_boto3_call(\n"
         "        service='s3',\n"
         "        operation='GetObject',\n"
         "        params={'Bucket': 'b'},\n"
@@ -398,21 +398,21 @@ def test_dynamic_sentinel_different_services() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.boto3_mock
+# Module-level proxy: bigfoot.boto3
 # ---------------------------------------------------------------------------
 
 
 def test_boto3_mock_proxy_mock_call(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.boto3_mock.mock_call("s3", "GetObject", returns={"Body": b"proxied"})
+    bigfoot.boto3.mock_call("s3", "GetObject", returns={"Body": b"proxied"})
 
     with bigfoot.sandbox():
         client = boto3.client("s3", region_name="us-east-1")
         result = client.get_object(Bucket="b", Key="k")
 
     assert result == {"Body": b"proxied"}
-    bigfoot.boto3_mock.assert_boto3_call(
+    bigfoot.boto3.assert_boto3_call(
         "s3", "GetObject", params={"Bucket": "b", "Key": "k"}
     )
 
@@ -424,7 +424,7 @@ def test_boto3_mock_proxy_raises_outside_context() -> None:
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.boto3_mock.mock_call
+            _ = bigfoot.boto3.mock_call
     finally:
         _current_test_verifier.reset(token)
 
@@ -439,7 +439,7 @@ def test_boto3_plugin_in_all() -> None:
     from bigfoot.plugins.boto3_plugin import Boto3Plugin as _Boto3Plugin
 
     assert bigfoot.Boto3Plugin is _Boto3Plugin
-    assert type(bigfoot.boto3_mock).__name__ == "_Boto3Proxy"
+    assert type(bigfoot.boto3).__name__ == "_Boto3Proxy"
 
 
 # ---------------------------------------------------------------------------
@@ -451,7 +451,7 @@ def test_boto3_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) 
     """boto3 interactions are NOT auto-asserted."""
     import bigfoot
 
-    bigfoot.boto3_mock.mock_call("s3", "GetObject", returns={"Body": b"val"})
+    bigfoot.boto3.mock_call("s3", "GetObject", returns={"Body": b"val"})
     with bigfoot.sandbox():
         client = boto3.client("s3", region_name="us-east-1")
         client.get_object(Bucket="b", Key="k")
@@ -460,18 +460,18 @@ def test_boto3_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) 
     interactions = timeline.all_unasserted()
     assert len(interactions) == 1
     assert interactions[0].source_id == "boto3:s3:GetObject"
-    bigfoot.boto3_mock.assert_boto3_call("s3", "GetObject", params={"Bucket": "b", "Key": "k"})
+    bigfoot.boto3.assert_boto3_call("s3", "GetObject", params={"Bucket": "b", "Key": "k"})
 
 
 def test_assert_boto3_call_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
     """assert_boto3_call() asserts the next boto3 interaction."""
     import bigfoot
 
-    bigfoot.boto3_mock.mock_call("s3", "PutObject", returns={"ETag": '"abc"'})
+    bigfoot.boto3.mock_call("s3", "PutObject", returns={"ETag": '"abc"'})
     with bigfoot.sandbox():
         client = boto3.client("s3", region_name="us-east-1")
         client.put_object(Bucket="b", Key="k", Body=b"data")
-    bigfoot.boto3_mock.assert_boto3_call(
+    bigfoot.boto3.assert_boto3_call(
         "s3", "PutObject", params={"Bucket": "b", "Key": "k", "Body": b"data"}
     )
 
@@ -480,21 +480,21 @@ def test_assert_boto3_call_wrong_params_raises(bigfoot_verifier: StrictVerifier)
     """assert_boto3_call() with wrong params raises InteractionMismatchError."""
     import bigfoot
 
-    bigfoot.boto3_mock.mock_call("s3", "GetObject", returns={"Body": b"val"})
+    bigfoot.boto3.mock_call("s3", "GetObject", returns={"Body": b"val"})
     with bigfoot.sandbox():
         client = boto3.client("s3", region_name="us-east-1")
         client.get_object(Bucket="b", Key="k")
     with pytest.raises(InteractionMismatchError):
-        bigfoot.boto3_mock.assert_boto3_call("s3", "GetObject", params={"Bucket": "wrong"})
+        bigfoot.boto3.assert_boto3_call("s3", "GetObject", params={"Bucket": "wrong"})
     # Assert correctly so teardown passes
-    bigfoot.boto3_mock.assert_boto3_call("s3", "GetObject", params={"Bucket": "b", "Key": "k"})
+    bigfoot.boto3.assert_boto3_call("s3", "GetObject", params={"Bucket": "b", "Key": "k"})
 
 
 def test_missing_assertion_fields_raises(bigfoot_verifier: StrictVerifier) -> None:
     """Incomplete fields in assert_interaction raises MissingAssertionFieldsError."""
     import bigfoot
 
-    bigfoot.boto3_mock.mock_call("s3", "GetObject", returns={"Body": b"val"})
+    bigfoot.boto3.mock_call("s3", "GetObject", returns={"Body": b"val"})
     with bigfoot.sandbox():
         client = boto3.client("s3", region_name="us-east-1")
         client.get_object(Bucket="b", Key="k")
@@ -505,4 +505,4 @@ def test_missing_assertion_fields_raises(bigfoot_verifier: StrictVerifier) -> No
     with pytest.raises(MissingAssertionFieldsError):
         bigfoot.assert_interaction(sentinel, service="s3")
     # Assert correctly so teardown passes
-    bigfoot.boto3_mock.assert_boto3_call("s3", "GetObject", params={"Bucket": "b", "Key": "k"})
+    bigfoot.boto3.assert_boto3_call("s3", "GetObject", params={"Bucket": "b", "Key": "k"})

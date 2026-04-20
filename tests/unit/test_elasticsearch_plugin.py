@@ -339,7 +339,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    bigfoot.elasticsearch_mock.mock_operation('search', returns=...)"
+    assert result == "    bigfoot.elasticsearch.mock_operation('search', returns=...)"
 
 
 def test_format_unmocked_hint() -> None:
@@ -348,7 +348,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "elasticsearch.index(...) was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    bigfoot.elasticsearch_mock.mock_operation('index', returns=...)"
+        "    bigfoot.elasticsearch.mock_operation('index', returns=...)"
     )
 
 
@@ -362,7 +362,7 @@ def test_format_assert_hint() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    bigfoot.elasticsearch_mock.assert_index(\n"
+        "    bigfoot.elasticsearch.assert_index(\n"
         "        index='my-index',\n"
         "        document={'a': 1},\n"
         "    )"
@@ -380,21 +380,21 @@ def test_format_unused_mock_hint() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.elasticsearch_mock
+# Module-level proxy: bigfoot.elasticsearch
 # ---------------------------------------------------------------------------
 
 
 def test_elasticsearch_mock_proxy_mock_operation(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.elasticsearch_mock.mock_operation("index", returns={"_id": "1"})
+    bigfoot.elasticsearch.mock_operation("index", returns={"_id": "1"})
 
     with bigfoot.sandbox():
         es = elasticsearch.Elasticsearch("http://localhost:9200")
         result = es.index(index="my-index", document={"field": "val"})
 
     assert result == {"_id": "1"}
-    bigfoot.elasticsearch_mock.assert_index(index="my-index", document={"field": "val"})
+    bigfoot.elasticsearch.assert_index(index="my-index", document={"field": "val"})
 
 
 def test_elasticsearch_mock_proxy_raises_outside_context() -> None:
@@ -404,7 +404,7 @@ def test_elasticsearch_mock_proxy_raises_outside_context() -> None:
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.elasticsearch_mock.mock_operation
+            _ = bigfoot.elasticsearch.mock_operation
     finally:
         _current_test_verifier.reset(token)
 
@@ -421,7 +421,7 @@ def test_elasticsearch_plugin_in_all() -> None:
     )
 
     assert bigfoot.ElasticsearchPlugin is _ElasticsearchPlugin
-    assert type(bigfoot.elasticsearch_mock).__name__ == "_ElasticsearchProxy"
+    assert type(bigfoot.elasticsearch).__name__ == "_ElasticsearchProxy"
 
 
 # ---------------------------------------------------------------------------
@@ -432,7 +432,7 @@ def test_elasticsearch_plugin_in_all() -> None:
 def test_elasticsearch_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.elasticsearch_mock.mock_operation("index", returns={"_id": "1"})
+    bigfoot.elasticsearch.mock_operation("index", returns={"_id": "1"})
     with bigfoot.sandbox():
         es = elasticsearch.Elasticsearch("http://localhost:9200")
         es.index(index="idx", document={"a": 1})
@@ -441,78 +441,78 @@ def test_elasticsearch_interactions_not_auto_asserted(bigfoot_verifier: StrictVe
     interactions = timeline.all_unasserted()
     assert len(interactions) == 1
     assert interactions[0].source_id == "elasticsearch:index"
-    bigfoot.elasticsearch_mock.assert_index(index="idx", document={"a": 1})
+    bigfoot.elasticsearch.assert_index(index="idx", document={"a": 1})
 
 
 def test_assert_index_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.elasticsearch_mock.mock_operation("index", returns={"_id": "1"})
+    bigfoot.elasticsearch.mock_operation("index", returns={"_id": "1"})
     with bigfoot.sandbox():
         es = elasticsearch.Elasticsearch("http://localhost:9200")
         es.index(index="idx", document={"a": 1})
-    bigfoot.elasticsearch_mock.assert_index(index="idx", document={"a": 1})
+    bigfoot.elasticsearch.assert_index(index="idx", document={"a": 1})
 
 
 def test_assert_search_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.elasticsearch_mock.mock_operation("search", returns={"hits": {"hits": []}})
+    bigfoot.elasticsearch.mock_operation("search", returns={"hits": {"hits": []}})
     with bigfoot.sandbox():
         es = elasticsearch.Elasticsearch("http://localhost:9200")
         es.search(index="idx", query={"match_all": {}})
-    bigfoot.elasticsearch_mock.assert_search(index="idx", query={"match_all": {}})
+    bigfoot.elasticsearch.assert_search(index="idx", query={"match_all": {}})
 
 
 def test_assert_get_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.elasticsearch_mock.mock_operation("get", returns={"_source": {"a": 1}})
+    bigfoot.elasticsearch.mock_operation("get", returns={"_source": {"a": 1}})
     with bigfoot.sandbox():
         es = elasticsearch.Elasticsearch("http://localhost:9200")
         es.get(index="idx", id="1")
-    bigfoot.elasticsearch_mock.assert_get(index="idx", id="1")
+    bigfoot.elasticsearch.assert_get(index="idx", id="1")
 
 
 def test_assert_delete_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.elasticsearch_mock.mock_operation("delete", returns={"result": "deleted"})
+    bigfoot.elasticsearch.mock_operation("delete", returns={"result": "deleted"})
     with bigfoot.sandbox():
         es = elasticsearch.Elasticsearch("http://localhost:9200")
         es.delete(index="idx", id="1")
-    bigfoot.elasticsearch_mock.assert_delete(index="idx", id="1")
+    bigfoot.elasticsearch.assert_delete(index="idx", id="1")
 
 
 def test_assert_bulk_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
     ops = [{"index": {"_index": "idx", "_id": "1"}}, {"field": "val"}]
-    bigfoot.elasticsearch_mock.mock_operation("bulk", returns={"items": []})
+    bigfoot.elasticsearch.mock_operation("bulk", returns={"items": []})
     with bigfoot.sandbox():
         es = elasticsearch.Elasticsearch("http://localhost:9200")
         es.bulk(operations=ops)
-    bigfoot.elasticsearch_mock.assert_bulk(operations=ops)
+    bigfoot.elasticsearch.assert_bulk(operations=ops)
 
 
 def test_assert_index_wrong_params_raises(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.elasticsearch_mock.mock_operation("index", returns={"_id": "1"})
+    bigfoot.elasticsearch.mock_operation("index", returns={"_id": "1"})
     with bigfoot.sandbox():
         es = elasticsearch.Elasticsearch("http://localhost:9200")
         es.index(index="idx", document={"a": 1})
     with pytest.raises(InteractionMismatchError):
-        bigfoot.elasticsearch_mock.assert_index(index="wrong", document={"a": 1})
+        bigfoot.elasticsearch.assert_index(index="wrong", document={"a": 1})
     # Assert correctly so teardown passes
-    bigfoot.elasticsearch_mock.assert_index(index="idx", document={"a": 1})
+    bigfoot.elasticsearch.assert_index(index="idx", document={"a": 1})
 
 
 def test_missing_assertion_fields_raises(bigfoot_verifier: StrictVerifier) -> None:
     """Incomplete fields in assert_interaction raises MissingAssertionFieldsError."""
     import bigfoot
 
-    bigfoot.elasticsearch_mock.mock_operation("get", returns={"_source": {"a": 1}})
+    bigfoot.elasticsearch.mock_operation("get", returns={"_source": {"a": 1}})
     with bigfoot.sandbox():
         es = elasticsearch.Elasticsearch("http://localhost:9200")
         es.get(index="idx", id="1")
@@ -524,4 +524,4 @@ def test_missing_assertion_fields_raises(bigfoot_verifier: StrictVerifier) -> No
         # Only providing index, missing id
         bigfoot.assert_interaction(sentinel, index="idx")
     # Assert correctly so teardown passes
-    bigfoot.elasticsearch_mock.assert_get(index="idx", id="1")
+    bigfoot.elasticsearch.assert_get(index="idx", id="1")
