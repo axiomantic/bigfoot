@@ -1,4 +1,4 @@
-"""Test fetch_status using bigfoot socket_mock."""
+"""Test fetch_status using bigfoot socket."""
 
 import bigfoot
 
@@ -6,7 +6,7 @@ from .app import fetch_status
 
 
 def test_fetch_status():
-    (bigfoot.socket_mock
+    (bigfoot.socket
         .new_session()
         .expect("connect",  returns=None)
         .expect("sendall",  returns=None)
@@ -18,7 +18,7 @@ def test_fetch_status():
 
     assert result == "OK 200\r\n"
 
-    bigfoot.socket_mock.assert_connect(host="monitoring.internal", port=5000)
-    bigfoot.socket_mock.assert_sendall(data=b"STATUS\r\n")
-    bigfoot.socket_mock.assert_recv(size=4096, data=b"OK 200\r\n")
-    bigfoot.socket_mock.assert_close()
+    bigfoot.socket.assert_connect(host="monitoring.internal", port=5000)
+    bigfoot.socket.assert_sendall(data=b"STATUS\r\n")
+    bigfoot.socket.assert_recv(size=4096, data=b"OK 200\r\n")
+    bigfoot.socket.assert_close()

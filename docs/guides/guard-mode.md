@@ -287,13 +287,13 @@ Widen the allowlist for a scoped block:
 import bigfoot
 
 def test_boto3_integration():
-    bigfoot.boto3_mock.mock_api_call("s3", "PutObject", returns={})
+    bigfoot.boto3.mock_api_call("s3", "PutObject", returns={})
 
     with bigfoot.allow("dns", "socket"):
         with bigfoot:
             upload_file("my-bucket", "key", b"data")
 
-    bigfoot.boto3_mock.assert_api_call(
+    bigfoot.boto3.assert_api_call(
         service="s3", operation="PutObject", params={"Bucket": "my-bucket"},
     )
 ```
@@ -493,12 +493,12 @@ from bigfoot import M
 
 @pytest.mark.allow("dns", "socket")
 def test_s3_upload():
-    bigfoot.boto3_mock.mock_api_call("s3", "PutObject", returns={})
+    bigfoot.boto3.mock_api_call("s3", "PutObject", returns={})
 
     with bigfoot:
         upload_to_s3("my-bucket", "my-key", b"hello")
 
-    bigfoot.boto3_mock.assert_api_call(
+    bigfoot.boto3.assert_api_call(
         service="s3", operation="PutObject",
         params={"Bucket": "my-bucket", "Key": "my-key", "Body": b"hello"},
     )

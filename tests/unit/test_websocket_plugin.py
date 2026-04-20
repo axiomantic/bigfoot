@@ -381,12 +381,12 @@ async def test_async_close_releases_session() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.async_websocket_mock
+# Module-level proxy: bigfoot.async_websocket
 # ---------------------------------------------------------------------------
 
 
 # ESCAPE: test_async_websocket_mock_proxy_new_session
-#   CLAIM: bigfoot.async_websocket_mock.new_session() returns a SessionHandle.
+#   CLAIM: bigfoot.async_websocket.new_session() returns a SessionHandle.
 #   PATH:  _AsyncWebSocketProxy.__getattr__("new_session") -> get verifier ->
 #          find/create AsyncWebSocketPlugin -> return plugin.new_session.
 #   CHECK: session is a SessionHandle instance; chaining .expect() returns self.
@@ -395,14 +395,14 @@ async def test_async_close_releases_session() -> None:
 def test_async_websocket_mock_proxy_new_session(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    session = bigfoot.async_websocket_mock.new_session()
+    session = bigfoot.async_websocket.new_session()
     assert isinstance(session, SessionHandle)
     result = session.expect("connect", returns=None, required=False)
     assert result is session
 
 
 # ESCAPE: test_async_websocket_mock_proxy_raises_outside_context
-#   CLAIM: Accessing bigfoot.async_websocket_mock outside a test context raises
+#   CLAIM: Accessing bigfoot.async_websocket outside a test context raises
 #          NoActiveVerifierError.
 #   PATH:  _AsyncWebSocketProxy.__getattr__ -> _get_test_verifier_or_raise ->
 #          NoActiveVerifierError.
@@ -416,7 +416,7 @@ def test_async_websocket_mock_proxy_raises_outside_context() -> None:
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.async_websocket_mock.new_session
+            _ = bigfoot.async_websocket.new_session
     finally:
         _current_test_verifier.reset(token)
 
@@ -734,12 +734,12 @@ def test_sync_fifo_two_sessions() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.sync_websocket_mock
+# Module-level proxy: bigfoot.sync_websocket
 # ---------------------------------------------------------------------------
 
 
 # ESCAPE: test_sync_websocket_mock_proxy_new_session
-#   CLAIM: bigfoot.sync_websocket_mock.new_session() returns a SessionHandle.
+#   CLAIM: bigfoot.sync_websocket.new_session() returns a SessionHandle.
 #   PATH:  _SyncWebSocketProxy.__getattr__("new_session") -> get verifier ->
 #          find/create SyncWebSocketPlugin -> return plugin.new_session.
 #   CHECK: session is a SessionHandle instance; chaining .expect() returns self.
@@ -748,14 +748,14 @@ def test_sync_fifo_two_sessions() -> None:
 def test_sync_websocket_mock_proxy_new_session(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    session = bigfoot.sync_websocket_mock.new_session()
+    session = bigfoot.sync_websocket.new_session()
     assert isinstance(session, SessionHandle)
     result = session.expect("connect", returns=None, required=False)
     assert result is session
 
 
 # ESCAPE: test_sync_websocket_mock_proxy_raises_outside_context
-#   CLAIM: Accessing bigfoot.sync_websocket_mock outside a test context raises
+#   CLAIM: Accessing bigfoot.sync_websocket outside a test context raises
 #          NoActiveVerifierError.
 #   PATH:  _SyncWebSocketProxy.__getattr__ -> _get_test_verifier_or_raise ->
 #          NoActiveVerifierError.
@@ -769,6 +769,6 @@ def test_sync_websocket_mock_proxy_raises_outside_context() -> None:
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.sync_websocket_mock.new_session
+            _ = bigfoot.sync_websocket.new_session
     finally:
         _current_test_verifier.reset(token)

@@ -12,13 +12,13 @@ This installs `elasticsearch`.
 
 ## Setup
 
-In pytest, access `ElasticsearchPlugin` through the `bigfoot.elasticsearch_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `ElasticsearchPlugin` through the `bigfoot.elasticsearch` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
 import bigfoot
 
 def test_index_document():
-    bigfoot.elasticsearch_mock.mock_operation(
+    bigfoot.elasticsearch.mock_operation(
         "index",
         returns={"_id": "doc_1", "result": "created"},
     )
@@ -30,7 +30,7 @@ def test_index_document():
 
     assert result["result"] == "created"
 
-    bigfoot.elasticsearch_mock.assert_index(
+    bigfoot.elasticsearch.assert_index(
         index="products",
         document={"name": "Widget", "price": 9.99},
         id="doc_1",
@@ -51,11 +51,11 @@ Each verifier may have at most one `ElasticsearchPlugin`. A second `Elasticsearc
 
 ## Registering mock operations
 
-Use `bigfoot.elasticsearch_mock.mock_operation(operation, *, returns, ...)` to register a mock before entering the sandbox:
+Use `bigfoot.elasticsearch.mock_operation(operation, *, returns, ...)` to register a mock before entering the sandbox:
 
 ```python
-bigfoot.elasticsearch_mock.mock_operation("search", returns={"hits": {"hits": [], "total": {"value": 0}}})
-bigfoot.elasticsearch_mock.mock_operation("index", returns={"_id": "1", "result": "created"})
+bigfoot.elasticsearch.mock_operation("search", returns={"hits": {"hits": [], "total": {"value": 0}}})
+bigfoot.elasticsearch.mock_operation("index", returns={"_id": "1", "result": "created"})
 ```
 
 ### Parameters
@@ -89,11 +89,11 @@ Each operation name has its own independent FIFO queue. Multiple `mock_operation
 
 ```python
 def test_paginated_search():
-    bigfoot.elasticsearch_mock.mock_operation(
+    bigfoot.elasticsearch.mock_operation(
         "search",
         returns={"hits": {"hits": [{"_id": "1"}], "total": {"value": 25}}},
     )
-    bigfoot.elasticsearch_mock.mock_operation(
+    bigfoot.elasticsearch.mock_operation(
         "search",
         returns={"hits": {"hits": [{"_id": "11"}], "total": {"value": 25}}},
     )
@@ -107,18 +107,18 @@ def test_paginated_search():
     assert page1["hits"]["hits"][0]["_id"] == "1"
     assert page2["hits"]["hits"][0]["_id"] == "11"
 
-    bigfoot.elasticsearch_mock.assert_search(index="logs", query={"match_all": {}}, size=10)
-    bigfoot.elasticsearch_mock.assert_search(index="logs", query={"match_all": {}}, size=10, from_=10)
+    bigfoot.elasticsearch.assert_search(index="logs", query={"match_all": {}}, size=10)
+    bigfoot.elasticsearch.assert_search(index="logs", query={"match_all": {}}, size=10, from_=10)
 ```
 
 ## Asserting interactions
 
-Use the typed assertion helpers on `bigfoot.elasticsearch_mock`. Each helper accepts keyword arguments matching the detail fields captured for that operation.
+Use the typed assertion helpers on `bigfoot.elasticsearch`. Each helper accepts keyword arguments matching the detail fields captured for that operation.
 
 ### `assert_index(*, index, document, id=None)`
 
 ```python
-bigfoot.elasticsearch_mock.assert_index(
+bigfoot.elasticsearch.assert_index(
     index="products",
     document={"name": "Widget", "price": 9.99},
     id="doc_1",
@@ -134,7 +134,7 @@ bigfoot.elasticsearch_mock.assert_index(
 ### `assert_search(*, index=None, query=None, size=None, from_=None)`
 
 ```python
-bigfoot.elasticsearch_mock.assert_search(
+bigfoot.elasticsearch.assert_search(
     index="logs",
     query={"match": {"level": "error"}},
     size=50,
@@ -151,7 +151,7 @@ bigfoot.elasticsearch_mock.assert_search(
 ### `assert_get(*, index, id)`
 
 ```python
-bigfoot.elasticsearch_mock.assert_get(index="products", id="doc_1")
+bigfoot.elasticsearch.assert_get(index="products", id="doc_1")
 ```
 
 | Parameter | Type | Description |
@@ -162,7 +162,7 @@ bigfoot.elasticsearch_mock.assert_get(index="products", id="doc_1")
 ### `assert_delete(*, index, id)`
 
 ```python
-bigfoot.elasticsearch_mock.assert_delete(index="products", id="doc_1")
+bigfoot.elasticsearch.assert_delete(index="products", id="doc_1")
 ```
 
 | Parameter | Type | Description |
@@ -173,7 +173,7 @@ bigfoot.elasticsearch_mock.assert_delete(index="products", id="doc_1")
 ### `assert_bulk(*, operations)`
 
 ```python
-bigfoot.elasticsearch_mock.assert_bulk(
+bigfoot.elasticsearch.assert_bulk(
     operations=[
         {"index": {"_index": "logs", "_id": "1"}},
         {"message": "first log entry"},
@@ -194,7 +194,7 @@ from elasticsearch import NotFoundError
 import bigfoot
 
 def test_document_not_found():
-    bigfoot.elasticsearch_mock.mock_operation(
+    bigfoot.elasticsearch.mock_operation(
         "get",
         returns=None,
         raises=NotFoundError(404, "document_missing_exception", {"_index": "products", "_id": "missing"}),
@@ -206,7 +206,7 @@ def test_document_not_found():
         with pytest.raises(NotFoundError):
             es.get(index="products", id="missing")
 
-    bigfoot.elasticsearch_mock.assert_get(index="products", id="missing")
+    bigfoot.elasticsearch.assert_get(index="products", id="missing")
 ```
 
 ## Full example
@@ -228,7 +228,7 @@ def test_document_not_found():
 Mark a mock as optional with `required=False`:
 
 ```python
-bigfoot.elasticsearch_mock.mock_operation("count", returns={"count": 0}, required=False)
+bigfoot.elasticsearch.mock_operation("count", returns={"count": 0}, required=False)
 ```
 
 An optional mock that is never triggered does not cause `UnusedMocksError` at teardown.
@@ -240,5 +240,5 @@ When code calls an Elasticsearch method that has no remaining mocks in its queue
 ```
 elasticsearch.search(...) was called but no mock was registered.
 Register a mock with:
-    bigfoot.elasticsearch_mock.mock_operation('search', returns=...)
+    bigfoot.elasticsearch.mock_operation('search', returns=...)
 ```

@@ -279,7 +279,7 @@ class JwtPlugin(BasePlugin):
     def format_mock_hint(self, interaction: Interaction) -> str:
         source_id = interaction.source_id
         operation = source_id.split(":", 1)[-1] if ":" in source_id else "?"
-        return f"    bigfoot.jwt_mock.mock_{operation}(returns=...)"
+        return f"    bigfoot.jwt.mock_{operation}(returns=...)"
 
     def format_unmocked_hint(
         self,
@@ -291,7 +291,7 @@ class JwtPlugin(BasePlugin):
         return (
             f"jwt.{operation}(...) was called but no mock was registered.\n"
             f"Register a mock with:\n"
-            f"    bigfoot.jwt_mock.mock_{operation}(returns=...)"
+            f"    bigfoot.jwt.mock_{operation}(returns=...)"
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:
@@ -301,7 +301,7 @@ class JwtPlugin(BasePlugin):
         parts = [f"        {k}={v!r}," for k, v in details.items()]
         lines = "\n".join(parts)
         return (
-            f"    bigfoot.jwt_mock.assert_{operation}(\n"
+            f"    bigfoot.jwt.assert_{operation}(\n"
             f"{lines}\n"
             f"    )"
         )

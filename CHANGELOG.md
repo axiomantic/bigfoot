@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.0] - 2026-04-20
+
+### Changed
+
+- **Plugin proxy attributes renamed to drop the `_mock` suffix:** All 26 `_mock`-suffixed plugin proxy attributes on the `bigfoot` module have been renamed to their un-suffixed forms. The un-suffixed names are now canonical: `bigfoot.subprocess`, `bigfoot.popen`, `bigfoot.smtp`, `bigfoot.socket`, `bigfoot.db`, `bigfoot.async_websocket`, `bigfoot.sync_websocket`, `bigfoot.redis`, `bigfoot.mongo`, `bigfoot.dns`, `bigfoot.memcache`, `bigfoot.celery`, `bigfoot.log`, `bigfoot.async_subprocess`, `bigfoot.psycopg2`, `bigfoot.asyncpg`, `bigfoot.boto3`, `bigfoot.elasticsearch`, `bigfoot.jwt`, `bigfoot.crypto`, `bigfoot.file_io`, `bigfoot.pika`, `bigfoot.ssh`, `bigfoot.grpc`, `bigfoot.mcp`, and `bigfoot.native`. `bigfoot.http` was already un-suffixed and is unchanged.
+
+### Deprecated
+
+- **Old `_mock`-suffixed proxy names:** The previous attribute names (`bigfoot.subprocess_mock`, `bigfoot.db_mock`, `bigfoot.redis_mock`, and the rest of the 26) are retained as backward-compatibility aliases. Accessing any one of them emits a `DeprecationWarning` on first access per name, pointing at the new un-suffixed attribute. The aliases will be removed in a future release. Migration is mechanical: find-and-replace `_mock` where it appears immediately after a `bigfoot.` proxy access (e.g., `bigfoot.redis_mock.mock_command(...)` becomes `bigfoot.redis.mock_command(...)`). Local variables, plugin class names, and method names like `mock_response` / `mock_run` are not affected.
+
 ## [0.19.2] - 2026-04-08
 
 ### Changed

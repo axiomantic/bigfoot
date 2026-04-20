@@ -423,13 +423,13 @@ class DnsPlugin(BasePlugin):
         hostname = parts[2] if len(parts) > 2 else "?"
 
         if operation == "getaddrinfo":
-            return f"    bigfoot.dns_mock.mock_getaddrinfo({hostname!r}, returns=...)"
+            return f"    bigfoot.dns.mock_getaddrinfo({hostname!r}, returns=...)"
         elif operation == "gethostbyname":
-            return f"    bigfoot.dns_mock.mock_gethostbyname({hostname!r}, returns=...)"
+            return f"    bigfoot.dns.mock_gethostbyname({hostname!r}, returns=...)"
         elif operation == "resolve":
             rdtype = interaction.details.get("rdtype", "A")
-            return f"    bigfoot.dns_mock.mock_resolve({hostname!r}, {rdtype!r}, returns=...)"
-        return f"    bigfoot.dns_mock.mock_{operation}({hostname!r}, returns=...)"
+            return f"    bigfoot.dns.mock_resolve({hostname!r}, {rdtype!r}, returns=...)"
+        return f"    bigfoot.dns.mock_{operation}({hostname!r}, returns=...)"
 
     def format_unmocked_hint(
         self,
@@ -445,28 +445,28 @@ class DnsPlugin(BasePlugin):
             return (
                 f"socket.getaddrinfo({hostname!r}, ...) was called but no mock was registered.\n"
                 f"Register a mock with:\n"
-                f"    bigfoot.dns_mock.mock_getaddrinfo({hostname!r}, returns=...)"
+                f"    bigfoot.dns.mock_getaddrinfo({hostname!r}, returns=...)"
             )
         elif operation == "gethostbyname":
             return (
                 f"socket.gethostbyname({hostname!r}) was called but no mock was registered.\n"
                 f"Register a mock with:\n"
-                f"    bigfoot.dns_mock.mock_gethostbyname({hostname!r}, returns=...)"
+                f"    bigfoot.dns.mock_gethostbyname({hostname!r}, returns=...)"
             )
         elif operation == "resolve":
             return (
                 f"dns.resolver.resolve({hostname!r}, ...) was called but no mock was registered.\n"
                 f"Register a mock with:\n"
-                f"    bigfoot.dns_mock.mock_resolve({hostname!r}, 'A', returns=...)"
+                f"    bigfoot.dns.mock_resolve({hostname!r}, 'A', returns=...)"
             )
         return (
             f"dns.{operation}({hostname!r}) was called but no mock was registered.\n"
             f"Register a mock with:\n"
-            f"    bigfoot.dns_mock.mock_{operation}({hostname!r}, returns=...)"
+            f"    bigfoot.dns.mock_{operation}({hostname!r}, returns=...)"
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:
-        sm = "bigfoot.dns_mock"
+        sm = "bigfoot.dns"
         source_id = interaction.source_id
         parts = source_id.split(":", 2)
         operation = parts[1] if len(parts) > 1 else "?"

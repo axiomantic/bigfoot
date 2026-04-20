@@ -970,7 +970,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == f"    bigfoot.file_io_mock.mock_operation('open', '{os.path.normpath('/tmp/f.txt')}', returns=...)"
+    assert result == f"    bigfoot.file_io.mock_operation('open', '{os.path.normpath('/tmp/f.txt')}', returns=...)"
 
 
 # ESCAPE: test_format_unmocked_hint
@@ -986,7 +986,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         f"open('{np('/tmp/f.txt')}', ...) was called but no mock was registered.\n"
         "Register a mock with:\n"
-        f"    bigfoot.file_io_mock.mock_operation('open', '{np('/tmp/f.txt')}', returns=...)"
+        f"    bigfoot.file_io.mock_operation('open', '{np('/tmp/f.txt')}', returns=...)"
     )
 
 
@@ -1007,7 +1007,7 @@ def test_format_assert_hint() -> None:
     result = p.format_assert_hint(interaction)
     npath = os.path.normpath("/tmp/f.txt")
     assert result == (
-        "    bigfoot.file_io_mock.assert_open(\n"
+        "    bigfoot.file_io.assert_open(\n"
         f"        path={npath!r},\n"
         "        mode='r',\n"
         "        encoding='utf-8',\n"
@@ -1032,7 +1032,7 @@ def test_format_assert_hint_remove() -> None:
     result = p.format_assert_hint(interaction)
     npath = os.path.normpath("/tmp/del.txt")
     assert result == (
-        "    bigfoot.file_io_mock.assert_remove(\n"
+        "    bigfoot.file_io.assert_remove(\n"
         f"        path={npath!r},\n"
         "    )"
     )
@@ -1191,8 +1191,8 @@ def test_reference_counting_nested() -> None:
 
 
 # ESCAPE: test_file_io_plugin_in_all
-#   CLAIM: FileIoPlugin and file_io_mock are exported from bigfoot.__all__.
-#   PATH:  bigfoot.__all__ contains "FileIoPlugin" and "file_io_mock".
+#   CLAIM: FileIoPlugin and file_io are exported from bigfoot.__all__.
+#   PATH:  bigfoot.__all__ contains "FileIoPlugin" and "file_io".
 #   CHECK: Both names in __all__; bigfoot.FileIoPlugin is the real class.
 #   MUTATION: Omitting either from __all__ fails membership check.
 #   ESCAPE: Nothing reasonable -- exact membership check.
@@ -1200,12 +1200,12 @@ def test_file_io_plugin_in_all() -> None:
     import bigfoot
 
     assert "FileIoPlugin" in bigfoot.__all__
-    assert "file_io_mock" in bigfoot.__all__
+    assert "file_io" in bigfoot.__all__
     assert bigfoot.FileIoPlugin is FileIoPlugin
 
 
 # ESCAPE: test_file_io_mock_proxy
-#   CLAIM: bigfoot.file_io_mock proxies to FileIoPlugin on the active verifier.
+#   CLAIM: bigfoot.file_io proxies to FileIoPlugin on the active verifier.
 #   PATH:  _FileIoProxy.__getattr__ -> get verifier -> find/create FileIoPlugin.
 #   CHECK: Proxy attribute access does not raise when verifier is active.
 #   MUTATION: Wrong proxy class or missing registration fails with AttributeError.
@@ -1214,12 +1214,12 @@ def test_file_io_mock_proxy(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
     # End-to-end: register mock through proxy, trigger it, verify interaction
-    bigfoot.file_io_mock.mock_operation("open", "/tmp/proxy-test.txt", returns="proxied")
+    bigfoot.file_io.mock_operation("open", "/tmp/proxy-test.txt", returns="proxied")
     with bigfoot.sandbox():
         f = builtins.open("/tmp/proxy-test.txt")
         result = f.read()
     assert result == "proxied"
-    bigfoot.file_io_mock.assert_open(path="/tmp/proxy-test.txt", mode="r", encoding="utf-8")
+    bigfoot.file_io.assert_open(path="/tmp/proxy-test.txt", mode="r", encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------

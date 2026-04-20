@@ -216,14 +216,14 @@ def test_deploy(mock_run):
 
 # AFTER: bigfoot
 def test_deploy():
-    bigfoot.subprocess_mock.mock_run(
+    bigfoot.subprocess.mock_run(
         ["kubectl", "apply", "-f", "prod.yaml"],
         returncode=0, stdout="deployed",
     )
     with bigfoot:
         result = deploy("prod")
 
-    bigfoot.subprocess_mock.assert_run(
+    bigfoot.subprocess.assert_run(
         ["kubectl", "apply", "-f", "prod.yaml"],
         returncode=0, stdout="deployed",
     )
@@ -281,12 +281,12 @@ bigfoot ships with 27 plugins covering the most common external dependencies:
 
 **Subprocess**
 ```python
-bigfoot.subprocess_mock.mock_run(["git", "pull"], returncode=0, stdout="Up to date.\n")
+bigfoot.subprocess.mock_run(["git", "pull"], returncode=0, stdout="Up to date.\n")
 ```
 
 **Database (sqlite3)**
 ```python
-bigfoot.db_mock.new_session() \
+bigfoot.db.new_session() \
     .expect("connect", returns=None) \
     .expect("execute", returns=[]) \
     .expect("commit", returns=None) \
@@ -295,22 +295,22 @@ bigfoot.db_mock.new_session() \
 
 **Redis**
 ```python
-bigfoot.redis_mock.mock_command("GET", returns=b"cached_value")
+bigfoot.redis.mock_command("GET", returns=b"cached_value")
 ```
 
 **MongoDB**
 ```python
-bigfoot.mongo_mock.mock_operation("find_one", returns={"_id": "abc", "name": "Alice"})
+bigfoot.mongo.mock_operation("find_one", returns={"_id": "abc", "name": "Alice"})
 ```
 
 **AWS (boto3)**
 ```python
-bigfoot.boto3_mock.mock_api_call("s3", "GetObject", returns={"Body": b"file contents"})
+bigfoot.boto3.mock_api_call("s3", "GetObject", returns={"Body": b"file contents"})
 ```
 
 **RabbitMQ (pika)**
 ```python
-bigfoot.pika_mock.new_session() \
+bigfoot.pika.new_session() \
     .expect("connect", returns=None) \
     .expect("channel", returns=None) \
     .expect("publish", returns=None) \
@@ -319,7 +319,7 @@ bigfoot.pika_mock.new_session() \
 
 **SSH (paramiko)**
 ```python
-bigfoot.ssh_mock.new_session() \
+bigfoot.ssh.new_session() \
     .expect("connect", returns=None) \
     .expect("exec_command", returns=(b"", b"output\n", b"")) \
     .expect("close", returns=None)
@@ -327,7 +327,7 @@ bigfoot.ssh_mock.new_session() \
 
 **SMTP**
 ```python
-bigfoot.smtp_mock.new_session() \
+bigfoot.smtp.new_session() \
     .expect("connect", returns=(220, b"OK")) \
     .expect("ehlo", returns=(250, b"OK")) \
     .expect("sendmail", returns={}) \
@@ -336,7 +336,7 @@ bigfoot.smtp_mock.new_session() \
 
 **Logging**
 ```python
-bigfoot.log_mock.assert_info("User logged in", "myapp")
+bigfoot.log.assert_info("User logged in", "myapp")
 ```
 
 **Mock (general)**

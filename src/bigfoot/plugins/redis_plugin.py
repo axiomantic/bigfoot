@@ -265,7 +265,7 @@ class RedisPlugin(BasePlugin):
 
     def format_mock_hint(self, interaction: Interaction) -> str:
         command = interaction.details.get("command", "?")
-        return f"    bigfoot.redis_mock.mock_command({command!r}, returns=...)"
+        return f"    bigfoot.redis.mock_command({command!r}, returns=...)"
 
     def format_unmocked_hint(
         self,
@@ -278,11 +278,11 @@ class RedisPlugin(BasePlugin):
         return (
             f"redis.{cmd}(...) was called but no mock was registered.\n"
             f"Register a mock with:\n"
-            f"    bigfoot.redis_mock.mock_command({cmd!r}, returns=...)"
+            f"    bigfoot.redis.mock_command({cmd!r}, returns=...)"
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:
-        sm = "bigfoot.redis_mock"
+        sm = "bigfoot.redis"
         command = interaction.details.get("command", "?")
         args = interaction.details.get("args", ())
         kwargs = interaction.details.get("kwargs", {})

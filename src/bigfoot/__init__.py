@@ -35,8 +35,9 @@ from __future__ import annotations
 import sys
 import threading
 import types
+import warnings
 from collections.abc import Callable
-from typing import TYPE_CHECKING, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from bigfoot._base_plugin import BasePlugin
 from bigfoot._context import GuardPassThrough, _get_test_verifier_or_raise, get_verifier_or_raise
@@ -301,38 +302,38 @@ __all__ = [
     "current_verifier",
     "spy",
     "http",
-    "subprocess_mock",
-    "popen_mock",
-    "smtp_mock",
-    "socket_mock",
-    "db_mock",
-    "async_websocket_mock",
-    "sync_websocket_mock",
-    "redis_mock",
-    "mongo_mock",
-    "dns_mock",
-    "memcache_mock",
-    "celery_mock",
-    "log_mock",
-    "async_subprocess_mock",
-    "psycopg2_mock",
-    "asyncpg_mock",
-    "boto3_mock",
-    "elasticsearch_mock",
-    "jwt_mock",
-    "crypto_mock",
+    "subprocess",
+    "popen",
+    "smtp",
+    "socket",
+    "db",
+    "async_websocket",
+    "sync_websocket",
+    "redis",
+    "mongo",
+    "dns",
+    "memcache",
+    "celery",
+    "log",
+    "async_subprocess",
+    "psycopg2",
+    "asyncpg",
+    "boto3",
+    "elasticsearch",
+    "jwt",
+    "crypto",
     "FileIoPlugin",
-    "file_io_mock",
+    "file_io",
     "PikaPlugin",
-    "pika_mock",
+    "pika",
     "SshPlugin",
-    "ssh_mock",
+    "ssh",
     "GrpcPlugin",
-    "grpc_mock",
+    "grpc",
     "McpPlugin",
-    "mcp_mock",
+    "mcp",
     "NativePlugin",
-    "native_mock",
+    "native",
 ]
 
 
@@ -475,7 +476,7 @@ class _SubprocessProxy:
         return getattr(plugin, name)
 
 
-subprocess_mock = _SubprocessProxy()
+subprocess = _SubprocessProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -495,7 +496,7 @@ class _PopenProxy:
         return getattr(plugin, name)
 
 
-popen_mock = _PopenProxy()
+popen = _PopenProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -515,7 +516,7 @@ class _SmtpProxy:
         return getattr(plugin, name)
 
 
-smtp_mock = _SmtpProxy()
+smtp = _SmtpProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -535,7 +536,7 @@ class _SocketProxy:
         return getattr(plugin, name)
 
 
-socket_mock = _SocketProxy()
+socket = _SocketProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -555,7 +556,7 @@ class _DatabaseProxy:
         return getattr(plugin, name)
 
 
-db_mock = _DatabaseProxy()
+db = _DatabaseProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -575,7 +576,7 @@ class _AsyncWebSocketProxy:
 
         if not _WEBSOCKETS_AVAILABLE:
             raise ImportError(
-                "bigfoot[websockets] is required to use bigfoot.async_websocket_mock. "
+                "bigfoot[websockets] is required to use bigfoot.async_websocket. "
                 "Install it with: pip install bigfoot[websockets]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -583,7 +584,7 @@ class _AsyncWebSocketProxy:
         return getattr(plugin, name)
 
 
-async_websocket_mock = _AsyncWebSocketProxy()
+async_websocket = _AsyncWebSocketProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -603,7 +604,7 @@ class _SyncWebSocketProxy:
 
         if not _WEBSOCKET_CLIENT_AVAILABLE:
             raise ImportError(
-                "bigfoot[websocket-client] is required to use bigfoot.sync_websocket_mock. "
+                "bigfoot[websocket-client] is required to use bigfoot.sync_websocket. "
                 "Install it with: pip install bigfoot[websocket-client]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -611,7 +612,7 @@ class _SyncWebSocketProxy:
         return getattr(plugin, name)
 
 
-sync_websocket_mock = _SyncWebSocketProxy()
+sync_websocket = _SyncWebSocketProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -631,7 +632,7 @@ class _RedisProxy:
 
         if not _REDIS_AVAILABLE:
             raise ImportError(
-                "bigfoot[redis] is required to use bigfoot.redis_mock. "
+                "bigfoot[redis] is required to use bigfoot.redis. "
                 "Install it with: pip install bigfoot[redis]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -639,7 +640,7 @@ class _RedisProxy:
         return getattr(plugin, name)
 
 
-redis_mock = _RedisProxy()
+redis = _RedisProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -660,7 +661,7 @@ class _FileIoProxy:
         return getattr(plugin, name)
 
 
-file_io_mock = _FileIoProxy()
+file_io = _FileIoProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -681,7 +682,7 @@ class _NativeProxy:
         return getattr(plugin, name)
 
 
-native_mock = _NativeProxy()
+native = _NativeProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -701,7 +702,7 @@ class _PikaProxy:
 
         if not _PIKA_AVAILABLE:
             raise ImportError(
-                "bigfoot[pika] is required to use bigfoot.pika_mock. "
+                "bigfoot[pika] is required to use bigfoot.pika. "
                 "Install it with: pip install bigfoot[pika]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -709,7 +710,7 @@ class _PikaProxy:
         return getattr(plugin, name)
 
 
-pika_mock = _PikaProxy()
+pika = _PikaProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -729,7 +730,7 @@ class _SshProxy:
 
         if not _PARAMIKO_AVAILABLE:
             raise ImportError(
-                "bigfoot[ssh] is required to use bigfoot.ssh_mock. "
+                "bigfoot[ssh] is required to use bigfoot.ssh. "
                 "Install it with: pip install bigfoot[ssh]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -737,7 +738,7 @@ class _SshProxy:
         return getattr(plugin, name)
 
 
-ssh_mock = _SshProxy()
+ssh = _SshProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -757,7 +758,7 @@ class _GrpcProxy:
 
         if not _GRPC_AVAILABLE:
             raise ImportError(
-                "bigfoot[grpc] is required to use bigfoot.grpc_mock. "
+                "bigfoot[grpc] is required to use bigfoot.grpc. "
                 "Install it with: pip install bigfoot[grpc]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -765,7 +766,7 @@ class _GrpcProxy:
         return getattr(plugin, name)
 
 
-grpc_mock = _GrpcProxy()
+grpc = _GrpcProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -785,7 +786,7 @@ class _McpProxy:
 
         if not _MCP_AVAILABLE:
             raise ImportError(
-                "bigfoot[mcp] is required to use bigfoot.mcp_mock. "
+                "bigfoot[mcp] is required to use bigfoot.mcp. "
                 "Install it with: pip install bigfoot[mcp]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -793,7 +794,7 @@ class _McpProxy:
         return getattr(plugin, name)
 
 
-mcp_mock = _McpProxy()
+mcp = _McpProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -813,7 +814,7 @@ class _MongoProxy:
 
         if not _PYMONGO_AVAILABLE:
             raise ImportError(
-                "bigfoot[mongo] is required to use bigfoot.mongo_mock. "
+                "bigfoot[mongo] is required to use bigfoot.mongo. "
                 "Install it with: pip install bigfoot[mongo]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -821,7 +822,7 @@ class _MongoProxy:
         return getattr(plugin, name)
 
 
-mongo_mock = _MongoProxy()
+mongo = _MongoProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -842,7 +843,7 @@ class _DnsProxy:
         return getattr(plugin, name)
 
 
-dns_mock = _DnsProxy()
+dns = _DnsProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -862,7 +863,7 @@ class _MemcacheProxy:
 
         if not _PYMEMCACHE_AVAILABLE:
             raise ImportError(
-                "bigfoot[pymemcache] is required to use bigfoot.memcache_mock. "
+                "bigfoot[pymemcache] is required to use bigfoot.memcache. "
                 "Install it with: pip install bigfoot[pymemcache]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -870,7 +871,7 @@ class _MemcacheProxy:
         return getattr(plugin, name)
 
 
-memcache_mock = _MemcacheProxy()
+memcache = _MemcacheProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -890,7 +891,7 @@ class _CeleryProxy:
 
         if not _CELERY_AVAILABLE:
             raise ImportError(
-                "bigfoot[celery] is required to use bigfoot.celery_mock. "
+                "bigfoot[celery] is required to use bigfoot.celery. "
                 "Install it with: pip install bigfoot[celery]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -898,7 +899,7 @@ class _CeleryProxy:
         return getattr(plugin, name)
 
 
-celery_mock = _CeleryProxy()
+celery = _CeleryProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -918,7 +919,7 @@ class _LoggingProxy:
         return getattr(plugin, name)
 
 
-log_mock = _LoggingProxy()
+log = _LoggingProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -938,7 +939,7 @@ class _Psycopg2Proxy:
 
         if not _PSYCOPG2_AVAILABLE:
             raise ImportError(
-                "bigfoot[psycopg2] is required to use bigfoot.psycopg2_mock. "
+                "bigfoot[psycopg2] is required to use bigfoot.psycopg2. "
                 "Install it with: pip install bigfoot[psycopg2]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -946,7 +947,7 @@ class _Psycopg2Proxy:
         return getattr(plugin, name)
 
 
-psycopg2_mock = _Psycopg2Proxy()
+psycopg2 = _Psycopg2Proxy()
 
 
 # ---------------------------------------------------------------------------
@@ -966,7 +967,7 @@ class _AsyncpgProxy:
 
         if not _ASYNCPG_AVAILABLE:
             raise ImportError(
-                "bigfoot[asyncpg] is required to use bigfoot.asyncpg_mock. "
+                "bigfoot[asyncpg] is required to use bigfoot.asyncpg. "
                 "Install it with: pip install bigfoot[asyncpg]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -974,7 +975,7 @@ class _AsyncpgProxy:
         return getattr(plugin, name)
 
 
-asyncpg_mock = _AsyncpgProxy()
+asyncpg = _AsyncpgProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -994,7 +995,7 @@ class _Boto3Proxy:
 
         if not _BOTO3_AVAILABLE:
             raise ImportError(
-                "bigfoot[boto3] is required to use bigfoot.boto3_mock. "
+                "bigfoot[boto3] is required to use bigfoot.boto3. "
                 "Install it with: pip install bigfoot[boto3]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -1002,7 +1003,7 @@ class _Boto3Proxy:
         return getattr(plugin, name)
 
 
-boto3_mock = _Boto3Proxy()
+boto3 = _Boto3Proxy()
 
 
 # ---------------------------------------------------------------------------
@@ -1022,7 +1023,7 @@ class _ElasticsearchProxy:
 
         if not _ELASTICSEARCH_AVAILABLE:
             raise ImportError(
-                "bigfoot[elasticsearch] is required to use bigfoot.elasticsearch_mock. "
+                "bigfoot[elasticsearch] is required to use bigfoot.elasticsearch. "
                 "Install it with: pip install bigfoot[elasticsearch]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -1030,7 +1031,7 @@ class _ElasticsearchProxy:
         return getattr(plugin, name)
 
 
-elasticsearch_mock = _ElasticsearchProxy()
+elasticsearch = _ElasticsearchProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -1050,7 +1051,7 @@ class _JwtProxy:
 
         if not _JWT_AVAILABLE:
             raise ImportError(
-                "bigfoot[jwt] is required to use bigfoot.jwt_mock. "
+                "bigfoot[jwt] is required to use bigfoot.jwt. "
                 "Install it with: pip install bigfoot[jwt]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -1058,7 +1059,7 @@ class _JwtProxy:
         return getattr(plugin, name)
 
 
-jwt_mock = _JwtProxy()
+jwt = _JwtProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -1078,7 +1079,7 @@ class _CryptoProxy:
 
         if not _CRYPTOGRAPHY_AVAILABLE:
             raise ImportError(
-                "bigfoot[crypto] is required to use bigfoot.crypto_mock. "
+                "bigfoot[crypto] is required to use bigfoot.crypto. "
                 "Install it with: pip install bigfoot[crypto]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -1086,7 +1087,7 @@ class _CryptoProxy:
         return getattr(plugin, name)
 
 
-crypto_mock = _CryptoProxy()
+crypto = _CryptoProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -1106,7 +1107,70 @@ class _AsyncSubprocessProxy:
         return getattr(plugin, name)
 
 
-async_subprocess_mock = _AsyncSubprocessProxy()
+async_subprocess = _AsyncSubprocessProxy()
+
+
+# ---------------------------------------------------------------------------
+# Deprecated ``_mock`` aliases (backward compatibility, scheduled for removal)
+# ---------------------------------------------------------------------------
+# The canonical public names for plugin proxies are un-suffixed (e.g.
+# ``bigfoot.subprocess``, ``bigfoot.db``, ``bigfoot.redis``). The ``_mock``
+# suffixed names below are retained as deprecated aliases so existing user code
+# keeps working during the transition. Each access emits a DeprecationWarning
+# (first access per alias per process) pointing at the new name. All first-party
+# code, tests, docs, and examples have been migrated off these aliases; they
+# exist solely for external backward compatibility and will be removed in a
+# future release.
+
+_DEPRECATED_PROXY_ALIASES: dict[str, str] = {
+    "subprocess_mock": "subprocess",
+    "popen_mock": "popen",
+    "smtp_mock": "smtp",
+    "socket_mock": "socket",
+    "db_mock": "db",
+    "async_websocket_mock": "async_websocket",
+    "sync_websocket_mock": "sync_websocket",
+    "redis_mock": "redis",
+    "mongo_mock": "mongo",
+    "dns_mock": "dns",
+    "memcache_mock": "memcache",
+    "celery_mock": "celery",
+    "log_mock": "log",
+    "async_subprocess_mock": "async_subprocess",
+    "psycopg2_mock": "psycopg2",
+    "asyncpg_mock": "asyncpg",
+    "boto3_mock": "boto3",
+    "elasticsearch_mock": "elasticsearch",
+    "jwt_mock": "jwt",
+    "crypto_mock": "crypto",
+    "file_io_mock": "file_io",
+    "pika_mock": "pika",
+    "ssh_mock": "ssh",
+    "grpc_mock": "grpc",
+    "mcp_mock": "mcp",
+    "native_mock": "native",
+}
+
+_warned_aliases: set[str] = set()
+
+
+def __getattr__(name: str) -> Any:
+    """Module-level attribute lookup hook (PEP 562).
+
+    Resolves deprecated ``_mock`` aliases to their canonical un-suffixed proxy
+    singletons and emits a ``DeprecationWarning`` on first access per alias.
+    """
+    target = _DEPRECATED_PROXY_ALIASES.get(name)
+    if target is not None:
+        if name not in _warned_aliases:
+            _warned_aliases.add(name)
+            warnings.warn(
+                f"bigfoot.{name} is deprecated; use bigfoot.{target} instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        return globals()[target]
+    raise AttributeError(f"module 'bigfoot' has no attribute {name!r}")
 
 
 # ---------------------------------------------------------------------------

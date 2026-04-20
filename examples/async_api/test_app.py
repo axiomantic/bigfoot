@@ -17,7 +17,7 @@ async def test_sync_user_data_fetches_and_stores():
     )
 
     # Script the asyncpg session
-    bigfoot.asyncpg_mock.new_session() \
+    bigfoot.asyncpg.new_session() \
         .expect("connect", returns=None) \
         .expect("execute", returns="INSERT 0 1") \
         .expect("fetchrow", returns={"id": 1, "name": "Alice", "email": "alice@example.com"}) \
@@ -43,16 +43,16 @@ async def test_sync_user_data_fetches_and_stores():
     )
 
     # Assert the log message
-    bigfoot.log_mock.assert_info("Fetched user 1 from API", "sync_api")
+    bigfoot.log.assert_info("Fetched user 1 from API", "sync_api")
 
     # Assert the database interactions
-    bigfoot.asyncpg_mock.assert_connect(dsn="postgresql://localhost/app")
-    bigfoot.asyncpg_mock.assert_execute(
+    bigfoot.asyncpg.assert_connect(dsn="postgresql://localhost/app")
+    bigfoot.asyncpg.assert_execute(
         query="INSERT INTO users (id, name, email) VALUES ($1, $2, $3)",
         args=[1, "Alice", "alice@example.com"],
     )
-    bigfoot.asyncpg_mock.assert_fetchrow(
+    bigfoot.asyncpg.assert_fetchrow(
         query="SELECT * FROM users WHERE id = $1",
         args=[1],
     )
-    bigfoot.asyncpg_mock.assert_close()
+    bigfoot.asyncpg.assert_close()

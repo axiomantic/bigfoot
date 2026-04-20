@@ -1,4 +1,4 @@
-"""Test save_user using bigfoot db_mock."""
+"""Test save_user using bigfoot db."""
 
 import bigfoot
 
@@ -6,7 +6,7 @@ from .app import save_user
 
 
 def test_save_user():
-    (bigfoot.db_mock
+    (bigfoot.db
         .new_session()
         .expect("connect",  returns=None)
         .expect("execute",  returns=[])
@@ -16,10 +16,10 @@ def test_save_user():
     with bigfoot:
         save_user("Alice", "alice@example.com")
 
-    bigfoot.db_mock.assert_connect(database="app.db")
-    bigfoot.db_mock.assert_execute(
+    bigfoot.db.assert_connect(database="app.db")
+    bigfoot.db.assert_execute(
         sql="INSERT INTO users (name, email) VALUES (?, ?)",
         parameters=("Alice", "alice@example.com"),
     )
-    bigfoot.db_mock.assert_commit()
-    bigfoot.db_mock.assert_close()
+    bigfoot.db.assert_commit()
+    bigfoot.db.assert_close()

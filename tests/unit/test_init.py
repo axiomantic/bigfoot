@@ -83,38 +83,38 @@ def test_all_contains_expected_names() -> None:
         "current_verifier",
         "spy",
         "http",
-        "subprocess_mock",
-        "popen_mock",
-        "smtp_mock",
-        "socket_mock",
-        "db_mock",
-        "async_websocket_mock",
-        "sync_websocket_mock",
-        "redis_mock",
-        "mongo_mock",
-        "dns_mock",
-        "memcache_mock",
-        "celery_mock",
-        "log_mock",
-        "async_subprocess_mock",
-        "psycopg2_mock",
-        "asyncpg_mock",
-        "boto3_mock",
-        "elasticsearch_mock",
-        "jwt_mock",
-        "crypto_mock",
+        "subprocess",
+        "popen",
+        "smtp",
+        "socket",
+        "db",
+        "async_websocket",
+        "sync_websocket",
+        "redis",
+        "mongo",
+        "dns",
+        "memcache",
+        "celery",
+        "log",
+        "async_subprocess",
+        "psycopg2",
+        "asyncpg",
+        "boto3",
+        "elasticsearch",
+        "jwt",
+        "crypto",
         "FileIoPlugin",
-        "file_io_mock",
+        "file_io",
         "PikaPlugin",
-        "pika_mock",
+        "pika",
         "SshPlugin",
-        "ssh_mock",
+        "ssh",
         "GrpcPlugin",
-        "grpc_mock",
+        "grpc",
         "McpPlugin",
-        "mcp_mock",
+        "mcp",
         "NativePlugin",
-        "native_mock",
+        "native",
     }
     assert set(bigfoot.__all__) == expected_all
 
@@ -375,13 +375,13 @@ def test_mock_accepts_path_parameter() -> None:
     assert "path" in sig.parameters
 
 
-def test_async_websocket_mock_raises_import_error_when_websockets_unavailable(
+def test_async_websocket_raises_import_error_when_websockets_unavailable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """async_websocket_mock.__getattr__ raises ImportError with install instructions when websockets is not installed.
+    """async_websocket.__getattr__ raises ImportError with install instructions when websockets is not installed.
 
-    ESCAPE: async_websocket_mock
-      CLAIM: Accessing any attribute on async_websocket_mock raises ImportError with
+    ESCAPE: async_websocket
+      CLAIM: Accessing any attribute on async_websocket raises ImportError with
              instructions when bigfoot.plugins.websocket_plugin._WEBSOCKETS_AVAILABLE is False.
       PATH:  _AsyncWebSocketProxy.__getattr__ -> checks _WEBSOCKETS_AVAILABLE -> raises ImportError.
       CHECK: Raises ImportError with message containing "bigfoot[websockets]" and "pip install".
@@ -396,7 +396,7 @@ def test_async_websocket_mock_raises_import_error_when_websockets_unavailable(
     monkeypatch.setattr(ws_mod, "_WEBSOCKETS_AVAILABLE", False)
 
     with pytest.raises(ImportError) as exc_info:
-        _ = bigfoot.async_websocket_mock.new_session  # noqa: B018
+        _ = bigfoot.async_websocket.new_session  # noqa: B018
 
     assert "bigfoot[websockets]" in str(exc_info.value)
     assert "pip install" in str(exc_info.value)
@@ -489,13 +489,13 @@ def test_bigfoot_nested_sandboxes_via_with_bigfoot(bigfoot_verifier: object) -> 
             assert v1 is v2
 
 
-def test_sync_websocket_mock_raises_import_error_when_websocket_client_unavailable(
+def test_sync_websocket_raises_import_error_when_websocket_client_unavailable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """sync_websocket_mock.__getattr__ raises ImportError with install instructions when websocket-client is not installed.
+    """sync_websocket.__getattr__ raises ImportError with install instructions when websocket-client is not installed.
 
-    ESCAPE: sync_websocket_mock
-      CLAIM: Accessing any attribute on sync_websocket_mock raises ImportError with
+    ESCAPE: sync_websocket
+      CLAIM: Accessing any attribute on sync_websocket raises ImportError with
              instructions when bigfoot.plugins.websocket_plugin._WEBSOCKET_CLIENT_AVAILABLE is False.
       PATH:  _SyncWebSocketProxy.__getattr__ -> checks _WEBSOCKET_CLIENT_AVAILABLE -> raises ImportError.
       CHECK: Raises ImportError with message containing "bigfoot[websocket-client]" and "pip install".
@@ -510,7 +510,188 @@ def test_sync_websocket_mock_raises_import_error_when_websocket_client_unavailab
     monkeypatch.setattr(ws_mod, "_WEBSOCKET_CLIENT_AVAILABLE", False)
 
     with pytest.raises(ImportError) as exc_info:
-        _ = bigfoot.sync_websocket_mock.new_session  # noqa: B018
+        _ = bigfoot.sync_websocket.new_session  # noqa: B018
 
     assert "bigfoot[websocket-client]" in str(exc_info.value)
     assert "pip install" in str(exc_info.value)
+
+
+# ---------------------------------------------------------------------------
+# Deprecated ``_mock`` aliases
+# ---------------------------------------------------------------------------
+#
+# The 26 ``bigfoot.X_mock`` names are retained as deprecated aliases for the
+# canonical un-suffixed proxy singletons (e.g. ``bigfoot.subprocess``).
+# Accessing an alias must:
+#   1. return the SAME object as the canonical proxy (identity, not equality);
+#   2. emit a DeprecationWarning with a specific message on FIRST access only;
+#   3. NOT emit a second warning on subsequent access of the same alias.
+# Unknown attributes must still raise AttributeError with the standard message.
+#
+# We cover three representative aliases: ``subprocess_mock`` (always-available
+# core), ``redis_mock`` (optional extra), and ``async_websocket_mock``
+# (compound name). Exhaustive coverage of all 26 is unnecessary -- the
+# behavior is driven by the same ``__getattr__`` hook.
+
+
+@pytest.fixture
+def _clear_warned_aliases():  # type: ignore[no-untyped-def]
+    """Reset bigfoot's per-process ``_warned_aliases`` set so each test starts fresh.
+
+    ``__getattr__`` only emits a DeprecationWarning the first time a given alias
+    is accessed in a process. Other tests (or pytest collection itself) may have
+    already triggered the warning, so we clear the set before the test runs and
+    restore it afterwards.
+    """
+    import bigfoot
+
+    snapshot = set(bigfoot._warned_aliases)
+    bigfoot._warned_aliases.clear()
+    yield
+    bigfoot._warned_aliases.clear()
+    bigfoot._warned_aliases.update(snapshot)
+
+
+@pytest.mark.parametrize(
+    ("alias", "canonical"),
+    [
+        ("subprocess_mock", "subprocess"),
+        ("redis_mock", "redis"),
+        ("async_websocket_mock", "async_websocket"),
+    ],
+)
+def test_deprecated_alias_returns_canonical_object(
+    alias: str, canonical: str, _clear_warned_aliases: object
+) -> None:
+    """``bigfoot.<alias>`` returns the SAME object as ``bigfoot.<canonical>``.
+
+    ESCAPE: deprecated alias identity
+      CLAIM: Accessing the deprecated alias returns the identical proxy singleton
+             that the canonical name returns -- not a copy, not a wrapper.
+      PATH:  __getattr__ -> _DEPRECATED_PROXY_ALIASES.get(name) -> globals()[target].
+      CHECK: ``alias_obj is canonical_obj`` (identity).
+      MUTATION: A wrapper that delegates would pass equality but fail identity.
+      ESCAPE: Returning a freshly constructed proxy each call would also fail identity.
+    """
+    import bigfoot
+
+    canonical_obj = getattr(bigfoot, canonical)
+    with pytest.warns(DeprecationWarning):
+        alias_obj = getattr(bigfoot, alias)
+
+    assert alias_obj is canonical_obj
+
+
+@pytest.mark.parametrize(
+    ("alias", "canonical"),
+    [
+        ("subprocess_mock", "subprocess"),
+        ("redis_mock", "redis"),
+        ("async_websocket_mock", "async_websocket"),
+    ],
+)
+def test_deprecated_alias_emits_deprecation_warning_on_first_access(
+    alias: str, canonical: str, _clear_warned_aliases: object
+) -> None:
+    """First access of a deprecated alias emits a DeprecationWarning with exact text.
+
+    ESCAPE: deprecated alias warning message
+      CLAIM: First access emits a single DeprecationWarning whose message is
+             exactly ``"bigfoot.<alias> is deprecated; use bigfoot.<canonical> instead."``.
+      PATH:  __getattr__ -> warnings.warn(..., DeprecationWarning, stacklevel=2).
+      CHECK: Exactly one warning recorded; category is DeprecationWarning;
+             str(message) matches the exact expected text.
+      MUTATION: Wrong category (e.g., FutureWarning) fails the category check.
+                Wrong wording fails the exact string check.
+      ESCAPE: Issuing two warnings on first access would fail the count check.
+    """
+    import bigfoot
+
+    expected_message = f"bigfoot.{alias} is deprecated; use bigfoot.{canonical} instead."
+
+    with pytest.warns(DeprecationWarning) as record:
+        getattr(bigfoot, alias)
+
+    matching = [w for w in record if str(w.message) == expected_message]
+    assert len(matching) == 1, (
+        f"expected exactly one DeprecationWarning with message "
+        f"{expected_message!r}, got: {[str(w.message) for w in record]}"
+    )
+    assert matching[0].category is DeprecationWarning
+    assert matching[0].filename.endswith("test_init.py"), (
+        f"stacklevel should point to caller; got filename={matching[0].filename!r}"
+    )
+
+
+@pytest.mark.parametrize(
+    ("alias", "canonical"),
+    [
+        ("subprocess_mock", "subprocess"),
+        ("redis_mock", "redis"),
+        ("async_websocket_mock", "async_websocket"),
+    ],
+)
+def test_deprecated_alias_does_not_warn_on_second_access(
+    alias: str, canonical: str, _clear_warned_aliases: object
+) -> None:
+    """Second access of the SAME alias in the same process emits no further warning.
+
+    ESCAPE: alias warning is once-per-process
+      CLAIM: __getattr__ tracks already-warned aliases via ``_warned_aliases`` and
+             skips the ``warnings.warn`` call on subsequent access.
+      PATH:  __getattr__ -> if name in _warned_aliases: skip warn -> return target.
+      CHECK: After a first access (which emits the warning), a second access
+             produces zero matching DeprecationWarnings.
+      MUTATION: Removing the membership guard would emit the warning every access.
+      ESCAPE: Tracking the canonical name instead of the alias would let two
+              different aliases for the same target collide -- not what we test
+              here, but the matching message check still catches that mistake.
+    """
+    import warnings as _warnings
+
+    import bigfoot
+
+    expected_message = f"bigfoot.{alias} is deprecated; use bigfoot.{canonical} instead."
+
+    # Prime: trigger the first-access warning so the alias is registered in
+    # _warned_aliases. We don't assert on this warning here -- a separate test
+    # covers first-access semantics.
+    with _warnings.catch_warnings():
+        _warnings.simplefilter("ignore")
+        getattr(bigfoot, alias)
+
+    # Second access: must NOT emit any DeprecationWarning matching this alias.
+    with _warnings.catch_warnings(record=True) as record:
+        _warnings.simplefilter("always")
+        getattr(bigfoot, alias)
+
+    matching = [
+        w for w in record
+        if w.category is DeprecationWarning and str(w.message) == expected_message
+    ]
+    assert matching == [], (
+        f"second access of bigfoot.{alias} unexpectedly emitted DeprecationWarning(s): "
+        f"{[str(w.message) for w in matching]}"
+    )
+
+
+def test_unknown_attribute_raises_attribute_error(_clear_warned_aliases: object) -> None:
+    """Accessing an unknown attribute on bigfoot raises AttributeError.
+
+    ESCAPE: unknown attribute fallback
+      CLAIM: Names not in ``_DEPRECATED_PROXY_ALIASES`` and not defined as real
+             module globals raise AttributeError with the standard ``module
+             'bigfoot' has no attribute 'X'`` message.
+      PATH:  __getattr__ -> alias miss -> raise AttributeError(...).
+      CHECK: AttributeError raised; message exactly matches the standard form.
+      MUTATION: Returning ``None`` instead would fail the raises check.
+                Wrong message text would fail the equality check.
+      ESCAPE: Using ``hasattr`` instead of attribute access would swallow the error,
+              so we test attribute access directly.
+    """
+    import bigfoot
+
+    with pytest.raises(AttributeError) as exc_info:
+        _ = bigfoot.not_a_thing  # type: ignore[attr-defined] # noqa: B018
+
+    assert str(exc_info.value) == "module 'bigfoot' has no attribute 'not_a_thing'"

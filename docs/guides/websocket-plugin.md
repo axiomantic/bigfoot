@@ -35,7 +35,7 @@ The `connect` step fires during `websockets.connect().__aenter__()` (async) or `
 
 ## AsyncWebSocketPlugin
 
-**Proxy:** `bigfoot.async_websocket_mock`
+**Proxy:** `bigfoot.async_websocket`
 
 ### Setup
 
@@ -43,7 +43,7 @@ The `connect` step fires during `websockets.connect().__aenter__()` (async) or `
 import bigfoot
 
 async def test_ws_echo():
-    (bigfoot.async_websocket_mock
+    (bigfoot.async_websocket
         .new_session()
         .expect("connect", returns=None)
         .expect("send",    returns=None)
@@ -59,10 +59,10 @@ async def test_ws_echo():
 
     assert message == "pong"
 
-    bigfoot.async_websocket_mock.assert_connect(uri="ws://localhost:8765")
-    bigfoot.async_websocket_mock.assert_send(message="ping")
-    bigfoot.async_websocket_mock.assert_recv(message="pong")
-    bigfoot.async_websocket_mock.assert_close()
+    bigfoot.async_websocket.assert_connect(uri="ws://localhost:8765")
+    bigfoot.async_websocket.assert_send(message="ping")
+    bigfoot.async_websocket.assert_recv(message="pong")
+    bigfoot.async_websocket.assert_close()
 ```
 
 For manual use outside pytest:
@@ -87,13 +87,13 @@ Sessions are consumed in registration order:
 
 ```python
 async def test_two_ws_connections():
-    (bigfoot.async_websocket_mock
+    (bigfoot.async_websocket
         .new_session()
         .expect("connect", returns=None)
         .expect("recv",    returns="first")
         .expect("close",   returns=None))
 
-    (bigfoot.async_websocket_mock
+    (bigfoot.async_websocket
         .new_session()
         .expect("connect", returns=None)
         .expect("recv",    returns="second")
@@ -107,12 +107,12 @@ async def test_two_ws_connections():
                 assert await ws1.recv() == "first"
                 assert await ws2.recv() == "second"
 
-    bigfoot.async_websocket_mock.assert_connect(uri="ws://localhost:8765")
-    bigfoot.async_websocket_mock.assert_connect(uri="ws://localhost:8765")
-    bigfoot.async_websocket_mock.assert_recv(message="first")
-    bigfoot.async_websocket_mock.assert_recv(message="second")
-    bigfoot.async_websocket_mock.assert_close()
-    bigfoot.async_websocket_mock.assert_close()
+    bigfoot.async_websocket.assert_connect(uri="ws://localhost:8765")
+    bigfoot.async_websocket.assert_connect(uri="ws://localhost:8765")
+    bigfoot.async_websocket.assert_recv(message="first")
+    bigfoot.async_websocket.assert_recv(message="second")
+    bigfoot.async_websocket.assert_close()
+    bigfoot.async_websocket.assert_close()
 ```
 
 ### Assertion helpers
@@ -120,19 +120,19 @@ async def test_two_ws_connections():
 #### `assert_connect(*, uri)`
 
 ```python
-bigfoot.async_websocket_mock.assert_connect(uri="ws://localhost:8765")
+bigfoot.async_websocket.assert_connect(uri="ws://localhost:8765")
 ```
 
 #### `assert_send(*, message)`
 
 ```python
-bigfoot.async_websocket_mock.assert_send(message="hello")
+bigfoot.async_websocket.assert_send(message="hello")
 ```
 
 #### `assert_recv(*, message)`
 
 ```python
-bigfoot.async_websocket_mock.assert_recv(message="world")
+bigfoot.async_websocket.assert_recv(message="world")
 ```
 
 #### `assert_close()`
@@ -140,14 +140,14 @@ bigfoot.async_websocket_mock.assert_recv(message="world")
 No fields are required.
 
 ```python
-bigfoot.async_websocket_mock.assert_close()
+bigfoot.async_websocket.assert_close()
 ```
 
 ---
 
 ## SyncWebSocketPlugin
 
-**Proxy:** `bigfoot.sync_websocket_mock`
+**Proxy:** `bigfoot.sync_websocket`
 
 ### Setup
 
@@ -155,7 +155,7 @@ bigfoot.async_websocket_mock.assert_close()
 import bigfoot
 
 def test_sync_ws():
-    (bigfoot.sync_websocket_mock
+    (bigfoot.sync_websocket
         .new_session()
         .expect("connect", returns=None)
         .expect("send",    returns=None)
@@ -171,10 +171,10 @@ def test_sync_ws():
 
     assert message == "hello"
 
-    bigfoot.sync_websocket_mock.assert_connect(uri="ws://localhost:8765")
-    bigfoot.sync_websocket_mock.assert_send(message="hi")
-    bigfoot.sync_websocket_mock.assert_recv(message="hello")
-    bigfoot.sync_websocket_mock.assert_close()
+    bigfoot.sync_websocket.assert_connect(uri="ws://localhost:8765")
+    bigfoot.sync_websocket.assert_send(message="hi")
+    bigfoot.sync_websocket.assert_recv(message="hello")
+    bigfoot.sync_websocket.assert_close()
 ```
 
 For manual use outside pytest:
@@ -196,19 +196,19 @@ The `connect` step executes immediately inside `create_connection()` before the 
 #### `assert_connect(*, uri)`
 
 ```python
-bigfoot.sync_websocket_mock.assert_connect(uri="ws://localhost:8765")
+bigfoot.sync_websocket.assert_connect(uri="ws://localhost:8765")
 ```
 
 #### `assert_send(*, message)`
 
 ```python
-bigfoot.sync_websocket_mock.assert_send(message="hello")
+bigfoot.sync_websocket.assert_send(message="hello")
 ```
 
 #### `assert_recv(*, message)`
 
 ```python
-bigfoot.sync_websocket_mock.assert_recv(message="world")
+bigfoot.sync_websocket.assert_recv(message="world")
 ```
 
 #### `assert_close()`
@@ -216,7 +216,7 @@ bigfoot.sync_websocket_mock.assert_recv(message="world")
 No fields are required.
 
 ```python
-bigfoot.sync_websocket_mock.assert_close()
+bigfoot.sync_websocket.assert_close()
 ```
 
 ---

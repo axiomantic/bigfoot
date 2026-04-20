@@ -1,4 +1,4 @@
-"""Test MCP tool call using bigfoot mcp_mock."""
+"""Test MCP tool call using bigfoot mcp."""
 
 import pytest
 
@@ -11,7 +11,7 @@ from .app import fetch_weather
 async def test_fetch_weather():
     from mcp.client.session import ClientSession
 
-    bigfoot.mcp_mock.mock_call_tool(
+    bigfoot.mcp.mock_call_tool(
         "get_weather",
         returns={"content": [{"type": "text", "text": "Sunny, 72F"}]},
     )
@@ -22,7 +22,7 @@ async def test_fetch_weather():
 
     assert result == {"content": [{"type": "text", "text": "Sunny, 72F"}]}
 
-    bigfoot.mcp_mock.assert_call_tool(
+    bigfoot.mcp.assert_call_tool(
         "get_weather",
         arguments={"city": "San Francisco"},
         direction="client",

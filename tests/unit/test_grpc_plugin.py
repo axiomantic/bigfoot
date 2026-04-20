@@ -207,14 +207,14 @@ def test_reference_counting_nested() -> None:
 def test_unary_unary_basic_interception(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"response-data")
+    bigfoot.grpc.mock_unary_unary("/pkg.Svc/Do", returns=b"response-data")
     with bigfoot.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.unary_unary("/pkg.Svc/Do")
         result = stub(b"request-data")
 
     assert result == b"response-data"
-    bigfoot.grpc_mock.assert_unary_unary(
+    bigfoot.grpc.assert_unary_unary(
         method="/pkg.Svc/Do",
         request=b"request-data",
         metadata=None,
@@ -323,7 +323,7 @@ def test_get_unused_mocks_excludes_required_false() -> None:
 def test_missing_fields_raises_error(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"val")
+    bigfoot.grpc.mock_unary_unary("/pkg.Svc/Do", returns=b"val")
     with bigfoot.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.unary_unary("/pkg.Svc/Do")
@@ -340,7 +340,7 @@ def test_missing_fields_raises_error(bigfoot_verifier: StrictVerifier) -> None:
         )
 
     # Now assert correctly so teardown passes
-    bigfoot.grpc_mock.assert_unary_unary(
+    bigfoot.grpc.assert_unary_unary(
         method="/pkg.Svc/Do",
         request=b"req",
         metadata=None,
@@ -361,13 +361,13 @@ def test_missing_fields_raises_error(bigfoot_verifier: StrictVerifier) -> None:
 def test_assert_unary_unary_helper(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"ok")
+    bigfoot.grpc.mock_unary_unary("/pkg.Svc/Do", returns=b"ok")
     with bigfoot.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.unary_unary("/pkg.Svc/Do")
         stub(b"req")
 
-    bigfoot.grpc_mock.assert_unary_unary(
+    bigfoot.grpc.assert_unary_unary(
         method="/pkg.Svc/Do",
         request=b"req",
         metadata=None,
@@ -383,7 +383,7 @@ def test_assert_unary_unary_helper(bigfoot_verifier: StrictVerifier) -> None:
 def test_assert_unary_stream_helper(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.grpc_mock.mock_unary_stream("/pkg.Svc/ServerStream", returns=[b"r1", b"r2"])
+    bigfoot.grpc.mock_unary_stream("/pkg.Svc/ServerStream", returns=[b"r1", b"r2"])
     with bigfoot.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.unary_stream("/pkg.Svc/ServerStream")
@@ -391,7 +391,7 @@ def test_assert_unary_stream_helper(bigfoot_verifier: StrictVerifier) -> None:
         responses = list(response_iter)
 
     assert responses == [b"r1", b"r2"]
-    bigfoot.grpc_mock.assert_unary_stream(
+    bigfoot.grpc.assert_unary_stream(
         method="/pkg.Svc/ServerStream",
         request=b"req",
         metadata=None,
@@ -407,14 +407,14 @@ def test_assert_unary_stream_helper(bigfoot_verifier: StrictVerifier) -> None:
 def test_assert_stream_unary_helper(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.grpc_mock.mock_stream_unary("/pkg.Svc/ClientStream", returns=b"merged")
+    bigfoot.grpc.mock_stream_unary("/pkg.Svc/ClientStream", returns=b"merged")
     with bigfoot.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.stream_unary("/pkg.Svc/ClientStream")
         result = stub(iter([b"c1", b"c2"]))
 
     assert result == b"merged"
-    bigfoot.grpc_mock.assert_stream_unary(
+    bigfoot.grpc.assert_stream_unary(
         method="/pkg.Svc/ClientStream",
         request=[b"c1", b"c2"],
         metadata=None,
@@ -430,7 +430,7 @@ def test_assert_stream_unary_helper(bigfoot_verifier: StrictVerifier) -> None:
 def test_assert_stream_stream_helper(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.grpc_mock.mock_stream_stream("/pkg.Svc/Bidi", returns=[b"s1", b"s2"])
+    bigfoot.grpc.mock_stream_stream("/pkg.Svc/Bidi", returns=[b"s1", b"s2"])
     with bigfoot.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.stream_stream("/pkg.Svc/Bidi")
@@ -438,7 +438,7 @@ def test_assert_stream_stream_helper(bigfoot_verifier: StrictVerifier) -> None:
         responses = list(response_iter)
 
     assert responses == [b"s1", b"s2"]
-    bigfoot.grpc_mock.assert_stream_stream(
+    bigfoot.grpc.assert_stream_stream(
         method="/pkg.Svc/Bidi",
         request=[b"c1"],
         metadata=None,
@@ -459,20 +459,20 @@ def test_assert_stream_stream_helper(bigfoot_verifier: StrictVerifier) -> None:
 def test_assert_unary_unary_wrong_request_raises(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"ok")
+    bigfoot.grpc.mock_unary_unary("/pkg.Svc/Do", returns=b"ok")
     with bigfoot.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.unary_unary("/pkg.Svc/Do")
         stub(b"actual-request")
 
     with pytest.raises(InteractionMismatchError):
-        bigfoot.grpc_mock.assert_unary_unary(
+        bigfoot.grpc.assert_unary_unary(
             method="/pkg.Svc/Do",
             request=b"WRONG-request",
             metadata=None,
         )
     # Assert correctly so teardown passes
-    bigfoot.grpc_mock.assert_unary_unary(
+    bigfoot.grpc.assert_unary_unary(
         method="/pkg.Svc/Do",
         request=b"actual-request",
         metadata=None,
@@ -488,20 +488,20 @@ def test_assert_unary_unary_wrong_request_raises(bigfoot_verifier: StrictVerifie
 def test_assert_unary_unary_wrong_method_raises(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"ok")
+    bigfoot.grpc.mock_unary_unary("/pkg.Svc/Do", returns=b"ok")
     with bigfoot.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.unary_unary("/pkg.Svc/Do")
         stub(b"req")
 
     with pytest.raises(InteractionMismatchError):
-        bigfoot.grpc_mock.assert_unary_unary(
+        bigfoot.grpc.assert_unary_unary(
             method="/pkg.Svc/WRONG",
             request=b"req",
             metadata=None,
         )
     # Assert correctly
-    bigfoot.grpc_mock.assert_unary_unary(
+    bigfoot.grpc.assert_unary_unary(
         method="/pkg.Svc/Do",
         request=b"req",
         metadata=None,
@@ -544,7 +544,7 @@ def test_exception_propagation(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
     err = grpc.RpcError()
-    bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Fail", returns=None, raises=err)
+    bigfoot.grpc.mock_unary_unary("/pkg.Svc/Fail", returns=None, raises=err)
     with bigfoot.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.unary_unary("/pkg.Svc/Fail")
@@ -552,7 +552,7 @@ def test_exception_propagation(bigfoot_verifier: StrictVerifier) -> None:
             stub(b"req")
 
     assert exc_info.value is err
-    bigfoot.grpc_mock.assert_unary_unary(
+    bigfoot.grpc.assert_unary_unary(
         method="/pkg.Svc/Fail",
         request=b"req",
         metadata=None,
@@ -574,7 +574,7 @@ def test_exception_propagation(bigfoot_verifier: StrictVerifier) -> None:
 def test_server_streaming_returns_iterator(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.grpc_mock.mock_unary_stream("/pkg.Svc/Stream", returns=[b"a", b"b", b"c"])
+    bigfoot.grpc.mock_unary_stream("/pkg.Svc/Stream", returns=[b"a", b"b", b"c"])
     with bigfoot.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.unary_stream("/pkg.Svc/Stream")
@@ -582,7 +582,7 @@ def test_server_streaming_returns_iterator(bigfoot_verifier: StrictVerifier) -> 
         responses = list(response_iter)
 
     assert responses == [b"a", b"b", b"c"]
-    bigfoot.grpc_mock.assert_unary_stream(
+    bigfoot.grpc.assert_unary_stream(
         method="/pkg.Svc/Stream",
         request=b"req",
         metadata=None,
@@ -603,14 +603,14 @@ def test_server_streaming_returns_iterator(bigfoot_verifier: StrictVerifier) -> 
 def test_client_streaming_materializes_request(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.grpc_mock.mock_stream_unary("/pkg.Svc/Upload", returns=b"done")
+    bigfoot.grpc.mock_stream_unary("/pkg.Svc/Upload", returns=b"done")
     with bigfoot.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.stream_unary("/pkg.Svc/Upload")
         result = stub(iter([b"chunk1", b"chunk2", b"chunk3"]))
 
     assert result == b"done"
-    bigfoot.grpc_mock.assert_stream_unary(
+    bigfoot.grpc.assert_stream_unary(
         method="/pkg.Svc/Upload",
         request=[b"chunk1", b"chunk2", b"chunk3"],
         metadata=None,
@@ -631,7 +631,7 @@ def test_client_streaming_materializes_request(bigfoot_verifier: StrictVerifier)
 def test_bidi_streaming(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.grpc_mock.mock_stream_stream("/pkg.Svc/Chat", returns=[b"r1", b"r2"])
+    bigfoot.grpc.mock_stream_stream("/pkg.Svc/Chat", returns=[b"r1", b"r2"])
     with bigfoot.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.stream_stream("/pkg.Svc/Chat")
@@ -639,7 +639,7 @@ def test_bidi_streaming(bigfoot_verifier: StrictVerifier) -> None:
         responses = list(response_iter)
 
     assert responses == [b"r1", b"r2"]
-    bigfoot.grpc_mock.assert_stream_stream(
+    bigfoot.grpc.assert_stream_stream(
         method="/pkg.Svc/Chat",
         request=[b"c1", b"c2"],
         metadata=None,
@@ -660,7 +660,7 @@ def test_bidi_streaming(bigfoot_verifier: StrictVerifier) -> None:
 def test_empty_streams(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.grpc_mock.mock_stream_stream("/pkg.Svc/Empty", returns=[])
+    bigfoot.grpc.mock_stream_stream("/pkg.Svc/Empty", returns=[])
     with bigfoot.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.stream_stream("/pkg.Svc/Empty")
@@ -668,7 +668,7 @@ def test_empty_streams(bigfoot_verifier: StrictVerifier) -> None:
         responses = list(response_iter)
 
     assert responses == []
-    bigfoot.grpc_mock.assert_stream_stream(
+    bigfoot.grpc.assert_stream_stream(
         method="/pkg.Svc/Empty",
         request=[],
         metadata=None,
@@ -690,7 +690,7 @@ def test_mid_stream_error(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
     err = grpc.RpcError()
-    bigfoot.grpc_mock.mock_unary_stream("/pkg.Svc/PartialFail", returns=[b"p1", b"p2"], raises=err)
+    bigfoot.grpc.mock_unary_stream("/pkg.Svc/PartialFail", returns=[b"p1", b"p2"], raises=err)
     with bigfoot.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.unary_stream("/pkg.Svc/PartialFail")
@@ -702,7 +702,7 @@ def test_mid_stream_error(bigfoot_verifier: StrictVerifier) -> None:
 
     assert collected == [b"p1", b"p2"]
     assert exc_info.value is err
-    bigfoot.grpc_mock.assert_unary_stream(
+    bigfoot.grpc.assert_unary_stream(
         method="/pkg.Svc/PartialFail",
         request=b"req",
         metadata=None,
@@ -782,7 +782,7 @@ def test_mock_stream_iterator_empty_with_error() -> None:
 def test_grpc_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"ok")
+    bigfoot.grpc.mock_unary_unary("/pkg.Svc/Do", returns=b"ok")
     with bigfoot.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.unary_unary("/pkg.Svc/Do")
@@ -799,7 +799,7 @@ def test_grpc_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) -
         "metadata": None,
     }
     # Assert it so verify_all() at teardown succeeds
-    bigfoot.grpc_mock.assert_unary_unary(
+    bigfoot.grpc.assert_unary_unary(
         method="/pkg.Svc/Do",
         request=b"req",
         metadata=None,
@@ -820,8 +820,8 @@ def test_grpc_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) -
 def test_fifo_queue_ordering(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"first")
-    bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"second")
+    bigfoot.grpc.mock_unary_unary("/pkg.Svc/Do", returns=b"first")
+    bigfoot.grpc.mock_unary_unary("/pkg.Svc/Do", returns=b"second")
     with bigfoot.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.unary_unary("/pkg.Svc/Do")
@@ -830,12 +830,12 @@ def test_fifo_queue_ordering(bigfoot_verifier: StrictVerifier) -> None:
 
     assert r1 == b"first"
     assert r2 == b"second"
-    bigfoot.grpc_mock.assert_unary_unary(
+    bigfoot.grpc.assert_unary_unary(
         method="/pkg.Svc/Do",
         request=b"req1",
         metadata=None,
     )
-    bigfoot.grpc_mock.assert_unary_unary(
+    bigfoot.grpc.assert_unary_unary(
         method="/pkg.Svc/Do",
         request=b"req2",
         metadata=None,
@@ -851,7 +851,7 @@ def test_fifo_queue_ordering(bigfoot_verifier: StrictVerifier) -> None:
 def test_unmocked_after_queue_exhausted(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"only-one")
+    bigfoot.grpc.mock_unary_unary("/pkg.Svc/Do", returns=b"only-one")
     with bigfoot.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.unary_unary("/pkg.Svc/Do")
@@ -859,7 +859,7 @@ def test_unmocked_after_queue_exhausted(bigfoot_verifier: StrictVerifier) -> Non
         with pytest.raises(UnmockedInteractionError):
             stub(b"req2")
 
-    bigfoot.grpc_mock.assert_unary_unary(
+    bigfoot.grpc.assert_unary_unary(
         method="/pkg.Svc/Do",
         request=b"req1",
         metadata=None,
@@ -881,13 +881,13 @@ def test_metadata_passed_through(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
     meta = (("authorization", "Bearer token"),)
-    bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Auth", returns=b"ok")
+    bigfoot.grpc.mock_unary_unary("/pkg.Svc/Auth", returns=b"ok")
     with bigfoot.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.unary_unary("/pkg.Svc/Auth")
         stub(b"req", metadata=meta)
 
-    bigfoot.grpc_mock.assert_unary_unary(
+    bigfoot.grpc.assert_unary_unary(
         method="/pkg.Svc/Auth",
         request=b"req",
         metadata=(("authorization", "Bearer token"),),
@@ -908,7 +908,7 @@ def test_metadata_passed_through(bigfoot_verifier: StrictVerifier) -> None:
 def test_secure_channel_interception(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Secure", returns=b"secure-ok")
+    bigfoot.grpc.mock_unary_unary("/pkg.Svc/Secure", returns=b"secure-ok")
     with bigfoot.sandbox():
         creds = grpc.ssl_channel_credentials()
         channel = grpc.secure_channel("localhost:443", creds)
@@ -916,7 +916,7 @@ def test_secure_channel_interception(bigfoot_verifier: StrictVerifier) -> None:
         result = stub(b"req")
 
     assert result == b"secure-ok"
-    bigfoot.grpc_mock.assert_unary_unary(
+    bigfoot.grpc.assert_unary_unary(
         method="/pkg.Svc/Secure",
         request=b"req",
         metadata=None,
@@ -976,7 +976,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     assert p.format_mock_hint(interaction) == (
-        "    bigfoot.grpc_mock.mock_unary_unary('/pkg.Svc/Do', returns=...)"
+        "    bigfoot.grpc.mock_unary_unary('/pkg.Svc/Do', returns=...)"
     )
 
 
@@ -996,7 +996,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "grpc.unary_unary('/pkg.Svc/Do') was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    bigfoot.grpc_mock.mock_unary_unary('/pkg.Svc/Do', returns=...)"
+        "    bigfoot.grpc.mock_unary_unary('/pkg.Svc/Do', returns=...)"
     )
 
 
@@ -1022,7 +1022,7 @@ def test_format_assert_hint() -> None:
         plugin=p,
     )
     assert p.format_assert_hint(interaction) == (
-        "    bigfoot.grpc_mock.assert_unary_unary(\n"
+        "    bigfoot.grpc.assert_unary_unary(\n"
         "        method='/pkg.Svc/Do',\n"
         "        request=b'data',\n"
         "        metadata=None,\n"
@@ -1094,12 +1094,12 @@ def test_matches_field_comparison() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.grpc_mock
+# Module-level proxy: bigfoot.grpc
 # ---------------------------------------------------------------------------
 
 
 # ESCAPE: test_grpc_mock_proxy_works
-#   CLAIM: bigfoot.grpc_mock.mock_unary_unary() works when verifier is active.
+#   CLAIM: bigfoot.grpc.mock_unary_unary() works when verifier is active.
 #   PATH:  _GrpcProxy.__getattr__("mock_unary_unary") -> get verifier ->
 #          find/create GrpcPlugin -> return plugin.mock_unary_unary.
 #   CHECK: The proxy call does not raise and the mock is registered and consumed.
@@ -1108,14 +1108,14 @@ def test_matches_field_comparison() -> None:
 def test_grpc_mock_proxy_works(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Proxy", returns=b"proxy-ok")
+    bigfoot.grpc.mock_unary_unary("/pkg.Svc/Proxy", returns=b"proxy-ok")
     with bigfoot.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.unary_unary("/pkg.Svc/Proxy")
         result = stub(b"req")
 
     assert result == b"proxy-ok"
-    bigfoot.grpc_mock.assert_unary_unary(
+    bigfoot.grpc.assert_unary_unary(
         method="/pkg.Svc/Proxy",
         request=b"req",
         metadata=None,
@@ -1123,7 +1123,7 @@ def test_grpc_mock_proxy_works(bigfoot_verifier: StrictVerifier) -> None:
 
 
 # ESCAPE: test_grpc_mock_proxy_raises_outside_context
-#   CLAIM: Accessing grpc_mock outside a test context raises NoActiveVerifierError.
+#   CLAIM: Accessing grpc outside a test context raises NoActiveVerifierError.
 #   PATH:  _GrpcProxy.__getattr__() -> _get_test_verifier_or_raise() -> raises.
 #   CHECK: The appropriate error is raised.
 #   MUTATION: Not checking for active verifier allows access.
@@ -1136,7 +1136,7 @@ def test_grpc_mock_proxy_raises_outside_context() -> None:
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"val")
+            bigfoot.grpc.mock_unary_unary("/pkg.Svc/Do", returns=b"val")
     finally:
         _current_test_verifier.reset(token)
 
@@ -1147,7 +1147,7 @@ def test_grpc_mock_proxy_raises_outside_context() -> None:
 
 
 # ESCAPE: test_grpc_plugin_in_all
-#   CLAIM: GrpcPlugin and grpc_mock are exported in bigfoot.__all__.
+#   CLAIM: GrpcPlugin and grpc are exported in bigfoot.__all__.
 #   PATH:  __init__.py __all__ list.
 #   CHECK: Both names are in __all__.
 #   MUTATION: Removing from __all__ fails the membership check.
@@ -1156,7 +1156,7 @@ def test_grpc_plugin_in_all() -> None:
     import bigfoot
 
     assert "GrpcPlugin" in bigfoot.__all__
-    assert "grpc_mock" in bigfoot.__all__
+    assert "grpc" in bigfoot.__all__
 
 
 # ---------------------------------------------------------------------------
@@ -1173,8 +1173,8 @@ def test_grpc_plugin_in_all() -> None:
 def test_separate_queues_per_call_type(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Multi", returns=b"unary-resp")
-    bigfoot.grpc_mock.mock_unary_stream("/pkg.Svc/Multi", returns=[b"stream-resp"])
+    bigfoot.grpc.mock_unary_unary("/pkg.Svc/Multi", returns=b"unary-resp")
+    bigfoot.grpc.mock_unary_stream("/pkg.Svc/Multi", returns=[b"stream-resp"])
     with bigfoot.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
 
@@ -1186,12 +1186,12 @@ def test_separate_queues_per_call_type(bigfoot_verifier: StrictVerifier) -> None
 
     assert r1 == b"unary-resp"
     assert r2 == [b"stream-resp"]
-    bigfoot.grpc_mock.assert_unary_unary(
+    bigfoot.grpc.assert_unary_unary(
         method="/pkg.Svc/Multi",
         request=b"req1",
         metadata=None,
     )
-    bigfoot.grpc_mock.assert_unary_stream(
+    bigfoot.grpc.assert_unary_stream(
         method="/pkg.Svc/Multi",
         request=b"req2",
         metadata=None,

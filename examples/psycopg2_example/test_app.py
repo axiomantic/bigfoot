@@ -1,4 +1,4 @@
-"""Test save_user using bigfoot psycopg2_mock."""
+"""Test save_user using bigfoot psycopg2."""
 
 import bigfoot
 
@@ -6,7 +6,7 @@ from .app import save_user
 
 
 def test_save_user():
-    (bigfoot.psycopg2_mock
+    (bigfoot.psycopg2
         .new_session()
         .expect("connect",  returns=None)
         .expect("execute",  returns=[])
@@ -16,10 +16,10 @@ def test_save_user():
     with bigfoot:
         save_user("Alice", "alice@example.com")
 
-    bigfoot.psycopg2_mock.assert_connect(host="localhost", dbname="app", user="app")
-    bigfoot.psycopg2_mock.assert_execute(
+    bigfoot.psycopg2.assert_connect(host="localhost", dbname="app", user="app")
+    bigfoot.psycopg2.assert_execute(
         sql="INSERT INTO users (name, email) VALUES (%s, %s)",
         parameters=("Alice", "alice@example.com"),
     )
-    bigfoot.psycopg2_mock.assert_commit()
-    bigfoot.psycopg2_mock.assert_close()
+    bigfoot.psycopg2.assert_commit()
+    bigfoot.psycopg2.assert_close()

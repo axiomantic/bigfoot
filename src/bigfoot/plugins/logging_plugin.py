@@ -133,7 +133,7 @@ class LoggingPlugin(BasePlugin):
     def install(self) -> None:
         """No-op. Called to ensure plugin is registered before sandbox entry.
 
-        Access to any attribute of log_mock triggers plugin creation via
+        Access to any attribute of log triggers plugin creation via
         _LoggingProxy.__getattr__. This method exists as a named no-op so
         tests that want the interceptor active without any mocks have an
         explicit API to call.
@@ -339,7 +339,7 @@ class LoggingPlugin(BasePlugin):
         message = interaction.details.get("message", "")
         logger_name = interaction.details.get("logger_name", "root")
         return (
-            f"    bigfoot.log_mock.mock_log("
+            f"    bigfoot.log.mock_log("
             f"{level!r}, {message!r}, logger_name={logger_name!r})"
         )
 
@@ -356,11 +356,11 @@ class LoggingPlugin(BasePlugin):
         return (
             f"logging.{level.lower()}({message!r}) was called.\n"
             f"Register it with:\n"
-            f"    bigfoot.log_mock.mock_log({level!r}, {message!r})"
+            f"    bigfoot.log.mock_log({level!r}, {message!r})"
         )
 
     def format_assert_hint(self, interaction: "Interaction") -> str:
-        lm = "bigfoot.log_mock"
+        lm = "bigfoot.log"
         level = interaction.details.get("level", "INFO")
         message = interaction.details.get("message", "")
         logger_name = interaction.details.get("logger_name", "root")

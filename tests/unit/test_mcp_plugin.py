@@ -161,14 +161,14 @@ async def test_client_call_tool_mock_and_assert(bigfoot_verifier: StrictVerifier
     import bigfoot
 
     mock_result = {"content": [{"type": "text", "text": "hello"}]}
-    bigfoot.mcp_mock.mock_call_tool("my_tool", returns=mock_result)
+    bigfoot.mcp.mock_call_tool("my_tool", returns=mock_result)
 
     with bigfoot.sandbox():
         session = object.__new__(ClientSession)
         result = await ClientSession.call_tool(session, "my_tool", {"arg1": "val1"})
 
     assert result == mock_result
-    bigfoot.mcp_mock.assert_call_tool(
+    bigfoot.mcp.assert_call_tool(
         "my_tool",
         arguments={"arg1": "val1"},
         direction="client",
@@ -188,14 +188,14 @@ async def test_client_read_resource_mock_and_assert(bigfoot_verifier: StrictVeri
     import bigfoot
 
     mock_result = {"contents": [{"uri": "file:///data.txt", "text": "content"}]}
-    bigfoot.mcp_mock.mock_read_resource("file:///data.txt", returns=mock_result)
+    bigfoot.mcp.mock_read_resource("file:///data.txt", returns=mock_result)
 
     with bigfoot.sandbox():
         session = object.__new__(ClientSession)
         result = await ClientSession.read_resource(session, "file:///data.txt")
 
     assert result == mock_result
-    bigfoot.mcp_mock.assert_read_resource(
+    bigfoot.mcp.assert_read_resource(
         "file:///data.txt",
         direction="client",
     )
@@ -214,14 +214,14 @@ async def test_client_get_prompt_mock_and_assert(bigfoot_verifier: StrictVerifie
     import bigfoot
 
     mock_result = {"messages": [{"role": "user", "content": "hello"}]}
-    bigfoot.mcp_mock.mock_get_prompt("greeting", returns=mock_result)
+    bigfoot.mcp.mock_get_prompt("greeting", returns=mock_result)
 
     with bigfoot.sandbox():
         session = object.__new__(ClientSession)
         result = await ClientSession.get_prompt(session, "greeting", {"name": "world"})
 
     assert result == mock_result
-    bigfoot.mcp_mock.assert_get_prompt(
+    bigfoot.mcp.assert_get_prompt(
         "greeting",
         arguments={"name": "world"},
         direction="client",
@@ -240,8 +240,8 @@ async def test_client_call_tool_fifo_ordering(bigfoot_verifier: StrictVerifier) 
 
     import bigfoot
 
-    bigfoot.mcp_mock.mock_call_tool("tool_a", returns={"seq": 1})
-    bigfoot.mcp_mock.mock_call_tool("tool_a", returns={"seq": 2})
+    bigfoot.mcp.mock_call_tool("tool_a", returns={"seq": 1})
+    bigfoot.mcp.mock_call_tool("tool_a", returns={"seq": 2})
 
     with bigfoot.sandbox():
         session = object.__new__(ClientSession)
@@ -251,8 +251,8 @@ async def test_client_call_tool_fifo_ordering(bigfoot_verifier: StrictVerifier) 
     assert first == {"seq": 1}
     assert second == {"seq": 2}
 
-    bigfoot.mcp_mock.assert_call_tool("tool_a", arguments={"x": "1"}, direction="client")
-    bigfoot.mcp_mock.assert_call_tool("tool_a", arguments={"x": "2"}, direction="client")
+    bigfoot.mcp.assert_call_tool("tool_a", arguments={"x": "1"}, direction="client")
+    bigfoot.mcp.assert_call_tool("tool_a", arguments={"x": "2"}, direction="client")
 
 
 # ---------------------------------------------------------------------------
@@ -267,7 +267,7 @@ async def test_unasserted_interaction_recorded(bigfoot_verifier: StrictVerifier)
 
     import bigfoot
 
-    bigfoot.mcp_mock.mock_call_tool("my_tool", returns={"ok": True})
+    bigfoot.mcp.mock_call_tool("my_tool", returns={"ok": True})
 
     with bigfoot.sandbox():
         session = object.__new__(ClientSession)
@@ -279,7 +279,7 @@ async def test_unasserted_interaction_recorded(bigfoot_verifier: StrictVerifier)
     assert unasserted[0].source_id == "mcp:client:call_tool:my_tool"
 
     # Clean up by asserting
-    bigfoot.mcp_mock.assert_call_tool("my_tool", arguments={"k": "v"}, direction="client")
+    bigfoot.mcp.assert_call_tool("my_tool", arguments={"k": "v"}, direction="client")
 
 
 # ---------------------------------------------------------------------------
@@ -370,17 +370,17 @@ async def test_assert_wrong_tool_name_raises(bigfoot_verifier: StrictVerifier) -
 
     import bigfoot
 
-    bigfoot.mcp_mock.mock_call_tool("real_tool", returns={"ok": True})
+    bigfoot.mcp.mock_call_tool("real_tool", returns={"ok": True})
 
     with bigfoot.sandbox():
         session = object.__new__(ClientSession)
         await ClientSession.call_tool(session, "real_tool", {"k": "v"})
 
     with pytest.raises(InteractionMismatchError):
-        bigfoot.mcp_mock.assert_call_tool("wrong_tool", arguments={"k": "v"}, direction="client")
+        bigfoot.mcp.assert_call_tool("wrong_tool", arguments={"k": "v"}, direction="client")
 
     # Clean up by asserting correctly
-    bigfoot.mcp_mock.assert_call_tool("real_tool", arguments={"k": "v"}, direction="client")
+    bigfoot.mcp.assert_call_tool("real_tool", arguments={"k": "v"}, direction="client")
 
 
 # ---------------------------------------------------------------------------
@@ -456,7 +456,7 @@ async def test_missing_assertion_fields_raises(bigfoot_verifier: StrictVerifier)
 
     import bigfoot
 
-    bigfoot.mcp_mock.mock_call_tool("my_tool", returns={"ok": True})
+    bigfoot.mcp.mock_call_tool("my_tool", returns={"ok": True})
 
     with bigfoot.sandbox():
         session = object.__new__(ClientSession)
@@ -467,7 +467,7 @@ async def test_missing_assertion_fields_raises(bigfoot_verifier: StrictVerifier)
         bigfoot.assert_interaction(sentinel, direction="client")
 
     # Clean up by asserting correctly
-    bigfoot.mcp_mock.assert_call_tool("my_tool", arguments={"k": "v"}, direction="client")
+    bigfoot.mcp.assert_call_tool("my_tool", arguments={"k": "v"}, direction="client")
 
 
 # ---------------------------------------------------------------------------
@@ -529,14 +529,14 @@ async def test_mock_call_tool_raises_exception(bigfoot_verifier: StrictVerifier)
     import bigfoot
 
     err = RuntimeError("boom")
-    bigfoot.mcp_mock.mock_call_tool("failing_tool", returns=None, raises=err)
+    bigfoot.mcp.mock_call_tool("failing_tool", returns=None, raises=err)
 
     with bigfoot.sandbox():
         session = object.__new__(ClientSession)
         with pytest.raises(RuntimeError, match="boom"):
             await ClientSession.call_tool(session, "failing_tool")
 
-    bigfoot.mcp_mock.assert_call_tool(
+    bigfoot.mcp.assert_call_tool(
         "failing_tool", arguments={}, direction="client",
         raised=err,
     )
@@ -636,7 +636,7 @@ def test_format_mock_hint_client_call_tool() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    bigfoot.mcp_mock.mock_call_tool('my_tool', returns=...)"
+    assert result == "    bigfoot.mcp.mock_call_tool('my_tool', returns=...)"
 
 
 def test_format_mock_hint_server_read_resource() -> None:
@@ -652,7 +652,7 @@ def test_format_mock_hint_server_read_resource() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    bigfoot.mcp_mock.mock_server_read_resource('file:///x.txt', returns=...)"
+    assert result == "    bigfoot.mcp.mock_server_read_resource('file:///x.txt', returns=...)"
 
 
 def test_format_unmocked_hint() -> None:
@@ -661,7 +661,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "mcp client call_tool('my_tool') was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    bigfoot.mcp_mock.mock_call_tool('my_tool', returns=...)"
+        "    bigfoot.mcp.mock_call_tool('my_tool', returns=...)"
     )
 
 
@@ -671,7 +671,7 @@ def test_format_unmocked_hint_server() -> None:
     assert result == (
         "mcp server call_tool('server_tool') was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    bigfoot.mcp_mock.mock_server_call_tool('server_tool', returns=...)"
+        "    bigfoot.mcp.mock_server_call_tool('server_tool', returns=...)"
     )
 
 
@@ -690,7 +690,7 @@ def test_format_assert_hint_call_tool() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    bigfoot.mcp_mock.assert_call_tool(\n"
+        "    bigfoot.mcp.assert_call_tool(\n"
         "        tool_name='my_tool',\n"
         "        arguments={'x': 1},\n"
         "        direction='client',\n"
@@ -712,7 +712,7 @@ def test_format_assert_hint_read_resource() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    bigfoot.mcp_mock.assert_read_resource(\n"
+        "    bigfoot.mcp.assert_read_resource(\n"
         "        uri='file:///x.txt',\n"
         "        direction='client',\n"
         "    )"
@@ -734,7 +734,7 @@ def test_format_assert_hint_get_prompt() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    bigfoot.mcp_mock.assert_get_prompt(\n"
+        "    bigfoot.mcp.assert_get_prompt(\n"
         "        prompt_name='greeting',\n"
         "        arguments={'name': 'world'},\n"
         "        direction='client',\n"
@@ -766,7 +766,7 @@ def test_sentinel_source_id() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.mcp_mock
+# Module-level proxy: bigfoot.mcp
 # ---------------------------------------------------------------------------
 
 
@@ -777,14 +777,14 @@ async def test_mcp_mock_proxy_mock_call_tool(bigfoot_verifier: StrictVerifier) -
 
     import bigfoot
 
-    bigfoot.mcp_mock.mock_call_tool("proxy_tool", returns={"proxied": True})
+    bigfoot.mcp.mock_call_tool("proxy_tool", returns={"proxied": True})
 
     with bigfoot.sandbox():
         session = object.__new__(ClientSession)
         result = await ClientSession.call_tool(session, "proxy_tool", {"a": "b"})
 
     assert result == {"proxied": True}
-    bigfoot.mcp_mock.assert_call_tool(
+    bigfoot.mcp.assert_call_tool(
         "proxy_tool", arguments={"a": "b"}, direction="client"
     )
 
@@ -796,7 +796,7 @@ def test_mcp_mock_proxy_raises_outside_context() -> None:
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.mcp_mock.mock_call_tool
+            _ = bigfoot.mcp.mock_call_tool
     finally:
         _current_test_verifier.reset(token)
 
@@ -811,7 +811,7 @@ def test_mcp_plugin_in_all() -> None:
     from bigfoot.plugins.mcp_plugin import McpPlugin as _McpPlugin
 
     assert bigfoot.McpPlugin is _McpPlugin
-    assert type(bigfoot.mcp_mock).__name__ == "_McpProxy"
+    assert type(bigfoot.mcp).__name__ == "_McpProxy"
 
 
 # ---------------------------------------------------------------------------
@@ -828,13 +828,13 @@ async def test_call_tool_none_arguments_become_empty_dict(
 
     import bigfoot
 
-    bigfoot.mcp_mock.mock_call_tool("tool_no_args", returns={"ok": True})
+    bigfoot.mcp.mock_call_tool("tool_no_args", returns={"ok": True})
 
     with bigfoot.sandbox():
         session = object.__new__(ClientSession)
         await ClientSession.call_tool(session, "tool_no_args")
 
-    bigfoot.mcp_mock.assert_call_tool(
+    bigfoot.mcp.assert_call_tool(
         "tool_no_args", arguments={}, direction="client"
     )
 
@@ -848,12 +848,12 @@ async def test_get_prompt_none_arguments_become_empty_dict(
 
     import bigfoot
 
-    bigfoot.mcp_mock.mock_get_prompt("my_prompt", returns={"messages": []})
+    bigfoot.mcp.mock_get_prompt("my_prompt", returns={"messages": []})
 
     with bigfoot.sandbox():
         session = object.__new__(ClientSession)
         await ClientSession.get_prompt(session, "my_prompt")
 
-    bigfoot.mcp_mock.assert_get_prompt(
+    bigfoot.mcp.assert_get_prompt(
         "my_prompt", arguments={}, direction="client"
     )

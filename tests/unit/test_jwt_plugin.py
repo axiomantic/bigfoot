@@ -389,7 +389,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    bigfoot.jwt_mock.mock_encode(returns=...)"
+    assert result == "    bigfoot.jwt.mock_encode(returns=...)"
 
 
 def test_format_unmocked_hint() -> None:
@@ -398,7 +398,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "jwt.encode(...) was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    bigfoot.jwt_mock.mock_encode(returns=...)"
+        "    bigfoot.jwt.mock_encode(returns=...)"
     )
 
 
@@ -413,7 +413,7 @@ def test_format_unused_mock_hint() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.jwt_mock
+# Module-level proxy: bigfoot.jwt
 # ---------------------------------------------------------------------------
 
 
@@ -422,13 +422,13 @@ def test_jwt_mock_proxy_mock_encode(bigfoot_verifier: StrictVerifier) -> None:
 
     import bigfoot
 
-    bigfoot.jwt_mock.mock_encode(returns="proxied_token")
+    bigfoot.jwt.mock_encode(returns="proxied_token")
 
     with bigfoot.sandbox():
         result = jwt_mod.encode({"sub": "1"}, "secret", algorithm="HS256")
 
     assert result == "proxied_token"
-    bigfoot.jwt_mock.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})
+    bigfoot.jwt.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})
 
 
 def test_jwt_mock_proxy_raises_outside_context() -> None:
@@ -438,7 +438,7 @@ def test_jwt_mock_proxy_raises_outside_context() -> None:
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.jwt_mock.mock_encode
+            _ = bigfoot.jwt.mock_encode
     finally:
         _current_test_verifier.reset(token)
 
@@ -453,7 +453,7 @@ def test_jwt_plugin_in_all() -> None:
     from bigfoot.plugins.jwt_plugin import JwtPlugin as _JwtPlugin
 
     assert bigfoot.JwtPlugin is _JwtPlugin
-    assert type(bigfoot.jwt_mock).__name__ == "_JwtProxy"
+    assert type(bigfoot.jwt).__name__ == "_JwtProxy"
 
 
 # ---------------------------------------------------------------------------
@@ -466,7 +466,7 @@ def test_jwt_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) ->
 
     import bigfoot
 
-    bigfoot.jwt_mock.mock_encode(returns="token")
+    bigfoot.jwt.mock_encode(returns="token")
     with bigfoot.sandbox():
         jwt_mod.encode({"sub": "1"}, "secret", algorithm="HS256")
 
@@ -474,7 +474,7 @@ def test_jwt_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) ->
     interactions = timeline.all_unasserted()
     assert len(interactions) == 1
     assert interactions[0].source_id == "jwt:encode"
-    bigfoot.jwt_mock.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})
+    bigfoot.jwt.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})
 
 
 def test_assert_encode_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
@@ -482,10 +482,10 @@ def test_assert_encode_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
 
     import bigfoot
 
-    bigfoot.jwt_mock.mock_encode(returns="token")
+    bigfoot.jwt.mock_encode(returns="token")
     with bigfoot.sandbox():
         jwt_mod.encode({"sub": "1"}, "secret", algorithm="HS256")
-    bigfoot.jwt_mock.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})
+    bigfoot.jwt.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})
 
 
 def test_assert_decode_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
@@ -493,10 +493,10 @@ def test_assert_decode_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
 
     import bigfoot
 
-    bigfoot.jwt_mock.mock_decode(returns={"sub": "1"})
+    bigfoot.jwt.mock_decode(returns={"sub": "1"})
     with bigfoot.sandbox():
         jwt_mod.decode("tok", "secret", algorithms=["HS256"])
-    bigfoot.jwt_mock.assert_decode(token="tok", algorithms=["HS256"], options=None)
+    bigfoot.jwt.assert_decode(token="tok", algorithms=["HS256"], options=None)
 
 
 def test_assert_encode_wrong_params_raises(bigfoot_verifier: StrictVerifier) -> None:
@@ -504,12 +504,12 @@ def test_assert_encode_wrong_params_raises(bigfoot_verifier: StrictVerifier) -> 
 
     import bigfoot
 
-    bigfoot.jwt_mock.mock_encode(returns="token")
+    bigfoot.jwt.mock_encode(returns="token")
     with bigfoot.sandbox():
         jwt_mod.encode({"sub": "1"}, "secret", algorithm="HS256")
     with pytest.raises(InteractionMismatchError):
-        bigfoot.jwt_mock.assert_encode(payload={"sub": "wrong"}, algorithm="HS256", extra_kwargs={})
-    bigfoot.jwt_mock.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})
+        bigfoot.jwt.assert_encode(payload={"sub": "wrong"}, algorithm="HS256", extra_kwargs={})
+    bigfoot.jwt.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})
 
 
 def test_missing_assertion_fields_raises(bigfoot_verifier: StrictVerifier) -> None:
@@ -517,7 +517,7 @@ def test_missing_assertion_fields_raises(bigfoot_verifier: StrictVerifier) -> No
 
     import bigfoot
 
-    bigfoot.jwt_mock.mock_encode(returns="token")
+    bigfoot.jwt.mock_encode(returns="token")
     with bigfoot.sandbox():
         jwt_mod.encode({"sub": "1"}, "secret", algorithm="HS256")
 
@@ -526,4 +526,4 @@ def test_missing_assertion_fields_raises(bigfoot_verifier: StrictVerifier) -> No
     sentinel = _JwtSentinel("encode")
     with pytest.raises(MissingAssertionFieldsError):
         bigfoot.assert_interaction(sentinel, payload={"sub": "1"})
-    bigfoot.jwt_mock.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})
+    bigfoot.jwt.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})

@@ -1,4 +1,4 @@
-"""Test process_order using bigfoot log_mock."""
+"""Test process_order using bigfoot log."""
 
 import bigfoot
 
@@ -11,6 +11,6 @@ def test_process_order():
 
     assert result == "success"
 
-    bigfoot.log_mock.assert_info("Processing order 42", "orders")
-    bigfoot.log_mock.assert_debug("Validating payment for order 42", "orders")
-    bigfoot.log_mock.assert_info("Order 42 completed", "orders")
+    bigfoot.log.assert_info("Processing order 42", "orders")
+    bigfoot.log.assert_debug("Validating payment for order 42", "orders")
+    bigfoot.log.assert_info("Order 42 completed", "orders")

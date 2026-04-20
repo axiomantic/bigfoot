@@ -327,14 +327,14 @@ async def test_connect_with_empty_queue_raises_unmocked() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.asyncpg_mock
+# Module-level proxy: bigfoot.asyncpg
 # ---------------------------------------------------------------------------
 
 
 def test_asyncpg_mock_proxy_new_session(bigfoot_verifier: StrictVerifier) -> None:
     from bigfoot._state_machine_plugin import SessionHandle
 
-    session = bigfoot.asyncpg_mock.new_session()
+    session = bigfoot.asyncpg.new_session()
     assert isinstance(session, SessionHandle)
     result = session.expect("execute", returns="", required=False)
     assert result is session
@@ -346,7 +346,7 @@ def test_asyncpg_mock_proxy_raises_outside_context() -> None:
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.asyncpg_mock.new_session
+            _ = bigfoot.asyncpg.new_session
     finally:
         _current_test_verifier.reset(token)
 

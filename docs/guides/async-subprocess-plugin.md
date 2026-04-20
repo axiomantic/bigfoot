@@ -8,14 +8,14 @@
 
 ## Setup
 
-In pytest, access `AsyncSubprocessPlugin` through the `bigfoot.async_subprocess_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `AsyncSubprocessPlugin` through the `bigfoot.async_subprocess` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
 import asyncio
 import bigfoot
 
 async def test_run_command():
-    (bigfoot.async_subprocess_mock
+    (bigfoot.async_subprocess
         .new_session()
         .expect("spawn",       returns=None)
         .expect("communicate", returns=(b"hello\n", b"", 0)))
@@ -27,8 +27,8 @@ async def test_run_command():
     assert stdout == b"hello\n"
     assert proc.returncode == 0
 
-    bigfoot.async_subprocess_mock.assert_spawn(command=["echo", "hello"], stdin=None)
-    bigfoot.async_subprocess_mock.assert_communicate(input=None)
+    bigfoot.async_subprocess.assert_spawn(command=["echo", "hello"], stdin=None)
+    bigfoot.async_subprocess.assert_communicate(input=None)
 ```
 
 For manual use outside pytest, construct `AsyncSubprocessPlugin` explicitly:
@@ -60,7 +60,7 @@ The `spawn` step fires automatically during `asyncio.create_subprocess_exec(...)
 Use `new_session()` to create a `SessionHandle` and chain `.expect()` calls to build the script:
 
 ```python
-(bigfoot.async_subprocess_mock
+(bigfoot.async_subprocess
     .new_session()
     .expect("spawn",       returns=None)
     .expect("communicate", returns=(b"output", b"errors", 0)))
@@ -85,7 +85,7 @@ Use `new_session()` to create a `SessionHandle` and chain `.expect()` calls to b
 
 ## Asserting interactions
 
-Each step records an interaction on the timeline. Use the typed assertion helpers on `bigfoot.async_subprocess_mock`:
+Each step records an interaction on the timeline. Use the typed assertion helpers on `bigfoot.async_subprocess`:
 
 ### `assert_spawn(*, command, stdin)`
 
@@ -93,10 +93,10 @@ Asserts the next spawn interaction. Both `command` and `stdin` are required fiel
 
 ```python
 # For exec:
-bigfoot.async_subprocess_mock.assert_spawn(command=["git", "status"], stdin=None)
+bigfoot.async_subprocess.assert_spawn(command=["git", "status"], stdin=None)
 
 # For shell:
-bigfoot.async_subprocess_mock.assert_spawn(command="ls -la | grep foo", stdin=None)
+bigfoot.async_subprocess.assert_spawn(command="ls -la | grep foo", stdin=None)
 ```
 
 ### `assert_communicate(*, input)`
@@ -104,7 +104,7 @@ bigfoot.async_subprocess_mock.assert_spawn(command="ls -la | grep foo", stdin=No
 Asserts the next communicate interaction. The `input` field is required.
 
 ```python
-bigfoot.async_subprocess_mock.assert_communicate(input=None)
+bigfoot.async_subprocess.assert_communicate(input=None)
 ```
 
 ### `assert_wait()`
@@ -112,7 +112,7 @@ bigfoot.async_subprocess_mock.assert_communicate(input=None)
 Asserts the next wait interaction. No fields are required.
 
 ```python
-bigfoot.async_subprocess_mock.assert_wait()
+bigfoot.async_subprocess.assert_wait()
 ```
 
 ## Full example

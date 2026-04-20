@@ -4,13 +4,13 @@
 
 ## Setup
 
-In pytest, access `DatabasePlugin` through the `bigfoot.db_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `DatabasePlugin` through the `bigfoot.db` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
 import bigfoot
 
 def test_select_users():
-    (bigfoot.db_mock
+    (bigfoot.db
         .new_session()
         .expect("connect",  returns=None)
         .expect("execute",  returns=[[1, "Alice"], [2, "Bob"]])
@@ -25,9 +25,9 @@ def test_select_users():
 
     assert rows == [[1, "Alice"], [2, "Bob"]]
 
-    bigfoot.db_mock.assert_connect(database=":memory:")
-    bigfoot.db_mock.assert_execute(sql="SELECT id, name FROM users", parameters=())
-    bigfoot.db_mock.assert_close()
+    bigfoot.db.assert_connect(database=":memory:")
+    bigfoot.db.assert_execute(sql="SELECT id, name FROM users", parameters=())
+    bigfoot.db.assert_close()
 ```
 
 For manual use outside pytest, construct `DatabasePlugin` explicitly:
@@ -60,7 +60,7 @@ in_transaction --close--> closed
 Use `new_session()` to create a `SessionHandle` and chain `.expect()` calls:
 
 ```python
-(bigfoot.db_mock
+(bigfoot.db
     .new_session()
     .expect("connect",  returns=None)
     .expect("execute",  returns=[["row1"], ["row2"]])
@@ -92,7 +92,7 @@ Use `new_session()` to create a `SessionHandle` and chain `.expect()` calls:
 The fake connection's `execute()` method returns a cursor proxy. The rows you specify in `returns=` are available through the standard cursor methods:
 
 ```python
-(bigfoot.db_mock
+(bigfoot.db
     .new_session()
     .expect("connect",  returns=None)
     .expect("execute",  returns=[[1, "Alice"], [2, "Bob"], [3, "Carol"]])
@@ -129,14 +129,14 @@ Both styles produce the same interactions on the timeline.
 
 ## Asserting interactions
 
-Each step records an interaction on the timeline. Use the typed assertion helpers on `bigfoot.db_mock`:
+Each step records an interaction on the timeline. Use the typed assertion helpers on `bigfoot.db`:
 
 ### `assert_connect(*, database)`
 
 Asserts the next connect interaction. The `database` field is required.
 
 ```python
-bigfoot.db_mock.assert_connect(database=":memory:")
+bigfoot.db.assert_connect(database=":memory:")
 ```
 
 ### `assert_execute(*, sql, parameters)`
@@ -144,7 +144,7 @@ bigfoot.db_mock.assert_connect(database=":memory:")
 Asserts the next execute interaction. Both `sql` and `parameters` are required.
 
 ```python
-bigfoot.db_mock.assert_execute(sql="INSERT INTO users (name) VALUES (?)", parameters=("Alice",))
+bigfoot.db.assert_execute(sql="INSERT INTO users (name) VALUES (?)", parameters=("Alice",))
 ```
 
 ### `assert_commit()`
@@ -152,7 +152,7 @@ bigfoot.db_mock.assert_execute(sql="INSERT INTO users (name) VALUES (?)", parame
 Asserts the next commit interaction. No fields are required.
 
 ```python
-bigfoot.db_mock.assert_commit()
+bigfoot.db.assert_commit()
 ```
 
 ### `assert_rollback()`
@@ -160,7 +160,7 @@ bigfoot.db_mock.assert_commit()
 Asserts the next rollback interaction. No fields are required.
 
 ```python
-bigfoot.db_mock.assert_rollback()
+bigfoot.db.assert_rollback()
 ```
 
 ### `assert_close()`
@@ -168,7 +168,7 @@ bigfoot.db_mock.assert_rollback()
 Asserts the next close interaction. No fields are required.
 
 ```python
-bigfoot.db_mock.assert_close()
+bigfoot.db.assert_close()
 ```
 
 ## Commit and rollback
@@ -177,7 +177,7 @@ Each `execute()` moves the connection into `in_transaction`. `commit()` and `rol
 
 ```python
 def test_commit_then_execute():
-    (bigfoot.db_mock
+    (bigfoot.db
         .new_session()
         .expect("connect",  returns=None)
         .expect("execute",  returns=[])
@@ -192,11 +192,11 @@ def test_commit_then_execute():
         conn.execute("INSERT INTO t VALUES (2)")
         conn.close()
 
-    bigfoot.db_mock.assert_connect(database=":memory:")
-    bigfoot.db_mock.assert_execute(sql="INSERT INTO t VALUES (1)", parameters=())
-    bigfoot.db_mock.assert_commit()
-    bigfoot.db_mock.assert_execute(sql="INSERT INTO t VALUES (2)", parameters=())
-    bigfoot.db_mock.assert_close()
+    bigfoot.db.assert_connect(database=":memory:")
+    bigfoot.db.assert_execute(sql="INSERT INTO t VALUES (1)", parameters=())
+    bigfoot.db.assert_commit()
+    bigfoot.db.assert_execute(sql="INSERT INTO t VALUES (2)", parameters=())
+    bigfoot.db.assert_close()
 ```
 
 Calling `commit()` from `connected` (before any `execute()`) raises `InvalidStateError`.

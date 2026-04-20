@@ -311,7 +311,7 @@ class SmtpPlugin(StateMachinePlugin):
     def format_mock_hint(self, interaction: Interaction) -> str:
         sid = interaction.source_id
         method = sid.split(":")[-1] if ":" in sid else sid
-        return f"    bigfoot.smtp_mock.new_session().expect({method!r}, returns=...)"
+        return f"    bigfoot.smtp.new_session().expect({method!r}, returns=...)"
 
     def format_unmocked_hint(
         self,
@@ -323,11 +323,11 @@ class SmtpPlugin(StateMachinePlugin):
         return (
             f"smtplib.SMTP.{method}(...) was called but no session was queued.\n"
             f"Register a session with:\n"
-            f"    bigfoot.smtp_mock.new_session().expect({method!r}, returns=...)"
+            f"    bigfoot.smtp.new_session().expect({method!r}, returns=...)"
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:
-        sm = "bigfoot.smtp_mock"
+        sm = "bigfoot.smtp"
         sid = interaction.source_id
         if sid == _SOURCE_CONNECT:
             host = interaction.details.get("host", "?")

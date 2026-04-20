@@ -412,7 +412,7 @@ class SshPlugin(StateMachinePlugin):
     def format_mock_hint(self, interaction: Interaction) -> str:
         sid = interaction.source_id
         method = sid.split(":")[-1] if ":" in sid else sid
-        return f"    bigfoot.ssh_mock.new_session().expect({method!r}, returns=...)"
+        return f"    bigfoot.ssh.new_session().expect({method!r}, returns=...)"
 
     def format_unmocked_hint(
         self,
@@ -424,11 +424,11 @@ class SshPlugin(StateMachinePlugin):
         return (
             f"paramiko.SSHClient.{method}(...) was called but no session was queued.\n"
             f"Register a session with:\n"
-            f"    bigfoot.ssh_mock.new_session().expect({method!r}, returns=...)"
+            f"    bigfoot.ssh.new_session().expect({method!r}, returns=...)"
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:
-        sm = "bigfoot.ssh_mock"
+        sm = "bigfoot.ssh"
         sid = interaction.source_id
         if sid == _SOURCE_CONNECT:
             hostname = interaction.details.get("hostname", "?")

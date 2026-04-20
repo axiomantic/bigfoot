@@ -281,7 +281,7 @@ class SocketPlugin(StateMachinePlugin):
     def format_mock_hint(self, interaction: Interaction) -> str:
         sid = interaction.source_id
         method = sid.split(":", 1)[-1] if ":" in sid else sid
-        return f"    bigfoot.socket_mock.new_session().expect({method!r}, returns=...)"
+        return f"    bigfoot.socket.new_session().expect({method!r}, returns=...)"
 
     def format_unmocked_hint(
         self,
@@ -293,11 +293,11 @@ class SocketPlugin(StateMachinePlugin):
         return (
             f"socket.socket.{method}(...) was called but no session was queued.\n"
             f"Register a session with:\n"
-            f"    bigfoot.socket_mock.new_session().expect({method!r}, returns=...)"
+            f"    bigfoot.socket.new_session().expect({method!r}, returns=...)"
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:
-        sm = "bigfoot.socket_mock"
+        sm = "bigfoot.socket"
         sid = interaction.source_id
         if sid == _SOURCE_CONNECT:
             host = interaction.details.get("host", "?")

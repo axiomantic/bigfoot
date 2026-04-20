@@ -708,7 +708,7 @@ class FileIoPlugin(BasePlugin):
         source_id = interaction.source_id
         operation = source_id.split(":", 1)[-1] if ":" in source_id else source_id
         path = interaction.details.get("path", interaction.details.get("src", "?"))
-        return f"    bigfoot.file_io_mock.mock_operation('{operation}', '{path}', returns=...)"
+        return f"    bigfoot.file_io.mock_operation('{operation}', '{path}', returns=...)"
 
     def format_unmocked_hint(
         self,
@@ -722,7 +722,7 @@ class FileIoPlugin(BasePlugin):
         return (
             f"{display}('{path}', ...) was called but no mock was registered.\n"
             f"Register a mock with:\n"
-            f"    bigfoot.file_io_mock.mock_operation('{operation}', '{path}', returns=...)"
+            f"    bigfoot.file_io.mock_operation('{operation}', '{path}', returns=...)"
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:
@@ -730,7 +730,7 @@ class FileIoPlugin(BasePlugin):
         operation = source_id.split(":", 1)[-1] if ":" in source_id else source_id
         helper = _OP_ASSERT_HELPER.get(operation, f"assert_{operation}")
 
-        lines = [f"    bigfoot.file_io_mock.{helper}("]
+        lines = [f"    bigfoot.file_io.{helper}("]
         for key, val in interaction.details.items():
             lines.append(f"        {key}={val!r},")
         lines.append("    )")

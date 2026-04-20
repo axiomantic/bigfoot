@@ -1,4 +1,4 @@
-"""Test chat_client using bigfoot sync_websocket_mock."""
+"""Test chat_client using bigfoot sync_websocket."""
 
 import bigfoot
 
@@ -6,7 +6,7 @@ from .app import chat_client
 
 
 def test_chat_client():
-    (bigfoot.sync_websocket_mock
+    (bigfoot.sync_websocket
         .new_session()
         .expect("connect", returns=None)
         .expect("send",    returns=None)
@@ -20,9 +20,9 @@ def test_chat_client():
 
     assert responses == ["echo: hello", "echo: world"]
 
-    bigfoot.sync_websocket_mock.assert_connect(uri="ws://chat.example.com/ws")
-    bigfoot.sync_websocket_mock.assert_send(message="hello")
-    bigfoot.sync_websocket_mock.assert_recv(message="echo: hello")
-    bigfoot.sync_websocket_mock.assert_send(message="world")
-    bigfoot.sync_websocket_mock.assert_recv(message="echo: world")
-    bigfoot.sync_websocket_mock.assert_close()
+    bigfoot.sync_websocket.assert_connect(uri="ws://chat.example.com/ws")
+    bigfoot.sync_websocket.assert_send(message="hello")
+    bigfoot.sync_websocket.assert_recv(message="echo: hello")
+    bigfoot.sync_websocket.assert_send(message="world")
+    bigfoot.sync_websocket.assert_recv(message="echo: world")
+    bigfoot.sync_websocket.assert_close()

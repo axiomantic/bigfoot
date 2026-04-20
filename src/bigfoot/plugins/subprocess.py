@@ -162,7 +162,7 @@ class SubprocessPlugin(BasePlugin):
     def install(self) -> None:
         """No-op. Called to ensure plugin is registered before sandbox entry.
 
-        Access to any attribute of subprocess_mock triggers plugin creation via
+        Access to any attribute of subprocess triggers plugin creation via
         _SubprocessProxy.__getattr__. This method exists as a named no-op so
         tests that want the bouncer active without any mocks have an explicit
         API to call.
@@ -469,7 +469,7 @@ class SubprocessPlugin(BasePlugin):
             rc = interaction.details.get("returncode", 0)
             stdout = interaction.details.get("stdout", "")
             stderr = interaction.details.get("stderr", "")
-            parts = [f"    bigfoot.subprocess_mock.mock_run({cmd!r}"]
+            parts = [f"    bigfoot.subprocess.mock_run({cmd!r}"]
             if rc != 0:
                 parts.append(f", returncode={rc!r}")
             if stdout:
@@ -481,7 +481,7 @@ class SubprocessPlugin(BasePlugin):
         if interaction.source_id == _SOURCE_WHICH:
             name = interaction.details.get("name", "?")
             returns = interaction.details.get("returns")
-            return f"    bigfoot.subprocess_mock.mock_which({name!r}, returns={returns!r})"
+            return f"    bigfoot.subprocess.mock_which({name!r}, returns={returns!r})"
         return f"    # unknown source_id={interaction.source_id!r}"
 
     def format_unmocked_hint(
@@ -495,19 +495,19 @@ class SubprocessPlugin(BasePlugin):
             return (
                 f"subprocess.run({list(cmd)!r}) was called but no mock was registered.\n"
                 f"Register it with:\n"
-                f"    bigfoot.subprocess_mock.mock_run({list(cmd)!r})"
+                f"    bigfoot.subprocess.mock_run({list(cmd)!r})"
             )
         if source_id == _SOURCE_WHICH:
             name = args[0] if args else kwargs.get("name", "?")
             return (
                 f"shutil.which({name!r}) was called but no mock was registered.\n"
                 f"Register it with:\n"
-                f"    bigfoot.subprocess_mock.mock_which({name!r}, returns='/path/to/{name}')"
+                f"    bigfoot.subprocess.mock_which({name!r}, returns='/path/to/{name}')"
             )
         return f"Unmocked call to source_id={source_id!r}"
 
     def format_assert_hint(self, interaction: "Interaction") -> str:
-        sm = "bigfoot.subprocess_mock"
+        sm = "bigfoot.subprocess"
         if interaction.source_id == _SOURCE_RUN:
             cmd = interaction.details.get("command", [])
             rc = interaction.details.get("returncode", 0)

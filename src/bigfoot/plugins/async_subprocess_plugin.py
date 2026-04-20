@@ -297,15 +297,15 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
 
     def format_mock_hint(self, interaction: Interaction) -> str:
         if interaction.source_id == _SOURCE_SPAWN:
-            return "    bigfoot.async_subprocess_mock.new_session().expect('spawn', returns=None)"
+            return "    bigfoot.async_subprocess.new_session().expect('spawn', returns=None)"
         if interaction.source_id == _SOURCE_COMMUNICATE:
             return (
-                "    bigfoot.async_subprocess_mock.new_session()"
+                "    bigfoot.async_subprocess.new_session()"
                 ".expect('communicate', returns=(b'', b'', 0))"
             )
         if interaction.source_id == _SOURCE_WAIT:
-            return "    bigfoot.async_subprocess_mock.new_session().expect('wait', returns=0)"
-        return "    bigfoot.async_subprocess_mock.new_session().expect('?', returns=...)"
+            return "    bigfoot.async_subprocess.new_session().expect('wait', returns=0)"
+        return "    bigfoot.async_subprocess.new_session().expect('?', returns=...)"
 
     def format_unmocked_hint(
         self,
@@ -317,11 +317,11 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
         return (
             f"asyncio.create_subprocess_{method}(...) was called but no session was queued.\n"
             f"Register a session with:\n"
-            f"    bigfoot.async_subprocess_mock.new_session().expect({method!r}, returns=...)"
+            f"    bigfoot.async_subprocess.new_session().expect({method!r}, returns=...)"
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:
-        pm = "bigfoot.async_subprocess_mock"
+        pm = "bigfoot.async_subprocess"
         sid = interaction.source_id
         if sid == _SOURCE_SPAWN:
             command = interaction.details.get("command", [])

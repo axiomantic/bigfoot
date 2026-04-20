@@ -408,7 +408,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    bigfoot.crypto_mock.mock_encrypt(returns=...)"
+    assert result == "    bigfoot.crypto.mock_encrypt(returns=...)"
 
 
 def test_format_unmocked_hint() -> None:
@@ -417,7 +417,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "crypto.fernet_encrypt(...) was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    bigfoot.crypto_mock.mock_encrypt(returns=...)"
+        "    bigfoot.crypto.mock_encrypt(returns=...)"
     )
 
 
@@ -432,7 +432,7 @@ def test_format_unused_mock_hint() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.crypto_mock
+# Module-level proxy: bigfoot.crypto
 # ---------------------------------------------------------------------------
 
 
@@ -441,14 +441,14 @@ def test_crypto_mock_proxy_mock_encrypt(bigfoot_verifier: StrictVerifier) -> Non
 
     import bigfoot
 
-    bigfoot.crypto_mock.mock_encrypt(returns=b"proxied_encrypted")
+    bigfoot.crypto.mock_encrypt(returns=b"proxied_encrypted")
 
     with bigfoot.sandbox():
         f = Fernet(Fernet.generate_key())
         result = f.encrypt(b"hello")
 
     assert result == b"proxied_encrypted"
-    bigfoot.crypto_mock.assert_encrypt(plaintext_length=5)
+    bigfoot.crypto.assert_encrypt(plaintext_length=5)
 
 
 def test_crypto_mock_proxy_raises_outside_context() -> None:
@@ -458,7 +458,7 @@ def test_crypto_mock_proxy_raises_outside_context() -> None:
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.crypto_mock.mock_encrypt
+            _ = bigfoot.crypto.mock_encrypt
     finally:
         _current_test_verifier.reset(token)
 
@@ -473,7 +473,7 @@ def test_crypto_plugin_in_all() -> None:
     from bigfoot.plugins.crypto_plugin import CryptoPlugin as _CryptoPlugin
 
     assert bigfoot.CryptoPlugin is _CryptoPlugin
-    assert type(bigfoot.crypto_mock).__name__ == "_CryptoProxy"
+    assert type(bigfoot.crypto).__name__ == "_CryptoProxy"
 
 
 # ---------------------------------------------------------------------------
@@ -486,7 +486,7 @@ def test_crypto_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier)
 
     import bigfoot
 
-    bigfoot.crypto_mock.mock_encrypt(returns=b"encrypted")
+    bigfoot.crypto.mock_encrypt(returns=b"encrypted")
     with bigfoot.sandbox():
         f = Fernet(Fernet.generate_key())
         f.encrypt(b"data")
@@ -495,7 +495,7 @@ def test_crypto_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier)
     interactions = timeline.all_unasserted()
     assert len(interactions) == 1
     assert interactions[0].source_id == "crypto:fernet_encrypt"
-    bigfoot.crypto_mock.assert_encrypt(plaintext_length=4)
+    bigfoot.crypto.assert_encrypt(plaintext_length=4)
 
 
 def test_assert_encrypt_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
@@ -503,11 +503,11 @@ def test_assert_encrypt_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
 
     import bigfoot
 
-    bigfoot.crypto_mock.mock_encrypt(returns=b"encrypted")
+    bigfoot.crypto.mock_encrypt(returns=b"encrypted")
     with bigfoot.sandbox():
         f = Fernet(Fernet.generate_key())
         f.encrypt(b"hello")
-    bigfoot.crypto_mock.assert_encrypt(plaintext_length=5)
+    bigfoot.crypto.assert_encrypt(plaintext_length=5)
 
 
 def test_assert_decrypt_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
@@ -515,23 +515,23 @@ def test_assert_decrypt_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
 
     import bigfoot
 
-    bigfoot.crypto_mock.mock_decrypt(returns=b"decrypted")
+    bigfoot.crypto.mock_decrypt(returns=b"decrypted")
     with bigfoot.sandbox():
         f = Fernet(Fernet.generate_key())
         f.decrypt(b"gAAAAABtoken")
-    bigfoot.crypto_mock.assert_decrypt(token=b"gAAAAABtoken", ttl=None)
+    bigfoot.crypto.assert_decrypt(token=b"gAAAAABtoken", ttl=None)
 
 
 def test_assert_generate_key_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
     mock_key = object()
-    bigfoot.crypto_mock.mock_generate_key(returns=mock_key)
+    bigfoot.crypto.mock_generate_key(returns=mock_key)
     with bigfoot.sandbox():
         from cryptography.hazmat.primitives.asymmetric import rsa
 
         rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    bigfoot.crypto_mock.assert_generate_key(algorithm="RSA", key_size=2048)
+    bigfoot.crypto.assert_generate_key(algorithm="RSA", key_size=2048)
 
 
 def test_assert_encrypt_wrong_params_raises(bigfoot_verifier: StrictVerifier) -> None:
@@ -539,20 +539,20 @@ def test_assert_encrypt_wrong_params_raises(bigfoot_verifier: StrictVerifier) ->
 
     import bigfoot
 
-    bigfoot.crypto_mock.mock_encrypt(returns=b"encrypted")
+    bigfoot.crypto.mock_encrypt(returns=b"encrypted")
     with bigfoot.sandbox():
         f = Fernet(Fernet.generate_key())
         f.encrypt(b"hello")
     with pytest.raises(InteractionMismatchError):
-        bigfoot.crypto_mock.assert_encrypt(plaintext_length=999)
-    bigfoot.crypto_mock.assert_encrypt(plaintext_length=5)
+        bigfoot.crypto.assert_encrypt(plaintext_length=999)
+    bigfoot.crypto.assert_encrypt(plaintext_length=5)
 
 
 def test_missing_assertion_fields_raises(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
     mock_key = object()
-    bigfoot.crypto_mock.mock_generate_key(returns=mock_key)
+    bigfoot.crypto.mock_generate_key(returns=mock_key)
     with bigfoot.sandbox():
         from cryptography.hazmat.primitives.asymmetric import rsa
 
@@ -563,4 +563,4 @@ def test_missing_assertion_fields_raises(bigfoot_verifier: StrictVerifier) -> No
     sentinel = _CryptoSentinel("generate_key")
     with pytest.raises(MissingAssertionFieldsError):
         bigfoot.assert_interaction(sentinel, algorithm="RSA")
-    bigfoot.crypto_mock.assert_generate_key(algorithm="RSA", key_size=2048)
+    bigfoot.crypto.assert_generate_key(algorithm="RSA", key_size=2048)

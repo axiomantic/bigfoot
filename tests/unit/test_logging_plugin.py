@@ -502,7 +502,7 @@ def test_format_assert_hint() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert "bigfoot.log_mock.assert_log" in result
+    assert "bigfoot.log.assert_log" in result
     assert "'INFO'" in result
     assert "'started'" in result
     assert "'myapp'" in result
@@ -517,7 +517,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert "bigfoot.log_mock.mock_log" in result
+    assert "bigfoot.log.mock_log" in result
     assert "'WARNING'" in result
     assert "'low memory'" in result
     assert "'system'" in result
@@ -534,7 +534,7 @@ def test_format_unused_mock_hint() -> None:
 def test_format_unmocked_hint() -> None:
     v, p = _make_verifier_with_plugin()
     result = p.format_unmocked_hint("logging:log", ("INFO", "hello"), {})
-    assert "bigfoot.log_mock.mock_log" in result
+    assert "bigfoot.log.mock_log" in result
 
 
 # ---------------------------------------------------------------------------
@@ -555,7 +555,7 @@ def test_conflict_error_logger_log_already_patched() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level API via bigfoot.log_mock proxy
+# Module-level API via bigfoot.log proxy
 # ---------------------------------------------------------------------------
 
 
@@ -565,7 +565,7 @@ def test_log_mock_proxy_in_sandbox(bigfoot_verifier: StrictVerifier) -> None:
     with bigfoot.sandbox():
         logger.info("via proxy")
 
-    bigfoot.log_mock.assert_info("via proxy", "test.proxy")
+    bigfoot.log.assert_info("via proxy", "test.proxy")
 
 
 def test_log_mock_proxy_raises_outside_context() -> None:
@@ -574,6 +574,6 @@ def test_log_mock_proxy_raises_outside_context() -> None:
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.log_mock.mock_log
+            _ = bigfoot.log.mock_log
     finally:
         _current_test_verifier.reset(token)
