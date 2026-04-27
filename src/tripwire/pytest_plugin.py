@@ -7,7 +7,12 @@ from collections.abc import Generator
 
 import pytest
 
-from tripwire._config import GuardLevels, _resolve_guard_levels, load_tripwire_config
+from tripwire._config import (
+    GuardLevels,
+    _resolve_guard_levels,
+    load_tripwire_config,
+    validate_top_level_schema,
+)
 from tripwire._context import (
     _current_test_verifier,
     _guard_active,
@@ -96,6 +101,7 @@ def _tripwire_guard_patches() -> Generator[None, None, None]:
     during fixture setup/teardown).
     """
     config = load_tripwire_config()
+    validate_top_level_schema(config)
     guard_levels = _resolve_guard_levels(config)
     # Skip patch installation only when ALL protocols are "off"
     # (i.e., default is "off" and no override raises any protocol back).
@@ -168,6 +174,7 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None, None, None]:
     installed (e.g., via sandbox activation within the test).
     """
     config = load_tripwire_config()
+    validate_top_level_schema(config)
     guard_levels = _resolve_guard_levels(config)
     # Skip guard activation only when ALL protocols are "off".
     if guard_levels.default == "off" and all(

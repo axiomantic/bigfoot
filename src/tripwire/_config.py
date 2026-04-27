@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import difflib
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -45,6 +46,78 @@ def load_tripwire_config(start: Path | None = None) -> dict[str, Any]:
 
 _VALID_LEVELS: Final[frozenset[str]] = frozenset({"warn", "error", "off"})
 _LEVEL_ALIASES: Final[Mapping[str, str]] = {"strict": "error"}
+
+
+# ---------------------------------------------------------------------------
+# Strict schema validation (C7)
+# ---------------------------------------------------------------------------
+
+# Scalar / table keys that may appear directly under [tool.tripwire] and are
+# not plugin sub-tables. Plugin sub-table names are added dynamically from
+# the registry by ``_allowed_top_level_keys``.
+_TOP_LEVEL_NON_PLUGIN_KEYS: Final[frozenset[str]] = frozenset(
+    {"guard", "firewall", "enabled_plugins", "disabled_plugins"}
+)
+
+
+def _allowed_top_level_keys() -> frozenset[str]:
+    """Return the closed schema of allowed [tool.tripwire] top-level keys.
+
+    Built from the union of fixed non-plugin keys and the registered plugin
+    names (each plugin may have a [tool.tripwire.<name>] sub-table). The
+    registry is the single source of truth — never hardcode the plugin list.
+    """
+    from tripwire._registry import VALID_PLUGIN_NAMES  # noqa: PLC0415
+
+    return _TOP_LEVEL_NON_PLUGIN_KEYS | VALID_PLUGIN_NAMES
+
+
+def _format_suggestion(unknown: str, candidates: frozenset[str]) -> str:
+    """Format a 'did you mean' hint via difflib.get_close_matches.
+
+    Returns an empty string when difflib finds no close matches. Uses
+    difflib's default cutoff (0.6).
+    """
+    matches = difflib.get_close_matches(unknown, sorted(candidates), n=3)
+    if not matches:
+        return ""
+    if len(matches) == 1:
+        return f" (did you mean: {matches[0]}?)"
+    return f" (did you mean: {', '.join(matches)}?)"
+
+
+# Legacy keys removed in 0.20.0 that need a tailored migration message
+# instead of the generic "unknown key" + difflib suggestion. Handled by
+# downstream code (e.g., pytest_plugin.py for ``guard_allow``); skipped
+# here so the specific message wins.
+_LEGACY_MIGRATED_KEYS: Final[frozenset[str]] = frozenset({"guard_allow"})
+
+
+def validate_top_level_schema(config: Mapping[str, Any]) -> None:
+    """Validate the top-level [tool.tripwire] table against the closed schema.
+
+    Raises :class:`TripwireConfigError` for any unknown key. The allowed-key
+    set is the union of the fixed non-plugin keys (``guard``, ``firewall``,
+    ``enabled_plugins``, ``disabled_plugins``) and every plugin name from
+    ``PLUGIN_REGISTRY``. Unknown keys produce ``difflib.get_close_matches``
+    typo suggestions when a close candidate exists.
+
+    This validator does NOT validate the contents of each sub-table — that
+    is each plugin's ``load_config`` responsibility. It only enforces that
+    the top-level keys themselves are recognised. Legacy keys with their
+    own migration message (see ``_LEGACY_MIGRATED_KEYS``) are skipped so
+    downstream code can emit the tailored message.
+    """
+    from tripwire._errors import TripwireConfigError  # noqa: PLC0415
+
+    allowed = _allowed_top_level_keys()
+    for key in config:
+        if key in allowed or key in _LEGACY_MIGRATED_KEYS:
+            continue
+        suggestion = _format_suggestion(key, allowed)
+        raise TripwireConfigError(
+            f"Unknown key {key!r} in [tool.tripwire].{suggestion}"
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,10 +193,19 @@ def _resolve_guard_levels(config: Mapping[str, Any]) -> GuardLevels:
                 f"Invalid value {default_raw!r} for [tool.tripwire.guard] default. "
                 f"Expected one of: {sorted(_VALID_LEVELS)}."
             )
+        from tripwire._registry import VALID_PLUGIN_NAMES  # noqa: PLC0415
+
         overrides: dict[str, str] = {}
         for key, value in raw.items():
             if key == "default":
                 continue
+            # C7: every override key must match a registered plugin name.
+            if key not in VALID_PLUGIN_NAMES:
+                suggestion = _format_suggestion(key, VALID_PLUGIN_NAMES)
+                raise TripwireConfigError(
+                    f"Unknown protocol {key!r} in [tool.tripwire.guard]."
+                    f"{suggestion}"
+                )
             normalized_value: Any
             if isinstance(value, bool):
                 normalized_value = "off" if value is False else value

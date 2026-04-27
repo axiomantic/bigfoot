@@ -46,6 +46,14 @@ class BasePlugin(ABC):
     passthrough_safe: ClassVar[bool] = False
     guard_prefixes: ClassVar[tuple[str, ...]] = ()
 
+    # Optional closed schema for the plugin's [tool.tripwire.<config_key>]
+    # sub-table. When non-empty, the strict-validation pass will reject
+    # unknown keys in the plugin's sub-table with a difflib typo
+    # suggestion. Default is the empty frozenset, which means the plugin
+    # opts out of central per-key validation (its own load_config remains
+    # the source of truth for accepted options).
+    config_schema: ClassVar[frozenset[str]] = frozenset()
+
     # Shared patching infrastructure -- each subclass gets its own via __init_subclass__
     _install_count: ClassVar[int] = 0
     _install_lock: ClassVar[threading.Lock] = threading.Lock()
