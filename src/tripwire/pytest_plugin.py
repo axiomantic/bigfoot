@@ -290,19 +290,24 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None, None, None]:
 
     project_levels = guard_levels
 
-    # Read the per-test marker (last one wins if multiple).
+    # Read the per-test marker (last one wins if multiple). Route every
+    # accepted shape (string, bool, dict) through ``_resolve_guard_levels``
+    # so the marker uses the same normalization, alias mapping, and
+    # validation as ``[tool.tripwire.guard]`` in pyproject.toml. Without
+    # this, mixed-case strings like ``"Warn"`` or ``"STRICT"`` would slip
+    # past the marker handler and only fail later in dispatch with a less
+    # actionable error.
     marker_levels: GuardLevels | None = None
     for mark in item.iter_markers("guard"):
         arg = mark.args[0] if mark.args else None
-        if isinstance(arg, str):
-            marker_levels = GuardLevels(default=arg, overrides={})
-        elif isinstance(arg, dict):
+        if isinstance(arg, (str, bool, dict)):
             marker_levels = _resolve_guard_levels({"guard": arg})
         else:
             from tripwire._errors import TripwireConfigError  # noqa: PLC0415
 
             raise TripwireConfigError(
-                f"@pytest.mark.guard expects a string or a dict, got {type(arg).__name__}"
+                "@pytest.mark.guard expects a string, bool, or a dict, "
+                f"got {type(arg).__name__}"
             )
 
     effective_levels = marker_levels if marker_levels is not None else project_levels
