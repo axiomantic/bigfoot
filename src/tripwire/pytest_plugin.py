@@ -7,7 +7,7 @@ from collections.abc import Generator
 
 import pytest
 
-from tripwire._config import _resolve_guard_levels, load_tripwire_config
+from tripwire._config import GuardLevels, _resolve_guard_levels, load_tripwire_config
 from tripwire._context import (
     _current_test_verifier,
     _guard_active,
@@ -30,6 +30,11 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers",
         "deny(*rules): deny protocols/patterns (str or M()) in guard mode",
+    )
+    config.addinivalue_line(
+        "markers",
+        "guard(level_or_dict): override guard level for this test. "
+        "Accepts \"error\", \"warn\", \"off\", or a dict {default: ..., <protocol>: ...}.",
     )
     install_context_propagation()
 
@@ -276,7 +281,26 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None, None, None]:
     new_stack = current_stack.push(*frames) if frames else current_stack
     firewall_token = _firewall_stack.set(new_stack)
 
-    levels_token = _guard_levels.set(guard_levels)
+    project_levels = guard_levels
+
+    # Read the per-test marker (last one wins if multiple).
+    marker_levels: GuardLevels | None = None
+    for mark in item.iter_markers("guard"):
+        arg = mark.args[0] if mark.args else None
+        if isinstance(arg, str):
+            marker_levels = GuardLevels(default=arg, overrides={})
+        elif isinstance(arg, dict):
+            marker_levels = _resolve_guard_levels({"guard": arg})
+        else:
+            from tripwire._errors import TripwireConfigError  # noqa: PLC0415
+
+            raise TripwireConfigError(
+                f"@pytest.mark.guard expects a string or a dict, got {type(arg).__name__}"
+            )
+
+    effective_levels = marker_levels if marker_levels is not None else project_levels
+
+    levels_token = _guard_levels.set(effective_levels)
     guard_token = _guard_active.set(True)
     try:
         yield

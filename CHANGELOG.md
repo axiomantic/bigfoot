@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `[tool.tripwire.guard]` nested table form: `default = "warn"; <protocol> = "error" | "warn" | "off"` per protocol. Backwards-compatible with the scalar form `guard = "warn"`.
 - `PostSandboxInteractionError` distinguishes "an asyncio Task / thread / future survived `with tripwire:` exit and fired afterward" from the existing leaked-interaction case ("call without ever entering a sandbox"). Async leak debugging is now surface-able.
 - `SandboxContext` now stamps each interaction with a private `_sandbox_id` (monotonic counter; not in `interaction.details`, so the certainty contract is preserved).
+- `@pytest.mark.guard("error" | "warn" | "off" | {default: ..., overrides: {...}})` per-test override of the project guard levels. Set token / yield / reset token pattern, scoped to the test's lifetime.
 
 ### Fixed
 - `async_subprocess_plugin` type annotations corrected: the `cast(_AsyncFakeProcess, await _ORIGINAL_CREATE_SUBPROCESS_EXEC(...))` claim was a lie (the runtime returned a real `asyncio.subprocess.Process`). The cast is removed and the return-type annotation widened to `_AsyncFakeProcess | asyncio.subprocess.Process` for both `_fake_create_subprocess_exec` and `_fake_create_subprocess_shell`. Runtime behavior unchanged; static types now match reality.

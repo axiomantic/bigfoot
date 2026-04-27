@@ -92,6 +92,14 @@ with tripwire.restrict("http", "subprocess"):
 
 Configure project-wide allow/deny rules in `[tool.tripwire.firewall]` in your `pyproject.toml`.
 
+Override the guard level for a single test with `@pytest.mark.guard(...)`. The marker accepts a level string (`"error"`, `"warn"`, `"off"`) or a dict matching the per-protocol shape from `[tool.tripwire.guard]`.
+
+```python
+@pytest.mark.guard("error")
+def test_strict():
+    ...
+```
+
 ## Quick Start
 
 ```python
