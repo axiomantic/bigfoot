@@ -17,10 +17,11 @@ import warnings
 
 import pytest
 
+from tripwire._config import GuardLevels
 from tripwire._context import (
     GuardPassThrough,
     _guard_active,
-    _guard_level,
+    _guard_levels,
     get_verifier_or_raise,
 )
 from tripwire._errors import GuardedCallWarning, UnsafePassthroughError
@@ -54,14 +55,14 @@ def test_warn_with_unsafe_plugin_raises() -> None:
               check.
     """
     req = SubprocessFirewallRequest(command="true", binary="true")
-    level_token = _guard_level.set("warn")
+    levels_token = _guard_levels.set(GuardLevels(default="warn", overrides={}))
     guard_token = _guard_active.set(True)
     try:
         with pytest.raises(UnsafePassthroughError) as exc_info:
             get_verifier_or_raise("subprocess:run", firewall_request=req)
     finally:
         _guard_active.reset(guard_token)
-        _guard_level.reset(level_token)
+        _guard_levels.reset(levels_token)
 
     err = exc_info.value
     assert err.plugin_name == "subprocess"
@@ -93,7 +94,7 @@ def test_warn_with_safe_plugin_passthroughs() -> None:
                 pass GuardPassThrough but fail the warning-count assert.
     """
     req = NetworkFirewallRequest(protocol="crypto", host="local", port=0)
-    level_token = _guard_level.set("warn")
+    levels_token = _guard_levels.set(GuardLevels(default="warn", overrides={}))
     guard_token = _guard_active.set(True)
     try:
         with warnings.catch_warnings(record=True) as caught:
@@ -105,4 +106,4 @@ def test_warn_with_safe_plugin_passthroughs() -> None:
             assert "'crypto:sign'" in str(warning_msgs[0].message)
     finally:
         _guard_active.reset(guard_token)
-        _guard_level.reset(level_token)
+        _guard_levels.reset(levels_token)

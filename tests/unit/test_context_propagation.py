@@ -255,12 +255,13 @@ class TestInstallUninstall:
 # Tripwire-specific ContextVar propagation
 # ---------------------------------------------------------------------------
 
+from tripwire._config import GuardLevels
 from tripwire._context import (
     _active_verifier,
     _any_order_depth,
     _current_test_verifier,
     _guard_active,
-    _guard_level,
+    _guard_levels,
     _guard_patches_installed,
 )
 from tripwire._recording import _recording_in_progress
@@ -277,7 +278,7 @@ class TestTripwireContextVarsPropagation:
             (_any_order_depth, 3),
             (_current_test_verifier, object()),
             (_guard_active, True),
-            (_guard_level, "error"),
+            (_guard_levels, GuardLevels(default="error", overrides={})),
             (_guard_patches_installed, True),
             (_recording_in_progress, True),
             (_file_io_bypass, True),
@@ -287,7 +288,7 @@ class TestTripwireContextVarsPropagation:
             "any_order_depth",
             "current_test_verifier",
             "guard_active",
-            "guard_level",
+            "guard_levels",
             "guard_patches_installed",
             "recording_in_progress",
             "file_io_bypass",
@@ -331,7 +332,10 @@ class TestGuardModePropagation:
 
         with contextlib.ExitStack() as stack:
             stack.callback(_guard_active.reset, _guard_active.set(True))
-            stack.callback(_guard_level.reset, _guard_level.set("error"))
+            stack.callback(
+                _guard_levels.reset,
+                _guard_levels.set(GuardLevels(default="error", overrides={})),
+            )
             stack.callback(_guard_patches_installed.reset, _guard_patches_installed.set(True))
             errors: list[BaseException] = []
 
@@ -367,7 +371,10 @@ class TestGuardModePropagation:
 
         with contextlib.ExitStack() as stack:
             stack.callback(_guard_active.reset, _guard_active.set(True))
-            stack.callback(_guard_level.reset, _guard_level.set("error"))
+            stack.callback(
+                _guard_levels.reset,
+                _guard_levels.set(GuardLevels(default="error", overrides={})),
+            )
             stack.callback(_guard_patches_installed.reset, _guard_patches_installed.set(True))
             stack.callback(_firewall_stack.reset, _firewall_stack.set(allow_stack))
             errors: list[BaseException] = []

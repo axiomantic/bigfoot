@@ -6,6 +6,7 @@ import warnings
 
 import pytest
 
+from tripwire._config import GuardLevels, _resolve_guard_levels
 from tripwire._context import (
     GuardPassThrough,
     _guard_active,
@@ -19,7 +20,6 @@ from tripwire._firewall import (
     _firewall_stack,
 )
 from tripwire._match import M
-from tripwire.pytest_plugin import _resolve_guard_level
 
 
 class TestGuardContextVars:
@@ -423,52 +423,66 @@ class TestPublicExports:
 
 
 class TestResolveGuardLevel:
-    """Test _resolve_guard_level config parser."""
+    """Test _resolve_guard_levels config parser (scalar form)."""
 
     def test_absent_key_returns_error(self) -> None:
         """Missing guard key defaults to 'error' as of 0.20.0 (Proposal 1 default flip)."""
-        assert _resolve_guard_level({}) == "error"
+        assert _resolve_guard_levels({}) == GuardLevels(default="error", overrides={})
 
     def test_warn_string_returns_warn(self) -> None:
-        assert _resolve_guard_level({"guard": "warn"}) == "warn"
+        assert _resolve_guard_levels({"guard": "warn"}) == GuardLevels(
+            default="warn", overrides={}
+        )
 
     def test_error_string_returns_error(self) -> None:
-        assert _resolve_guard_level({"guard": "error"}) == "error"
+        assert _resolve_guard_levels({"guard": "error"}) == GuardLevels(
+            default="error", overrides={}
+        )
 
     def test_strict_string_returns_error(self) -> None:
         """'strict' is an alias for 'error'."""
-        assert _resolve_guard_level({"guard": "strict"}) == "error"
+        assert _resolve_guard_levels({"guard": "strict"}) == GuardLevels(
+            default="error", overrides={}
+        )
 
     def test_false_returns_off(self) -> None:
-        assert _resolve_guard_level({"guard": False}) == "off"
+        assert _resolve_guard_levels({"guard": False}) == GuardLevels(
+            default="off", overrides={}
+        )
 
     def test_true_rejected_with_config_error(self) -> None:
         """guard = true is ambiguous and must be rejected."""
         from tripwire._errors import TripwireConfigError
 
-        with pytest.raises(TripwireConfigError, match="guard = true is ambiguous"):
-            _resolve_guard_level({"guard": True})
+        with pytest.raises(TripwireConfigError, match="guard = true is not a valid value"):
+            _resolve_guard_levels({"guard": True})
 
     def test_invalid_string_rejected(self) -> None:
         from tripwire._errors import TripwireConfigError
 
-        with pytest.raises(TripwireConfigError, match="Invalid guard value"):
-            _resolve_guard_level({"guard": "invalid"})
+        with pytest.raises(TripwireConfigError, match="Invalid value 'invalid' for"):
+            _resolve_guard_levels({"guard": "invalid"})
 
     def test_invalid_type_rejected(self) -> None:
         from tripwire._errors import TripwireConfigError
 
-        with pytest.raises(TripwireConfigError, match="guard must be a string or false"):
-            _resolve_guard_level({"guard": 42})
+        with pytest.raises(TripwireConfigError, match="guard must be a string, bool, or a table"):
+            _resolve_guard_levels({"guard": 42})
 
     def test_case_insensitive_warn(self) -> None:
-        assert _resolve_guard_level({"guard": "WARN"}) == "warn"
+        assert _resolve_guard_levels({"guard": "WARN"}) == GuardLevels(
+            default="warn", overrides={}
+        )
 
     def test_case_insensitive_error(self) -> None:
-        assert _resolve_guard_level({"guard": "ERROR"}) == "error"
+        assert _resolve_guard_levels({"guard": "ERROR"}) == GuardLevels(
+            default="error", overrides={}
+        )
 
     def test_case_insensitive_strict(self) -> None:
-        assert _resolve_guard_level({"guard": "STRICT"}) == "error"
+        assert _resolve_guard_levels({"guard": "STRICT"}) == GuardLevels(
+            default="error", overrides={}
+        )
 
 
 class TestGuardedCallWarningClass:
@@ -489,10 +503,11 @@ class TestWarnModeBehavior:
 
     def test_warn_mode_emits_warning(self) -> None:
         """Guard in warn mode emits GuardedCallWarning."""
-        from tripwire._context import _guard_level
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
         from tripwire._firewall_request import NetworkFirewallRequest
 
-        level_token = _guard_level.set("warn")
+        level_token = _guard_levels.set(GuardLevels(default="warn", overrides={}))
         guard_token = _guard_active.set(True)
         try:
             with warnings.catch_warnings(record=True) as w:
@@ -507,14 +522,15 @@ class TestWarnModeBehavior:
                 assert issubclass(w[0].category, GuardedCallWarning)
         finally:
             _guard_active.reset(guard_token)
-            _guard_level.reset(level_token)
+            _guard_levels.reset(level_token)
 
     def test_warn_mode_raises_guard_pass_through(self) -> None:
         """After warning, GuardPassThrough is raised (real call proceeds)."""
-        from tripwire._context import _guard_level
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
         from tripwire._firewall_request import NetworkFirewallRequest
 
-        level_token = _guard_level.set("warn")
+        level_token = _guard_levels.set(GuardLevels(default="warn", overrides={}))
         guard_token = _guard_active.set(True)
         try:
             with warnings.catch_warnings(record=True):
@@ -524,14 +540,15 @@ class TestWarnModeBehavior:
                     get_verifier_or_raise("crypto:sign", firewall_request=req)
         finally:
             _guard_active.reset(guard_token)
-            _guard_level.reset(level_token)
+            _guard_levels.reset(level_token)
 
     def test_warn_mode_warning_is_filterable(self) -> None:
         """warnings.filterwarnings('ignore') suppresses GuardedCallWarning."""
-        from tripwire._context import _guard_level
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
         from tripwire._firewall_request import NetworkFirewallRequest
 
-        level_token = _guard_level.set("warn")
+        level_token = _guard_levels.set(GuardLevels(default="warn", overrides={}))
         guard_token = _guard_active.set(True)
         try:
             with warnings.catch_warnings(record=True) as w:
@@ -543,14 +560,15 @@ class TestWarnModeBehavior:
                 assert len(w) == 0
         finally:
             _guard_active.reset(guard_token)
-            _guard_level.reset(level_token)
+            _guard_levels.reset(level_token)
 
     def test_warn_mode_warning_contains_source_id(self) -> None:
         """Warning message includes the source_id."""
-        from tripwire._context import _guard_level
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
         from tripwire._firewall_request import NetworkFirewallRequest
 
-        level_token = _guard_level.set("warn")
+        level_token = _guard_levels.set(GuardLevels(default="warn", overrides={}))
         guard_token = _guard_active.set(True)
         try:
             with warnings.catch_warnings(record=True) as w:
@@ -561,14 +579,15 @@ class TestWarnModeBehavior:
                 assert "'crypto:sign'" in str(w[0].message)
         finally:
             _guard_active.reset(guard_token)
-            _guard_level.reset(level_token)
+            _guard_levels.reset(level_token)
 
     def test_warn_mode_warning_contains_blocked_by_firewall(self) -> None:
         """Warning message says 'blocked by firewall'."""
-        from tripwire._context import _guard_level
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
         from tripwire._firewall_request import NetworkFirewallRequest
 
-        level_token = _guard_level.set("warn")
+        level_token = _guard_levels.set(GuardLevels(default="warn", overrides={}))
         guard_token = _guard_active.set(True)
         try:
             with warnings.catch_warnings(record=True) as w:
@@ -580,14 +599,15 @@ class TestWarnModeBehavior:
                 assert "blocked by firewall" in msg
         finally:
             _guard_active.reset(guard_token)
-            _guard_level.reset(level_token)
+            _guard_levels.reset(level_token)
 
     def test_error_mode_raises_guarded_call_error(self) -> None:
         """Guard in error mode raises GuardedCallError (not a warning)."""
-        from tripwire._context import _guard_level
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
         from tripwire._firewall_request import NetworkFirewallRequest
 
-        level_token = _guard_level.set("error")
+        level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
         guard_token = _guard_active.set(True)
         try:
             req = NetworkFirewallRequest(protocol="http", host="example.com", port=80)
@@ -595,14 +615,15 @@ class TestWarnModeBehavior:
                 get_verifier_or_raise("http:request", firewall_request=req)
         finally:
             _guard_active.reset(guard_token)
-            _guard_level.reset(level_token)
+            _guard_levels.reset(level_token)
 
     def test_firewall_allow_in_warn_mode_suppresses_warning(self) -> None:
         """Allowed protocols don't emit warnings even in warn mode."""
-        from tripwire._context import _guard_level
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
         from tripwire._firewall_request import NetworkFirewallRequest
 
-        level_token = _guard_level.set("warn")
+        level_token = _guard_levels.set(GuardLevels(default="warn", overrides={}))
         guard_token = _guard_active.set(True)
         # Push an ALLOW rule for dns onto the firewall stack
         with allow("dns"):
@@ -616,7 +637,7 @@ class TestWarnModeBehavior:
                 ]
                 assert len(guarded_warnings) == 0
         _guard_active.reset(guard_token)
-        _guard_level.reset(level_token)
+        _guard_levels.reset(level_token)
 
 
 class TestHookFirewallStackMerge:
@@ -679,9 +700,10 @@ class TestGetVerifierOrRaiseGuardBranching:
 
     def test_guard_active_not_in_allowlist_raises_guarded_call_error(self) -> None:
         """Guard active + not allowed + error level = GuardedCallError."""
-        from tripwire._context import _guard_level
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
 
-        level_token = _guard_level.set("error")
+        level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
         token = _guard_active.set(True)
         try:
             with pytest.raises(GuardedCallError) as exc_info:
@@ -690,7 +712,7 @@ class TestGetVerifierOrRaiseGuardBranching:
             assert exc_info.value.source_id == "dns:getaddrinfo:example.com"
         finally:
             _guard_active.reset(token)
-            _guard_level.reset(level_token)
+            _guard_levels.reset(level_token)
 
     def test_guard_active_in_allowlist_raises_guard_pass_through(self) -> None:
         """Guard active + allowed via firewall = GuardPassThrough (interceptor should call original)."""
@@ -707,9 +729,10 @@ class TestGetVerifierOrRaiseGuardBranching:
 
     def test_plugin_name_extraction_from_source_id(self) -> None:
         """Plugin name is the prefix before the first colon."""
-        from tripwire._context import _guard_level
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
 
-        level_token = _guard_level.set("error")
+        level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
         token = _guard_active.set(True)
         try:
             with pytest.raises(GuardedCallError) as exc_info:
@@ -717,13 +740,14 @@ class TestGetVerifierOrRaiseGuardBranching:
             assert exc_info.value.plugin_name == "http"
         finally:
             _guard_active.reset(token)
-            _guard_level.reset(level_token)
+            _guard_levels.reset(level_token)
 
     def test_plugin_name_extraction_multi_colon(self) -> None:
         """Multi-colon source_id: plugin name is still first segment."""
-        from tripwire._context import _guard_level
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
 
-        level_token = _guard_level.set("error")
+        level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
         token = _guard_active.set(True)
         try:
             with pytest.raises(GuardedCallError) as exc_info:
@@ -731,7 +755,7 @@ class TestGetVerifierOrRaiseGuardBranching:
             assert exc_info.value.plugin_name == "dns"
         finally:
             _guard_active.reset(token)
-            _guard_level.reset(level_token)
+            _guard_levels.reset(level_token)
 
 
 class TestGuardPassThroughInDirectPlugins:
@@ -748,7 +772,8 @@ class TestGuardPassThroughInDirectPlugins:
         """Guard blocks dns:getaddrinfo when dns not in allowlist."""
         import socket
 
-        from tripwire._context import _guard_level
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
         from tripwire._guard import deny
         from tripwire._verifier import StrictVerifier
         from tripwire.plugins.dns_plugin import DnsPlugin
@@ -757,7 +782,7 @@ class TestGuardPassThroughInDirectPlugins:
         dns = DnsPlugin(v)
         dns.activate()
         try:
-            level_token = _guard_level.set("error")
+            level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
             guard_token = _guard_active.set(True)
             try:
                 # Explicitly deny dns to override project-level allow = ["dns:*"]
@@ -768,7 +793,7 @@ class TestGuardPassThroughInDirectPlugins:
                     assert exc_info.value.source_id == "dns:lookup"
             finally:
                 _guard_active.reset(guard_token)
-                _guard_level.reset(level_token)
+                _guard_levels.reset(level_token)
         finally:
             dns.deactivate()
 
@@ -803,7 +828,8 @@ class TestGuardPassThroughInDirectPlugins:
         """Guard blocks dns:gethostbyname when dns not in allowlist."""
         import socket
 
-        from tripwire._context import _guard_level
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
         from tripwire._guard import deny
         from tripwire._verifier import StrictVerifier
         from tripwire.plugins.dns_plugin import DnsPlugin
@@ -812,7 +838,7 @@ class TestGuardPassThroughInDirectPlugins:
         dns = DnsPlugin(v)
         dns.activate()
         try:
-            level_token = _guard_level.set("error")
+            level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
             guard_token = _guard_active.set(True)
             try:
                 # Explicitly deny dns to override project-level allow = ["dns:*"]
@@ -822,7 +848,7 @@ class TestGuardPassThroughInDirectPlugins:
                     assert exc_info.value.plugin_name == "dns"
             finally:
                 _guard_active.reset(guard_token)
-                _guard_level.reset(level_token)
+                _guard_levels.reset(level_token)
         finally:
             dns.deactivate()
 
@@ -859,7 +885,8 @@ class TestGuardPassThroughInStateMachinePlugins:
         """Guard blocks socket:connect when socket not in allowlist."""
         import socket as socket_mod
 
-        from tripwire._context import _guard_level
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
         from tripwire._guard import deny
         from tripwire._verifier import StrictVerifier
         from tripwire.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
@@ -868,7 +895,7 @@ class TestGuardPassThroughInStateMachinePlugins:
         sp = SocketPlugin(v)
         sp.activate()
         try:
-            level_token = _guard_level.set("error")
+            level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
             guard_token = _guard_active.set(True)
             try:
                 # Explicitly deny socket to override project-level allow = ["socket:*"]
@@ -883,7 +910,7 @@ class TestGuardPassThroughInStateMachinePlugins:
                         _SOCKET_CLOSE_ORIGINAL(sock)
             finally:
                 _guard_active.reset(guard_token)
-                _guard_level.reset(level_token)
+                _guard_levels.reset(level_token)
         finally:
             sp.deactivate()
 
@@ -971,7 +998,8 @@ class TestGuardPassThroughInStateMachinePlugins:
         """Guard blocks db:connect when db not in allowlist."""
         import sqlite3
 
-        from tripwire._context import _guard_level
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
         from tripwire._verifier import StrictVerifier
         from tripwire.plugins.database_plugin import DatabasePlugin
 
@@ -979,7 +1007,7 @@ class TestGuardPassThroughInStateMachinePlugins:
         dp = DatabasePlugin(v)
         dp.activate()
         try:
-            level_token = _guard_level.set("error")
+            level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
             guard_token = _guard_active.set(True)
             try:
                 with pytest.raises(GuardedCallError) as exc_info:
@@ -988,7 +1016,7 @@ class TestGuardPassThroughInStateMachinePlugins:
                 assert exc_info.value.source_id == "db:connect"
             finally:
                 _guard_active.reset(guard_token)
-                _guard_level.reset(level_token)
+                _guard_levels.reset(level_token)
         finally:
             dp.deactivate()
 
@@ -1023,7 +1051,8 @@ class TestGuardPassThroughInStateMachinePlugins:
         """Guard blocks smtp:connect when smtp not in allowlist."""
         import smtplib
 
-        from tripwire._context import _guard_level
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
         from tripwire._verifier import StrictVerifier
         from tripwire.plugins.smtp_plugin import SmtpPlugin
 
@@ -1031,7 +1060,7 @@ class TestGuardPassThroughInStateMachinePlugins:
         sp = SmtpPlugin(v)
         sp.activate()
         try:
-            level_token = _guard_level.set("error")
+            level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
             guard_token = _guard_active.set(True)
             try:
                 with pytest.raises(GuardedCallError) as exc_info:
@@ -1039,7 +1068,7 @@ class TestGuardPassThroughInStateMachinePlugins:
                 assert exc_info.value.plugin_name == "smtp"
             finally:
                 _guard_active.reset(guard_token)
-                _guard_level.reset(level_token)
+                _guard_levels.reset(level_token)
         finally:
             sp.deactivate()
 
@@ -1047,7 +1076,8 @@ class TestGuardPassThroughInStateMachinePlugins:
         """Guard blocks subprocess:popen:spawn when subprocess not in allowlist."""
         import subprocess
 
-        from tripwire._context import _guard_level
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
         from tripwire._verifier import StrictVerifier
         from tripwire.plugins.popen_plugin import PopenPlugin
 
@@ -1055,7 +1085,7 @@ class TestGuardPassThroughInStateMachinePlugins:
         pp = PopenPlugin(v)
         pp.activate()
         try:
-            level_token = _guard_level.set("error")
+            level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
             guard_token = _guard_active.set(True)
             try:
                 with pytest.raises(GuardedCallError) as exc_info:
@@ -1063,7 +1093,7 @@ class TestGuardPassThroughInStateMachinePlugins:
                 assert exc_info.value.plugin_name == "subprocess"
             finally:
                 _guard_active.reset(guard_token)
-                _guard_level.reset(level_token)
+                _guard_levels.reset(level_token)
         finally:
             pp.deactivate()
 
@@ -1080,7 +1110,8 @@ class TestGuardPassThroughInRemainingPlugins:
         """Guard blocks subprocess.run when subprocess not in allowlist."""
         import subprocess as subprocess_mod
 
-        from tripwire._context import _guard_level
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
         from tripwire._verifier import StrictVerifier
         from tripwire.plugins.subprocess import SubprocessPlugin
 
@@ -1088,7 +1119,7 @@ class TestGuardPassThroughInRemainingPlugins:
         sp = SubprocessPlugin(v)
         sp.activate()
         try:
-            level_token = _guard_level.set("error")
+            level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
             guard_token = _guard_active.set(True)
             try:
                 with pytest.raises(GuardedCallError) as exc_info:
@@ -1097,7 +1128,7 @@ class TestGuardPassThroughInRemainingPlugins:
                 assert exc_info.value.source_id == "subprocess:run"
             finally:
                 _guard_active.reset(guard_token)
-                _guard_level.reset(level_token)
+                _guard_levels.reset(level_token)
         finally:
             sp.deactivate()
 
@@ -1128,7 +1159,8 @@ class TestGuardPassThroughInRemainingPlugins:
         """Guard blocks shutil.which when subprocess not in allowlist."""
         import shutil as shutil_mod
 
-        from tripwire._context import _guard_level
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
         from tripwire._verifier import StrictVerifier
         from tripwire.plugins.subprocess import SubprocessPlugin
 
@@ -1136,7 +1168,7 @@ class TestGuardPassThroughInRemainingPlugins:
         sp = SubprocessPlugin(v)
         sp.activate()
         try:
-            level_token = _guard_level.set("error")
+            level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
             guard_token = _guard_active.set(True)
             try:
                 with pytest.raises(GuardedCallError) as exc_info:
@@ -1145,7 +1177,7 @@ class TestGuardPassThroughInRemainingPlugins:
                 assert exc_info.value.source_id == "subprocess:which"
             finally:
                 _guard_active.reset(guard_token)
-                _guard_level.reset(level_token)
+                _guard_levels.reset(level_token)
         finally:
             sp.deactivate()
 
@@ -1174,7 +1206,8 @@ class TestGuardPassThroughInRemainingPlugins:
         """Guard blocks httpx sync transport when http not in allowlist."""
         import httpx
 
-        from tripwire._context import _guard_level
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
         from tripwire._verifier import StrictVerifier
         from tripwire.plugins.http import HttpPlugin
 
@@ -1182,7 +1215,7 @@ class TestGuardPassThroughInRemainingPlugins:
         hp = HttpPlugin(v)
         hp.activate()
         try:
-            level_token = _guard_level.set("error")
+            level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
             guard_token = _guard_active.set(True)
             try:
                 with pytest.raises(GuardedCallError) as exc_info:
@@ -1191,7 +1224,7 @@ class TestGuardPassThroughInRemainingPlugins:
                 assert exc_info.value.source_id == "http:request"
             finally:
                 _guard_active.reset(guard_token)
-                _guard_level.reset(level_token)
+                _guard_levels.reset(level_token)
         finally:
             hp.deactivate()
 
@@ -1312,7 +1345,8 @@ class TestGuardModeIntegration:
         """
         import socket as socket_mod
 
-        from tripwire._context import _guard_level
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
         from tripwire._guard import deny
         from tripwire._verifier import StrictVerifier
         from tripwire.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
@@ -1320,7 +1354,7 @@ class TestGuardModeIntegration:
         v = StrictVerifier()
         sp = SocketPlugin(v)
         sp.activate()
-        level_token = _guard_level.set("error")
+        level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
         try:
             # Explicitly deny socket to override project-level allow = ["socket:*"]
             with deny("socket"):
@@ -1333,7 +1367,7 @@ class TestGuardModeIntegration:
                 finally:
                     _SOCKET_CLOSE_ORIGINAL(sock)
         finally:
-            _guard_level.reset(level_token)
+            _guard_levels.reset(level_token)
             sp.deactivate()
 
     def test_guard_pass_through_permits_real_socket_operations(self) -> None:
@@ -1467,7 +1501,8 @@ class TestGuardModeIntegration:
         """
         import socket as socket_mod
 
-        from tripwire._context import _guard_level
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
         from tripwire._guard import deny
         from tripwire._verifier import StrictVerifier
         from tripwire.plugins.dns_plugin import DnsPlugin
@@ -1475,7 +1510,7 @@ class TestGuardModeIntegration:
         v = StrictVerifier()
         dns = DnsPlugin(v)
         dns.activate()
-        level_token = _guard_level.set("error")
+        level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
         try:
             # Explicitly deny dns to override project-level allow = ["dns:*"]
             with deny("dns"):
@@ -1483,7 +1518,7 @@ class TestGuardModeIntegration:
                     socket_mod.getaddrinfo("example.com", 80)
                 assert exc_info.value.plugin_name == "dns"
         finally:
-            _guard_level.reset(level_token)
+            _guard_levels.reset(level_token)
             dns.deactivate()
 
     def test_guard_blocks_subprocess_outside_sandbox(self) -> None:
@@ -1494,21 +1529,22 @@ class TestGuardModeIntegration:
         """
         import subprocess as subprocess_mod
 
-        from tripwire._context import _guard_level
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
         from tripwire._verifier import StrictVerifier
         from tripwire.plugins.subprocess import SubprocessPlugin
 
         v = StrictVerifier()
         sp = SubprocessPlugin(v)
         sp.activate()
-        level_token = _guard_level.set("error")
+        level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
         try:
             with pytest.raises(GuardedCallError) as exc_info:
                 subprocess_mod.run(["echo", "hello"], capture_output=True)
             assert exc_info.value.plugin_name == "subprocess"
             assert exc_info.value.source_id == "subprocess:run"
         finally:
-            _guard_level.reset(level_token)
+            _guard_levels.reset(level_token)
             sp.deactivate()
 
     def test_guard_pass_through_permits_real_subprocess(self) -> None:
@@ -1543,21 +1579,22 @@ class TestGuardModeIntegration:
         """
         import httpx
 
-        from tripwire._context import _guard_level
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
         from tripwire._verifier import StrictVerifier
         from tripwire.plugins.http import HttpPlugin
 
         v = StrictVerifier()
         hp = HttpPlugin(v)
         hp.activate()
-        level_token = _guard_level.set("error")
+        level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
         try:
             with pytest.raises(GuardedCallError) as exc_info:
                 httpx.get("https://example.com")
             assert exc_info.value.plugin_name == "http"
             assert exc_info.value.source_id == "http:request"
         finally:
-            _guard_level.reset(level_token)
+            _guard_levels.reset(level_token)
             hp.deactivate()
 
     def test_sandbox_takes_precedence_over_firewall_allow(self) -> None:
@@ -1609,7 +1646,8 @@ class TestGuardModeIntegration:
         """
         import socket as socket_mod
 
-        from tripwire._context import _guard_level
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
         from tripwire._guard import deny
         from tripwire._verifier import StrictVerifier
         from tripwire.plugins.dns_plugin import DnsPlugin
@@ -1617,7 +1655,7 @@ class TestGuardModeIntegration:
         v = StrictVerifier()
         dns = DnsPlugin(v)
         dns.activate()
-        level_token = _guard_level.set("error")
+        level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
         try:
             # Explicitly deny dns to override project-level allow = ["dns:*"]
             with deny("dns"):
@@ -1641,7 +1679,7 @@ class TestGuardModeIntegration:
             assert "passthrough_safe" not in msg
             assert "Valid plugin names for allow():" not in msg
         finally:
-            _guard_level.reset(level_token)
+            _guard_levels.reset(level_token)
             dns.deactivate()
 
 
@@ -1933,7 +1971,8 @@ class TestSocketNonConnectGuardPassThrough:
         """
         import socket as socket_mod
 
-        from tripwire._context import _guard_level
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
         from tripwire._guard import deny
         from tripwire._verifier import StrictVerifier
         from tripwire.plugins.socket_plugin import SocketPlugin
@@ -1942,7 +1981,7 @@ class TestSocketNonConnectGuardPassThrough:
         sp = SocketPlugin(v)
         sp.activate()
         try:
-            level_token = _guard_level.set("error")
+            level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
             guard_token = _guard_active.set(True)
             try:
                 with deny("socket"):
@@ -1951,7 +1990,7 @@ class TestSocketNonConnectGuardPassThrough:
                     sock.close()
             finally:
                 _guard_active.reset(guard_token)
-                _guard_level.reset(level_token)
+                _guard_levels.reset(level_token)
         finally:
             sp.deactivate()
 
@@ -1964,7 +2003,8 @@ class TestSocketNonConnectGuardPassThrough:
         """
         import socket as socket_mod
 
-        from tripwire._context import _guard_level
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
         from tripwire._guard import deny
         from tripwire._verifier import StrictVerifier
         from tripwire.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
@@ -1973,7 +2013,7 @@ class TestSocketNonConnectGuardPassThrough:
         sp = SocketPlugin(v)
         sp.activate()
         try:
-            level_token = _guard_level.set("error")
+            level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
             guard_token = _guard_active.set(True)
             try:
                 with deny("socket"):
@@ -1986,6 +2026,6 @@ class TestSocketNonConnectGuardPassThrough:
                         _SOCKET_CLOSE_ORIGINAL(sock)
             finally:
                 _guard_active.reset(guard_token)
-                _guard_level.reset(level_token)
+                _guard_levels.reset(level_token)
         finally:
             sp.deactivate()

@@ -9,6 +9,8 @@ from __future__ import annotations
 import contextvars
 from typing import TYPE_CHECKING
 
+from tripwire._config import GuardLevels
+
 if TYPE_CHECKING:
     from tripwire._firewall_request import FirewallRequest
     from tripwire._verifier import StrictVerifier
@@ -33,8 +35,8 @@ _guard_active: contextvars.ContextVar[bool] = contextvars.ContextVar(
     "tripwire_guard_active", default=False
 )
 
-_guard_level: contextvars.ContextVar[str] = contextvars.ContextVar(
-    "tripwire_guard_level", default="warn"
+_guard_levels: contextvars.ContextVar[GuardLevels] = contextvars.ContextVar(
+    "tripwire_guard_levels", default=GuardLevels(default="warn", overrides={})
 )
 
 _guard_patches_installed: contextvars.ContextVar[bool] = contextvars.ContextVar(
@@ -113,7 +115,16 @@ def get_verifier_or_raise(
                 raise GuardPassThrough()
 
             # === Branch 3b: DENY ===
-            level = _guard_level.get()
+            # Per-protocol or default guard level (C3).
+            guard_levels = _guard_levels.get()
+            level = guard_levels.overrides.get(plugin_name, guard_levels.default)
+
+            # === Branch 3b-off (C3) ===
+            # Per-protocol "off" disables the firewall entirely for this
+            # plugin: no warn, no error, no UnsafePassthroughError.
+            # MUST run BEFORE the warn-unsafe check.
+            if level == "off":
+                raise GuardPassThrough()
 
             if level == "warn":
                 # === Branch 3b-warn-unsafe ===

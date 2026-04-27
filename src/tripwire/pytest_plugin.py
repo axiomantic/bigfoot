@@ -7,11 +7,11 @@ from collections.abc import Generator
 
 import pytest
 
-from tripwire._config import load_tripwire_config
+from tripwire._config import _resolve_guard_levels, load_tripwire_config
 from tripwire._context import (
     _current_test_verifier,
     _guard_active,
-    _guard_level,
+    _guard_levels,
     _guard_patches_installed,
 )
 from tripwire._context_propagation import (
@@ -19,44 +19,6 @@ from tripwire._context_propagation import (
     uninstall_context_propagation,
 )
 from tripwire._verifier import StrictVerifier
-
-_VALID_GUARD_LEVELS = frozenset({"warn", "error", "strict"})
-
-
-def _resolve_guard_level(config: dict[str, object]) -> str:
-    """Parse the guard config value into a normalized level string.
-
-    Returns one of: "warn", "error", "off".
-    Raises TripwireConfigError for invalid values.
-    """
-    from tripwire._errors import TripwireConfigError  # noqa: PLC0415
-
-    raw = config.get("guard", "error")  # default flipped from "warn" to "error" in 0.20.0
-
-    if raw is True:
-        raise TripwireConfigError(
-            'guard = true is ambiguous. '
-            'Use guard = "warn", guard = "error", or guard = false.\n'
-            'Valid values: "warn", "error", "strict", false'
-        )
-
-    if raw is False:
-        return "off"
-
-    if isinstance(raw, str):
-        normalized = raw.lower()
-        if normalized in ("error", "strict"):
-            return "error"
-        if normalized == "warn":
-            return "warn"
-        raise TripwireConfigError(
-            f'Invalid guard value: {raw!r}. '
-            f'Valid values: "warn", "error", "strict", false'
-        )
-
-    raise TripwireConfigError(
-        f"guard must be a string or false, got {type(raw).__name__}: {raw!r}"
-    )
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -129,8 +91,12 @@ def _tripwire_guard_patches() -> Generator[None, None, None]:
     during fixture setup/teardown).
     """
     config = load_tripwire_config()
-    guard_level = _resolve_guard_level(config)
-    if guard_level == "off":
+    guard_levels = _resolve_guard_levels(config)
+    # Skip patch installation only when ALL protocols are "off"
+    # (i.e., default is "off" and no override raises any protocol back).
+    if guard_levels.default == "off" and all(
+        level == "off" for level in guard_levels.overrides.values()
+    ):
         yield
         return
 
@@ -197,8 +163,11 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None, None, None]:
     installed (e.g., via sandbox activation within the test).
     """
     config = load_tripwire_config()
-    guard_level = _resolve_guard_level(config)
-    if guard_level == "off":
+    guard_levels = _resolve_guard_levels(config)
+    # Skip guard activation only when ALL protocols are "off".
+    if guard_levels.default == "off" and all(
+        level == "off" for level in guard_levels.overrides.values()
+    ):
         yield
         return
 
@@ -307,13 +276,13 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None, None, None]:
     new_stack = current_stack.push(*frames) if frames else current_stack
     firewall_token = _firewall_stack.set(new_stack)
 
-    level_token = _guard_level.set(guard_level)
+    levels_token = _guard_levels.set(guard_levels)
     guard_token = _guard_active.set(True)
     try:
         yield
     finally:
         _guard_active.reset(guard_token)
-        _guard_level.reset(level_token)
+        _guard_levels.reset(levels_token)
         _firewall_stack.reset(firewall_token)
 
 
