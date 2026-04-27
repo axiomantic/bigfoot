@@ -27,13 +27,18 @@ pytestmark = pytest.mark.integration
 
 
 def test_dns_strict_http_warn() -> None:
-    """C3-T4: guard default = "warn" but `crypto = "error"` per-protocol.
+    """C3-T4: guard default = "warn" but `logging = "error"` per-protocol.
 
-    A DENY decision against a `crypto` source raises GuardedCallError
+    A DENY decision against a `logging` source raises GuardedCallError
     (the per-protocol "error" override). A DENY decision against a
     different protocol that is `passthrough_safe=True` (jwt) under the
     default level "warn" emits GuardedCallWarning and raises
     GuardPassThrough.
+
+    The override target uses `logging` (always available) and the
+    default-warn target uses `jwt` (in `[all-ft]`) so the test runs on
+    the free-threaded 3.14t build where the `cryptography` wheel is
+    absent.
 
     The test isolates dispatch from the project's TOML firewall rules by
     pushing an empty firewall stack frame so neither protocol is
@@ -41,39 +46,39 @@ def test_dns_strict_http_warn() -> None:
 
     ESCAPE: test_dns_strict_http_warn
       CLAIM: Per-protocol overrides take precedence over the default;
-             crypto escalates from "warn" to "error" while jwt uses the
+             logging escalates from "warn" to "error" while jwt uses the
              default "warn" path.
-      PATH:  get_verifier_or_raise -> Branch 3b -> overrides.get("crypto")
+      PATH:  get_verifier_or_raise -> Branch 3b -> overrides.get("logging")
              returns "error" -> raise GuardedCallError; for "jwt" the
              override is absent so default "warn" applies and the safe
              warn path runs.
-      CHECK: GuardedCallError is raised for the crypto:sign source_id;
+      CHECK: GuardedCallError is raised for the logging:emit source_id;
              for jwt:encode, GuardedCallWarning is emitted and
              GuardPassThrough is raised.
       MUTATION: If overrides are ignored (i.e., dispatch always reads
-                guard_levels.default), crypto would warn instead of
+                guard_levels.default), logging would warn instead of
                 raising and the test would fail. If overrides are read
                 but the key extraction is wrong (e.g., `source_id`
                 rather than `plugin_name`), the lookup would miss and
-                crypto would fall to default "warn".
+                logging would fall to default "warn".
       ESCAPE: A bug that hardcodes "error" for every protocol would fail
               the jwt:encode branch (which expects warn behavior).
     """
     levels_token = _guard_levels.set(
-        GuardLevels(default="warn", overrides={"crypto": "error"})
+        GuardLevels(default="warn", overrides={"logging": "error"})
     )
     guard_token = _guard_active.set(True)
     try:
-        # crypto: per-protocol "error" override -> GuardedCallError.
-        crypto_req = NetworkFirewallRequest(
-            protocol="crypto", host="local", port=0
+        # logging: per-protocol "error" override -> GuardedCallError.
+        logging_req = NetworkFirewallRequest(
+            protocol="logging", host="local", port=0
         )
         with pytest.raises(GuardedCallError) as exc_info:
             get_verifier_or_raise(
-                "crypto:sign", firewall_request=crypto_req
+                "logging:emit", firewall_request=logging_req
             )
-        assert exc_info.value.plugin_name == "crypto"
-        assert exc_info.value.source_id == "crypto:sign"
+        assert exc_info.value.plugin_name == "logging"
+        assert exc_info.value.source_id == "logging:emit"
 
         # jwt: no override -> default "warn" applies; JwtPlugin is
         # passthrough_safe=True so the warn-safe branch runs.

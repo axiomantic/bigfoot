@@ -599,12 +599,15 @@ class TestWarnModeBehavior:
         try:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
-                # Use crypto (passthrough_safe=True) so the warn-unsafe
+                # Use jwt (passthrough_safe=True) so the warn-unsafe
                 # gate does not fire; project-level firewall allow rules
                 # only cover dns/socket so this DENY hits the warn path.
-                req = NetworkFirewallRequest(protocol="crypto", host="local", port=0)
+                # 'jwt' is preferred over 'crypto' so this test runs on
+                # the 3.14t free-threaded build, where the cryptography
+                # wheel is unavailable.
+                req = NetworkFirewallRequest(protocol="jwt", host="local", port=0)
                 with pytest.raises(GuardPassThrough):
-                    get_verifier_or_raise("crypto:sign", firewall_request=req)
+                    get_verifier_or_raise("jwt:encode", firewall_request=req)
                 assert len(w) == 1
                 assert issubclass(w[0].category, GuardedCallWarning)
         finally:
@@ -622,9 +625,9 @@ class TestWarnModeBehavior:
         try:
             with warnings.catch_warnings(record=True):
                 warnings.simplefilter("always")
-                req = NetworkFirewallRequest(protocol="crypto", host="local", port=0)
+                req = NetworkFirewallRequest(protocol="jwt", host="local", port=0)
                 with pytest.raises(GuardPassThrough):
-                    get_verifier_or_raise("crypto:sign", firewall_request=req)
+                    get_verifier_or_raise("jwt:encode", firewall_request=req)
         finally:
             _guard_active.reset(guard_token)
             _guard_levels.reset(level_token)
@@ -641,9 +644,9 @@ class TestWarnModeBehavior:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
                 warnings.filterwarnings("ignore", category=GuardedCallWarning)
-                req = NetworkFirewallRequest(protocol="crypto", host="local", port=0)
+                req = NetworkFirewallRequest(protocol="jwt", host="local", port=0)
                 with pytest.raises(GuardPassThrough):
-                    get_verifier_or_raise("crypto:sign", firewall_request=req)
+                    get_verifier_or_raise("jwt:encode", firewall_request=req)
                 assert len(w) == 0
         finally:
             _guard_active.reset(guard_token)
@@ -660,10 +663,10 @@ class TestWarnModeBehavior:
         try:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
-                req = NetworkFirewallRequest(protocol="crypto", host="local", port=0)
+                req = NetworkFirewallRequest(protocol="jwt", host="local", port=0)
                 with pytest.raises(GuardPassThrough):
-                    get_verifier_or_raise("crypto:sign", firewall_request=req)
-                assert "'crypto:sign'" in str(w[0].message)
+                    get_verifier_or_raise("jwt:encode", firewall_request=req)
+                assert "'jwt:encode'" in str(w[0].message)
         finally:
             _guard_active.reset(guard_token)
             _guard_levels.reset(level_token)
@@ -679,9 +682,9 @@ class TestWarnModeBehavior:
         try:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
-                req = NetworkFirewallRequest(protocol="crypto", host="local", port=0)
+                req = NetworkFirewallRequest(protocol="jwt", host="local", port=0)
                 with pytest.raises(GuardPassThrough):
-                    get_verifier_or_raise("crypto:sign", firewall_request=req)
+                    get_verifier_or_raise("jwt:encode", firewall_request=req)
                 msg = str(w[0].message)
                 assert "blocked by firewall" in msg
         finally:

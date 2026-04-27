@@ -75,10 +75,13 @@ def test_warn_with_safe_plugin_passthroughs() -> None:
     emits GuardedCallWarning and raises GuardPassThrough (existing
     behavior preserved for safe plugins).
 
-    Uses the 'crypto' plugin source_id - CryptoPlugin is
+    Uses the 'jwt' plugin source_id - JwtPlugin is
     passthrough_safe=True (it has no real I/O and its interceptors raise
     SandboxNotActiveError outside sandboxes, which is a safe failure
-    mode rather than a real-world side effect).
+    mode rather than a real-world side effect). 'jwt' is chosen over
+    'crypto' because the 'cryptography' wheel is unavailable on the
+    free-threaded (3.14t) build, so CryptoPlugin would not be importable
+    in the registry there and dispatch would fall through to Branch 5.
 
     ESCAPE: test_warn_with_safe_plugin_passthroughs
       CLAIM: Under guard='warn', a safe-passthrough plugin still warns +
@@ -93,17 +96,17 @@ def test_warn_with_safe_plugin_passthroughs() -> None:
       ESCAPE: A bug that no-ops the warn path entirely (no warning) would
                 pass GuardPassThrough but fail the warning-count assert.
     """
-    req = NetworkFirewallRequest(protocol="crypto", host="local", port=0)
+    req = NetworkFirewallRequest(protocol="jwt", host="local", port=0)
     levels_token = _guard_levels.set(GuardLevels(default="warn", overrides={}))
     guard_token = _guard_active.set(True)
     try:
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             with pytest.raises(GuardPassThrough):
-                get_verifier_or_raise("crypto:sign", firewall_request=req)
+                get_verifier_or_raise("jwt:encode", firewall_request=req)
             warning_msgs = [w for w in caught if issubclass(w.category, GuardedCallWarning)]
             assert len(warning_msgs) == 1
-            assert "'crypto:sign'" in str(warning_msgs[0].message)
+            assert "'jwt:encode'" in str(warning_msgs[0].message)
     finally:
         _guard_active.reset(guard_token)
         _guard_levels.reset(levels_token)
