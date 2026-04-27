@@ -57,11 +57,22 @@ import pytest
 from tripwire import StrictVerifier
 from tripwire._context import _active_verifier, get_verifier_or_raise
 
-pytestmark = pytest.mark.integration
-
 _WIN_FREETHREADED = sys.platform == "win32" and bool(
     sysconfig.get_config_var("Py_GIL_DISABLED")
 )
+
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.skipif(
+        _WIN_FREETHREADED,
+        reason=(
+            "asyncio/threading boundary primitives deadlock on Windows "
+            "free-threaded 3.14 (upstream CPython issue). The propagation "
+            "contracts are still validated on every other platform, "
+            "including Linux 3.14t."
+        ),
+    ),
+]
 
 
 # A neutral source_id that no real plugin owns. Reaches Branch 5
@@ -229,15 +240,6 @@ def _processpool_worker(_payload: str) -> Any:
     return get_verifier_or_raise("test:c10_processpool")
 
 
-@pytest.mark.skipif(
-    _WIN_FREETHREADED,
-    reason=(
-        "ProcessPoolExecutor spawn deadlocks on Windows free-threaded 3.14 "
-        "(upstream CPython multiprocessing/free-threading interaction). The "
-        "documented boundary is still validated on every other platform, "
-        "including Linux 3.14t."
-    ),
-)
 def test_processpool_does_NOT_propagate() -> None:  # noqa: N802
     """ProcessPoolExecutor submission either fails to pickle the payload
     or executes the worker in a fresh process where no `with tripwire:`
