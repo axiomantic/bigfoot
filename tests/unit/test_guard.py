@@ -1104,7 +1104,11 @@ class TestGuardPassThroughInStateMachinePlugins:
             try:
                 with pytest.raises(GuardedCallError) as exc_info:
                     sqlite3.connect(":memory:")
-                assert exc_info.value.plugin_name == "db"
+                # plugin_name reports the canonical registry name
+                # ("database"), not the source_id prefix ("db"), so it
+                # matches the key users write under [tool.tripwire.guard]
+                # and the same name shown by enabled_plugins/disabled_plugins.
+                assert exc_info.value.plugin_name == "database"
                 assert exc_info.value.source_id == "db:connect"
             finally:
                 _guard_active.reset(guard_token)

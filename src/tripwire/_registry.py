@@ -130,14 +130,24 @@ def get_plugin_class(entry: PluginEntry) -> type[BasePlugin]:
     return cls
 
 
-def lookup_plugin_class_by_name(plugin_name: str) -> type[BasePlugin] | None:
-    """Return the plugin class registered under ``plugin_name``, or None.
+def lookup_plugin_class_by_name(
+    plugin_name: str,
+) -> tuple[type[BasePlugin], str] | None:
+    """Return ``(plugin_class, canonical_registry_name)`` registered under
+    ``plugin_name``, or None.
 
     Looks up by canonical registry name first, then by any ``guard_prefixes``
     declared on a registered plugin class. Returns None when no plugin
     matches or when its optional dependency is missing. Callers use this
     from outside any active sandbox to ask "what plugin would receive a
     call from this source_id?".
+
+    The canonical name is ``entry.name`` (the registry name, e.g.
+    ``"database"``). It may differ from ``plugin_name`` when ``plugin_name``
+    matches a ``guard_prefix`` instead (e.g., ``plugin_name="db"`` resolves
+    to ``("DatabasePlugin", "database")``). Callers MUST use the canonical
+    name when looking up per-protocol guard overrides and when populating
+    ``plugin_name`` on errors so the user sees the registry name.
     """
     for entry in PLUGIN_REGISTRY:
         if not _is_available(entry):
@@ -146,10 +156,10 @@ def lookup_plugin_class_by_name(plugin_name: str) -> type[BasePlugin] | None:
             cls = get_plugin_class(entry)
         except Exception:
             continue
-        if entry.name == plugin_name:
-            return cls
-        if plugin_name in getattr(cls, "guard_prefixes", ()):
-            return cls
+        if entry.name == plugin_name or plugin_name in getattr(
+            cls, "guard_prefixes", ()
+        ):
+            return cls, entry.name
     return None
 
 

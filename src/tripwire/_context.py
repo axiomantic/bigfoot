@@ -115,7 +115,28 @@ def get_verifier_or_raise(
     4. Guard not active but patches installed: raise GuardPassThrough.
     5. Otherwise: raise SandboxNotActiveError.
     """
-    plugin_name = source_id.split(":")[0]
+    prefix = source_id.split(":")[0]
+
+    # Resolve the plugin class once, up front, so the canonical registry
+    # name is available to every downstream branch. ``plugin_cls is None``
+    # means the source_id does not belong to a registered plugin (e.g.,
+    # a test exercising get_verifier_or_raise with an arbitrary name);
+    # in that case, fall back to the source_id prefix as the displayed
+    # plugin_name so unknown source_ids preserve the pre-C2 contract.
+    #
+    # When the plugin IS registered, ``canonical_name`` is the registry
+    # name (e.g., ``"database"``) even when ``prefix`` matched via a
+    # ``guard_prefix`` like ``"db"``. This is what per-protocol guard
+    # overrides under ``[tool.tripwire.guard]`` key on, and what error
+    # messages report.
+    from tripwire._registry import (  # noqa: PLC0415
+        lookup_plugin_class_by_name,
+    )
+    res = lookup_plugin_class_by_name(prefix)
+    plugin_cls, canonical_name = res if res is not None else (None, prefix)
+    plugin_is_unsafe_passthrough = (
+        plugin_cls is not None and plugin_cls.passthrough_safe is False
+    )
 
     # === Branch 2: post-sandbox detection (C4) ===
     # MUST run BEFORE Branch 1: an asyncio task / thread captures the
@@ -133,7 +154,7 @@ def get_verifier_or_raise(
 
         raise PostSandboxInteractionError(
             source_id=source_id,
-            plugin_name=plugin_name,
+            plugin_name=canonical_name,
             sandbox_id=closed_sandbox_id,
         )
 
@@ -141,19 +162,6 @@ def get_verifier_or_raise(
     verifier = _active_verifier.get()
     if verifier is not None:
         return verifier
-
-    # Resolve the plugin class once. ``plugin_cls is None`` means the
-    # source_id does not belong to a registered plugin (e.g., a test
-    # exercising get_verifier_or_raise with an arbitrary name). Unknown
-    # plugins skip every guard branch and fall through to
-    # SandboxNotActiveError so they preserve the pre-C2 contract.
-    from tripwire._registry import (  # noqa: PLC0415
-        lookup_plugin_class_by_name,
-    )
-    plugin_cls = lookup_plugin_class_by_name(plugin_name)
-    plugin_is_unsafe_passthrough = (
-        plugin_cls is not None and plugin_cls.passthrough_safe is False
-    )
 
     # === Branch 3: guard active ===
     if plugin_cls is not None and _guard_active.get():
@@ -167,9 +175,13 @@ def get_verifier_or_raise(
                 raise GuardPassThrough()
 
             # === Branch 3b: DENY ===
-            # Per-protocol or default guard level (C3).
+            # Per-protocol or default guard level (C3). Key on the
+            # canonical registry name so an override like ``database =
+            # "off"`` applies to a ``db:query`` source_id (DatabasePlugin
+            # registers ``database`` and exposes ``"db"`` as a
+            # guard_prefix).
             guard_levels = _guard_levels.get()
-            level = guard_levels.overrides.get(plugin_name, guard_levels.default)
+            level = guard_levels.overrides.get(canonical_name, guard_levels.default)
 
             # === Branch 3b-off (C3) ===
             # Per-protocol "off" disables the firewall entirely for this
@@ -187,7 +199,7 @@ def get_verifier_or_raise(
 
                     raise UnsafePassthroughError(
                         source_id=source_id,
-                        plugin_name=plugin_name,
+                        plugin_name=canonical_name,
                     )
 
                 # === Branch 3b-warn-safe ===
@@ -210,7 +222,7 @@ def get_verifier_or_raise(
             user_frame = walk_to_user_frame()
             raise GuardedCallError(
                 source_id=source_id,
-                plugin_name=plugin_name,
+                plugin_name=canonical_name,
                 firewall_request=firewall_request,
                 user_frame=user_frame,
             )
@@ -227,7 +239,7 @@ def get_verifier_or_raise(
             user_frame = walk_to_user_frame()
             raise GuardedCallError(
                 source_id=source_id,
-                plugin_name=plugin_name,
+                plugin_name=canonical_name,
                 firewall_request=None,
                 user_frame=user_frame,
             )
