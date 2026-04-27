@@ -197,13 +197,16 @@ def get_verifier_or_raise(
                 )
                 raise GuardPassThrough()
 
-            # === Branch 3b-error ===
+            # === Branch 3b-error (C5: enrich with user call site) ===
             from tripwire._errors import GuardedCallError  # noqa: PLC0415
+            from tripwire._frames import walk_to_user_frame  # noqa: PLC0415
 
+            user_frame = walk_to_user_frame()
             raise GuardedCallError(
                 source_id=source_id,
                 plugin_name=plugin_name,
                 firewall_request=firewall_request,
+                user_frame=user_frame,
             )
 
         # === Branch 3c: guard active, no firewall_request ===
@@ -213,11 +216,14 @@ def get_verifier_or_raise(
         # error paths can run as before.
         if plugin_is_unsafe_passthrough:
             from tripwire._errors import GuardedCallError  # noqa: PLC0415
+            from tripwire._frames import walk_to_user_frame  # noqa: PLC0415
 
+            user_frame = walk_to_user_frame()
             raise GuardedCallError(
                 source_id=source_id,
                 plugin_name=plugin_name,
                 firewall_request=None,
+                user_frame=user_frame,
             )
 
     # === Branch 4: guard not active but patches installed ===

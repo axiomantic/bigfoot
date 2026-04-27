@@ -262,16 +262,37 @@ class GuardedCallError(TripwireError):
         source_id: str,
         plugin_name: str,
         firewall_request: FirewallRequest | None = None,
+        user_frame: tuple[str, int, str] | None = None,
     ) -> None:
         self.source_id = source_id
         self.plugin_name = plugin_name
         self.firewall_request = firewall_request
+        self.user_frame = user_frame
         super().__init__(self._build_message())
 
     def _build_message(self) -> str:
         req = self.firewall_request
+        # Method-being-called: text after the first ":" in the source_id
+        # (e.g., "subprocess:run" -> "run", "asyncio:subprocess:spawn" ->
+        # "subprocess:spawn"). Falls back to "<unknown method>" if the
+        # source_id is malformed (no colon).
+        if ":" in self.source_id:
+            method = self.source_id.split(":", 1)[1]
+        else:
+            method = "<unknown method>"
+        # User call site: rendered as "file:lineno", or "<unknown call site>"
+        # when the frame walker found no user frame (e.g., spawned thread).
+        if self.user_frame is None:
+            site = "<unknown call site>"
+        else:
+            site = f"{self.user_frame[0]}:{self.user_frame[1]}"
         lines = [
             f"GuardedCallError: {self.source_id!r} blocked by tripwire firewall.",
+            "",
+            (
+                f'  Called {self.plugin_name}.{method} at {site} '
+                f'OUTSIDE any "with tripwire:" block.'
+            ),
             "",
         ]
 
