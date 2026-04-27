@@ -323,7 +323,7 @@ class ElasticsearchPlugin(BasePlugin):
     def format_mock_hint(self, interaction: Interaction) -> str:
         source_id = interaction.source_id
         operation = source_id.split(":", 1)[-1] if ":" in source_id else "?"
-        return f"    tripwire.elasticsearch_mock.mock_operation({operation!r}, returns=...)"
+        return f"    tripwire.elasticsearch.mock_operation({operation!r}, returns=...)"
 
     def format_unmocked_hint(
         self,
@@ -335,7 +335,7 @@ class ElasticsearchPlugin(BasePlugin):
         return (
             f"elasticsearch.{operation}(...) was called but no mock was registered.\n"
             f"Register a mock with:\n"
-            f"    tripwire.elasticsearch_mock.mock_operation({operation!r}, returns=...)"
+            f"    tripwire.elasticsearch.mock_operation({operation!r}, returns=...)"
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:
@@ -345,7 +345,7 @@ class ElasticsearchPlugin(BasePlugin):
         parts = [f"        {k}={v!r}," for k, v in details.items() if v is not None]
         lines = "\n".join(parts)
         return (
-            f"    tripwire.elasticsearch_mock.assert_{operation}(\n"
+            f"    tripwire.elasticsearch.assert_{operation}(\n"
             f"{lines}\n"
             f"    )"
         )

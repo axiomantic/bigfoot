@@ -12,13 +12,13 @@ This installs `cryptography`.
 
 ## Setup
 
-In pytest, access `CryptoPlugin` through the `tripwire.crypto_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `CryptoPlugin` through the `tripwire.crypto` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
 import tripwire
 
 def test_encrypt_payload():
-    tripwire.crypto_mock.mock_encrypt(returns=b"gAAAAABencrypted...")
+    tripwire.crypto.mock_encrypt(returns=b"gAAAAABencrypted...")
 
     with tripwire:
         from cryptography.fernet import Fernet
@@ -27,7 +27,7 @@ def test_encrypt_payload():
 
     assert ciphertext == b"gAAAAABencrypted..."
 
-    tripwire.crypto_mock.assert_encrypt(plaintext_length=14)
+    tripwire.crypto.assert_encrypt(plaintext_length=14)
 ```
 
 For manual use outside pytest, construct `CryptoPlugin` explicitly:
@@ -37,7 +37,7 @@ from tripwire import StrictVerifier
 from tripwire.plugins.crypto_plugin import CryptoPlugin
 
 verifier = StrictVerifier()
-crypto_mock = CryptoPlugin(verifier)
+crypto = CryptoPlugin(verifier)
 ```
 
 Each verifier may have at most one `CryptoPlugin`. A second `CryptoPlugin(verifier)` raises `ValueError`.
@@ -51,7 +51,7 @@ Each verifier may have at most one `CryptoPlugin`. A second `CryptoPlugin(verifi
 Register a mock for `Fernet.encrypt()`:
 
 ```python
-tripwire.crypto_mock.mock_encrypt(returns=b"gAAAAABencrypted_token")
+tripwire.crypto.mock_encrypt(returns=b"gAAAAABencrypted_token")
 ```
 
 | Parameter | Type | Default | Description |
@@ -65,7 +65,7 @@ tripwire.crypto_mock.mock_encrypt(returns=b"gAAAAABencrypted_token")
 Register a mock for `Fernet.decrypt()`:
 
 ```python
-tripwire.crypto_mock.mock_decrypt(returns=b"decrypted plaintext")
+tripwire.crypto.mock_decrypt(returns=b"decrypted plaintext")
 ```
 
 | Parameter | Type | Default | Description |
@@ -79,7 +79,7 @@ tripwire.crypto_mock.mock_decrypt(returns=b"decrypted plaintext")
 Register a mock for `rsa.generate_private_key()`:
 
 ```python
-tripwire.crypto_mock.mock_generate_key(returns=mock_private_key)
+tripwire.crypto.mock_generate_key(returns=mock_private_key)
 ```
 
 | Parameter | Type | Default | Description |
@@ -94,8 +94,8 @@ Each operation (`fernet_encrypt`, `fernet_decrypt`, `generate_key`) has its own 
 
 ```python
 def test_encrypt_multiple_fields():
-    tripwire.crypto_mock.mock_encrypt(returns=b"encrypted_email")
-    tripwire.crypto_mock.mock_encrypt(returns=b"encrypted_ssn")
+    tripwire.crypto.mock_encrypt(returns=b"encrypted_email")
+    tripwire.crypto.mock_encrypt(returns=b"encrypted_ssn")
 
     with tripwire:
         from cryptography.fernet import Fernet
@@ -106,20 +106,20 @@ def test_encrypt_multiple_fields():
     assert ct1 == b"encrypted_email"
     assert ct2 == b"encrypted_ssn"
 
-    tripwire.crypto_mock.assert_encrypt(plaintext_length=17)
-    tripwire.crypto_mock.assert_encrypt(plaintext_length=11)
+    tripwire.crypto.assert_encrypt(plaintext_length=17)
+    tripwire.crypto.assert_encrypt(plaintext_length=11)
 ```
 
 ## Asserting interactions
 
-Use the typed assertion helpers on `tripwire.crypto_mock`.
+Use the typed assertion helpers on `tripwire.crypto`.
 
 ### `assert_encrypt(*, plaintext_length)`
 
 Asserts the next `Fernet.encrypt()` interaction. Only the plaintext length is recorded, not the actual data.
 
 ```python
-tripwire.crypto_mock.assert_encrypt(plaintext_length=14)
+tripwire.crypto.assert_encrypt(plaintext_length=14)
 ```
 
 | Parameter | Type | Description |
@@ -131,7 +131,7 @@ tripwire.crypto_mock.assert_encrypt(plaintext_length=14)
 Asserts the next `Fernet.decrypt()` interaction. The token (ciphertext) is safe to record since it is not secret.
 
 ```python
-tripwire.crypto_mock.assert_decrypt(token=b"gAAAAABencrypted_token", ttl=None)
+tripwire.crypto.assert_decrypt(token=b"gAAAAABencrypted_token", ttl=None)
 ```
 
 | Parameter | Type | Default | Description |
@@ -144,7 +144,7 @@ tripwire.crypto_mock.assert_decrypt(token=b"gAAAAABencrypted_token", ttl=None)
 Asserts the next `rsa.generate_private_key()` interaction.
 
 ```python
-tripwire.crypto_mock.assert_generate_key(algorithm="RSA", key_size=2048)
+tripwire.crypto.assert_generate_key(algorithm="RSA", key_size=2048)
 ```
 
 | Parameter | Type | Description |
@@ -169,7 +169,7 @@ from cryptography.fernet import InvalidToken
 import tripwire
 
 def test_invalid_token():
-    tripwire.crypto_mock.mock_decrypt(
+    tripwire.crypto.mock_decrypt(
         returns=None,
         raises=InvalidToken(),
     )
@@ -180,7 +180,7 @@ def test_invalid_token():
         with pytest.raises(InvalidToken):
             f.decrypt(b"corrupted_ciphertext")
 
-    tripwire.crypto_mock.assert_decrypt(token=b"corrupted_ciphertext", ttl=None)
+    tripwire.crypto.assert_decrypt(token=b"corrupted_ciphertext", ttl=None)
 ```
 
 ## Full example
@@ -202,7 +202,7 @@ def test_invalid_token():
 Mark a mock as optional with `required=False`:
 
 ```python
-tripwire.crypto_mock.mock_encrypt(returns=b"optional_ct", required=False)
+tripwire.crypto.mock_encrypt(returns=b"optional_ct", required=False)
 ```
 
 An optional mock that is never triggered does not cause `UnusedMocksError` at teardown.
@@ -214,5 +214,5 @@ When code calls an intercepted cryptography function with no remaining mocks in 
 ```
 crypto.fernet_encrypt(...) was called but no mock was registered.
 Register a mock with:
-    tripwire.crypto_mock.mock_encrypt(returns=...)
+    tripwire.crypto.mock_encrypt(returns=...)
 ```

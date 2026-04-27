@@ -184,7 +184,7 @@ def test_unused_mock_excludes_required_false() -> None:
 def test_missing_fields_error(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.native_mock.mock_call("libm", "sqrt", returns=6.48)
+    tripwire.native.mock_call("libm", "sqrt", returns=6.48)
     with tripwire.sandbox():
         lib = ctypes.CDLL("libm")
         lib.sqrt(42)
@@ -201,7 +201,7 @@ def test_missing_fields_error(tripwire_verifier: StrictVerifier) -> None:
     assert exc_info.value.missing_fields == frozenset({"args"})
 
     # Assert correctly for teardown
-    tripwire.native_mock.assert_call("libm", "sqrt", args=(42,))
+    tripwire.native.assert_call("libm", "sqrt", args=(42,))
 
 
 # ---------------------------------------------------------------------------
@@ -218,12 +218,12 @@ def test_missing_fields_error(tripwire_verifier: StrictVerifier) -> None:
 def test_assert_call_typed_helper_positive(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.native_mock.mock_call("libm", "sqrt", returns=6.48)
+    tripwire.native.mock_call("libm", "sqrt", returns=6.48)
     with tripwire.sandbox():
         lib = ctypes.CDLL("libm")
         lib.sqrt(42)
 
-    tripwire.native_mock.assert_call("libm", "sqrt", args=(42,))
+    tripwire.native.assert_call("libm", "sqrt", args=(42,))
 
 
 # ESCAPE: test_assert_call_typed_helper_negative_wrong_args
@@ -235,16 +235,16 @@ def test_assert_call_typed_helper_positive(tripwire_verifier: StrictVerifier) ->
 def test_assert_call_typed_helper_negative_wrong_args(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.native_mock.mock_call("libm", "sqrt", returns=6.48)
+    tripwire.native.mock_call("libm", "sqrt", returns=6.48)
     with tripwire.sandbox():
         lib = ctypes.CDLL("libm")
         lib.sqrt(42)
 
     with pytest.raises(InteractionMismatchError):
-        tripwire.native_mock.assert_call("libm", "sqrt", args=(999,))
+        tripwire.native.assert_call("libm", "sqrt", args=(999,))
 
     # Assert correctly for teardown
-    tripwire.native_mock.assert_call("libm", "sqrt", args=(42,))
+    tripwire.native.assert_call("libm", "sqrt", args=(42,))
 
 
 # ESCAPE: test_assert_call_typed_helper_negative_wrong_function
@@ -256,16 +256,16 @@ def test_assert_call_typed_helper_negative_wrong_args(tripwire_verifier: StrictV
 def test_assert_call_typed_helper_negative_wrong_function(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.native_mock.mock_call("libm", "sqrt", returns=6.48)
+    tripwire.native.mock_call("libm", "sqrt", returns=6.48)
     with tripwire.sandbox():
         lib = ctypes.CDLL("libm")
         lib.sqrt(42)
 
     with pytest.raises(InteractionMismatchError):
-        tripwire.native_mock.assert_call("libm", "cos", args=(42,))
+        tripwire.native.assert_call("libm", "cos", args=(42,))
 
     # Assert correctly for teardown
-    tripwire.native_mock.assert_call("libm", "sqrt", args=(42,))
+    tripwire.native.assert_call("libm", "sqrt", args=(42,))
 
 
 # ESCAPE: test_assert_call_typed_helper_negative_wrong_library
@@ -277,16 +277,16 @@ def test_assert_call_typed_helper_negative_wrong_function(tripwire_verifier: Str
 def test_assert_call_typed_helper_negative_wrong_library(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.native_mock.mock_call("libm", "sqrt", returns=6.48)
+    tripwire.native.mock_call("libm", "sqrt", returns=6.48)
     with tripwire.sandbox():
         lib = ctypes.CDLL("libm")
         lib.sqrt(42)
 
     with pytest.raises(InteractionMismatchError):
-        tripwire.native_mock.assert_call("libz", "sqrt", args=(42,))
+        tripwire.native.assert_call("libz", "sqrt", args=(42,))
 
     # Assert correctly for teardown
-    tripwire.native_mock.assert_call("libm", "sqrt", args=(42,))
+    tripwire.native.assert_call("libm", "sqrt", args=(42,))
 
 
 # ---------------------------------------------------------------------------
@@ -580,7 +580,7 @@ def test_not_default_enabled() -> None:
 def test_flow_assert_interaction_records_details(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.native_mock.mock_call("libm", "sqrt", returns=6.48)
+    tripwire.native.mock_call("libm", "sqrt", returns=6.48)
     with tripwire.sandbox():
         lib = ctypes.CDLL("libm")
         lib.sqrt(42)
@@ -597,7 +597,7 @@ def test_flow_assert_interaction_records_details(tripwire_verifier: StrictVerifi
     }
 
     # Assert to satisfy teardown
-    tripwire.native_mock.assert_call("libm", "sqrt", args=(42,))
+    tripwire.native.assert_call("libm", "sqrt", args=(42,))
 
 
 # ESCAPE: test_flow_interactions_not_auto_asserted
@@ -609,7 +609,7 @@ def test_flow_assert_interaction_records_details(tripwire_verifier: StrictVerifi
 def test_flow_interactions_not_auto_asserted(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.native_mock.mock_call("libm", "sqrt", returns=6.48)
+    tripwire.native.mock_call("libm", "sqrt", returns=6.48)
     with tripwire.sandbox():
         lib = ctypes.CDLL("libm")
         lib.sqrt(42)
@@ -619,7 +619,7 @@ def test_flow_interactions_not_auto_asserted(tripwire_verifier: StrictVerifier) 
     assert interactions[0].source_id == "native:libm:sqrt"
 
     # Assert to satisfy teardown
-    tripwire.native_mock.assert_call("libm", "sqrt", args=(42,))
+    tripwire.native.assert_call("libm", "sqrt", args=(42,))
 
 
 # ---------------------------------------------------------------------------
@@ -696,7 +696,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    tripwire.native_mock.mock_call('libm', 'sqrt', returns=...)"
+    assert result == "    tripwire.native.mock_call('libm', 'sqrt', returns=...)"
 
 
 # ESCAPE: test_format_unmocked_hint
@@ -711,7 +711,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "libm.sqrt(...) was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    tripwire.native_mock.mock_call('libm', 'sqrt', returns=...)"
+        "    tripwire.native.mock_call('libm', 'sqrt', returns=...)"
     )
 
 
@@ -731,7 +731,7 @@ def test_format_assert_hint() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    tripwire.native_mock.assert_call(\n"
+        "    tripwire.native.assert_call(\n"
         "        library='libm',\n"
         "        function='sqrt',\n"
         "        args=(42,),\n"
@@ -890,8 +890,8 @@ def test_activate_deactivate_reference_counting() -> None:
 
 
 # ESCAPE: test_native_plugin_in_all
-#   CLAIM: NativePlugin and native_mock are exported from tripwire.__all__.
-#   PATH:  tripwire.__all__ includes "NativePlugin" and "native_mock".
+#   CLAIM: NativePlugin and native are exported from tripwire.__all__.
+#   PATH:  tripwire.__all__ includes "NativePlugin" and "native".
 #   CHECK: Both names present in __all__.
 #   MUTATION: Omitting either from __all__ fails membership.
 #   ESCAPE: Nothing reasonable -- exact membership check.
@@ -899,7 +899,7 @@ def test_native_plugin_in_all() -> None:
     import tripwire
 
     assert "NativePlugin" in tripwire.__all__
-    assert "native_mock" in tripwire.__all__
+    assert "native" in tripwire.__all__
 
 
 # ESCAPE: test_native_plugin_importable_from_tripwire
@@ -916,19 +916,19 @@ def test_native_plugin_importable_from_tripwire() -> None:
 
 
 # ESCAPE: test_native_mock_proxy_type
-#   CLAIM: tripwire.native_mock is a _NativeProxy instance.
-#   PATH:  tripwire.native_mock is a module-level proxy.
-#   CHECK: type(tripwire.native_mock).__name__ == "_NativeProxy".
+#   CLAIM: tripwire.native is a _NativeProxy instance.
+#   PATH:  tripwire.native is a module-level proxy.
+#   CHECK: type(tripwire.native).__name__ == "_NativeProxy".
 #   MUTATION: Wrong proxy type fails name check.
 #   ESCAPE: Nothing reasonable -- exact string equality on type name.
 def test_native_mock_proxy_type() -> None:
     import tripwire
 
-    assert type(tripwire.native_mock).__name__ == "_NativeProxy"
+    assert type(tripwire.native).__name__ == "_NativeProxy"
 
 
 # ESCAPE: test_native_mock_proxy_raises_outside_context
-#   CLAIM: Accessing tripwire.native_mock outside test context raises NoActiveVerifierError.
+#   CLAIM: Accessing tripwire.native outside test context raises NoActiveVerifierError.
 #   PATH:  _NativeProxy.__getattr__ -> _get_test_verifier_or_raise -> raises.
 #   CHECK: NoActiveVerifierError raised.
 #   MUTATION: Not raising allows silent use outside tests.
@@ -940,7 +940,7 @@ def test_native_mock_proxy_raises_outside_context() -> None:
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = tripwire.native_mock.mock_call
+            _ = tripwire.native.mock_call
     finally:
         _current_test_verifier.reset(token)
 

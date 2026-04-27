@@ -32,7 +32,7 @@ Every stateful plugin (except `RedisPlugin`, which is stateless) extends `StateM
 disconnected --connect--> connected --send/sendall/recv--> connected --close--> closed
 ```
 
-**Proxy:** `tripwire.socket_mock`
+**Proxy:** `tripwire.socket`
 
 ### Quickstart
 
@@ -41,7 +41,7 @@ import socket
 import tripwire
 
 def test_echo_client():
-    (tripwire.socket_mock
+    (tripwire.socket
         .new_session()
         .expect("connect",  returns=None)
         .expect("sendall",  returns=None)
@@ -59,7 +59,7 @@ def test_echo_client():
     # verify_all() called automatically at teardown
 ```
 
-No imports other than `tripwire` and `socket`. The proxy `tripwire.socket_mock` auto-creates the plugin on the current test verifier the first time it is accessed.
+No imports other than `tripwire` and `socket`. The proxy `tripwire.socket` auto-creates the plugin on the current test verifier the first time it is accessed.
 
 ### Scripting multiple connections
 
@@ -67,13 +67,13 @@ Sessions are consumed in registration order:
 
 ```python
 def test_two_connections():
-    (tripwire.socket_mock
+    (tripwire.socket
         .new_session()
         .expect("connect", returns=None)
         .expect("recv",    returns=b"first")
         .expect("close",   returns=None))
 
-    (tripwire.socket_mock
+    (tripwire.socket
         .new_session()
         .expect("connect", returns=None)
         .expect("recv",    returns=b"second")
@@ -96,7 +96,7 @@ Calling a method from the wrong state raises `InvalidStateError` immediately:
 
 ```python
 def test_recv_before_connect():
-    tripwire.socket_mock.new_session()  # empty session
+    tripwire.socket.new_session()  # empty session
 
     with tripwire:
         sock = socket.socket()
@@ -131,7 +131,7 @@ in_transaction --commit/rollback--> connected
 connected/in_transaction --close--> closed
 ```
 
-**Proxy:** `tripwire.db_mock`
+**Proxy:** `tripwire.db`
 
 ### Quickstart
 
@@ -140,7 +140,7 @@ import sqlite3
 import tripwire
 
 def test_select_users():
-    (tripwire.db_mock
+    (tripwire.db
         .new_session()
         .expect("execute", returns=[[1, "Alice"], [2, "Bob"]])
         .expect("close",   returns=None))
@@ -158,7 +158,7 @@ def test_select_users():
 
 ```python
 def test_cursor_style():
-    (tripwire.db_mock
+    (tripwire.db
         .new_session()
         .expect("execute", returns=[["x"], ["y"]])
         .expect("close",   returns=None))
@@ -181,7 +181,7 @@ Each `execute()` moves the connection into `in_transaction`. `commit()` and `rol
 
 ```python
 def test_commit_then_execute():
-    (tripwire.db_mock
+    (tripwire.db
         .new_session()
         .expect("execute",  returns=[])
         .expect("commit",   returns=None)
@@ -223,7 +223,7 @@ assert exc_info.value.valid_states == frozenset({"in_transaction"})
 connecting --connect (on __aenter__)--> open --send/recv--> open --close--> closed
 ```
 
-**Proxy:** `tripwire.async_websocket_mock`
+**Proxy:** `tripwire.async_websocket`
 
 ### Quickstart
 
@@ -233,7 +233,7 @@ import tripwire
 import pytest
 
 async def test_ws_echo():
-    (tripwire.async_websocket_mock
+    (tripwire.async_websocket
         .new_session()
         .expect("connect", returns=None)
         .expect("send",    returns=None)
@@ -257,13 +257,13 @@ Sessions are popped at `websockets.connect()` call time, not at `__aenter__` tim
 
 ```python
 async def test_two_ws_connections():
-    (tripwire.async_websocket_mock
+    (tripwire.async_websocket
         .new_session()
         .expect("connect", returns=None)
         .expect("recv",    returns="first")
         .expect("close",   returns=None))
 
-    (tripwire.async_websocket_mock
+    (tripwire.async_websocket
         .new_session()
         .expect("connect", returns=None)
         .expect("recv",    returns="second")
@@ -292,7 +292,7 @@ async def test_two_ws_connections():
 connecting --connect--> open --send/recv--> open --close--> closed
 ```
 
-**Proxy:** `tripwire.sync_websocket_mock`
+**Proxy:** `tripwire.sync_websocket`
 
 ### Quickstart
 
@@ -301,7 +301,7 @@ import websocket
 import tripwire
 
 def test_sync_ws():
-    (tripwire.sync_websocket_mock
+    (tripwire.sync_websocket
         .new_session()
         .expect("connect", returns=None)
         .expect("send",    returns=None)
@@ -333,7 +333,7 @@ running --communicate--> terminated
 running --wait--> terminated (also releases the session)
 ```
 
-**Proxy:** `tripwire.popen_mock`
+**Proxy:** `tripwire.popen`
 
 **Coexistence with SubprocessPlugin:** `SubprocessPlugin` patches `subprocess.run` and `shutil.which`. `PopenPlugin` patches `subprocess.Popen`. Both can be active in the same sandbox without interference.
 
@@ -346,7 +346,7 @@ import subprocess
 import tripwire
 
 def test_run_command():
-    (tripwire.popen_mock
+    (tripwire.popen
         .new_session()
         .expect("init",        returns=None)
         .expect("communicate", returns=(b"hello\n", b"", 0)))
@@ -364,7 +364,7 @@ def test_run_command():
 
 ```python
 def test_failing_command():
-    (tripwire.popen_mock
+    (tripwire.popen
         .new_session()
         .expect("init",        returns=None)
         .expect("communicate", returns=(b"", b"command not found", 127)))
@@ -383,7 +383,7 @@ def test_failing_command():
 
 ```python
 def test_wait():
-    (tripwire.popen_mock
+    (tripwire.popen
         .new_session()
         .expect("init", returns=None)
         .expect("wait", returns=0))
@@ -402,7 +402,7 @@ For code that reads `proc.stdout` and `proc.stderr` directly rather than using `
 
 ```python
 def test_stream_read():
-    (tripwire.popen_mock
+    (tripwire.popen
         .new_session()
         .expect("init",        returns=None)
         .expect("stdout.read", returns=b"output data"))
@@ -432,7 +432,7 @@ sending/greeted/authenticated --quit--> closed
 
 `starttls` and `login` are optional steps. Skip them in your session script for an unauthenticated flow.
 
-**Proxy:** `tripwire.smtp_mock`
+**Proxy:** `tripwire.smtp`
 
 ### Full authenticated flow (ehlo + starttls + login + sendmail + quit)
 
@@ -441,7 +441,7 @@ import smtplib
 import tripwire
 
 def test_send_authenticated_email():
-    (tripwire.smtp_mock
+    (tripwire.smtp
         .new_session()
         .expect("connect",  returns=None)
         .expect("ehlo",     returns=(250, b"OK"))
@@ -467,7 +467,7 @@ def test_send_authenticated_email():
 
 ```python
 def test_send_unauthenticated_email():
-    (tripwire.smtp_mock
+    (tripwire.smtp
         .new_session()
         .expect("connect",  returns=None)
         .expect("ehlo",     returns=(250, b"OK"))
@@ -495,7 +495,7 @@ The state machine validates that `sendmail` is called from `greeted` (after `ehl
 
 **Requires:** `pip install tripwire[redis]`
 
-**Proxy:** `tripwire.redis_mock`
+**Proxy:** `tripwire.redis`
 
 ### Quickstart
 
@@ -504,7 +504,7 @@ import redis
 import tripwire
 
 def test_cache_lookup():
-    tripwire.redis_mock.mock_command("GET", returns="cached_value")
+    tripwire.redis.mock_command("GET", returns="cached_value")
 
     with tripwire:
         r = redis.Redis()
@@ -519,9 +519,9 @@ Each command name has its own independent FIFO queue. Multiple `mock_command("GE
 
 ```python
 def test_get_set():
-    tripwire.redis_mock.mock_command("SET", returns=True)
-    tripwire.redis_mock.mock_command("GET", returns="first")
-    tripwire.redis_mock.mock_command("GET", returns="second")
+    tripwire.redis.mock_command("SET", returns=True)
+    tripwire.redis.mock_command("GET", returns="first")
+    tripwire.redis.mock_command("GET", returns="second")
 
     with tripwire:
         r = redis.Redis()
@@ -540,7 +540,7 @@ Command names are case-insensitive: `mock_command("get", ...)` matches `execute_
 ```python
 def test_redis_error():
     import redis as redis_lib
-    tripwire.redis_mock.mock_command(
+    tripwire.redis.mock_command(
         "GET",
         returns=None,
         raises=redis_lib.exceptions.ResponseError("WRONGTYPE"),
@@ -574,10 +574,10 @@ Raised when a connection entry point fires (e.g., `socket.connect()`, `sqlite3.c
 UnmockedInteractionError: source_id='socket:connect'
 hint='socket.socket.connect(...) was called but no session was queued.
 Register a session with:
-    tripwire.socket_mock.new_session().expect("connect", returns=...)'
+    tripwire.socket.new_session().expect("connect", returns=...)'
 ```
 
-**Fix:** Call `tripwire.socket_mock.new_session()` (or the appropriate proxy) before entering the sandbox.
+**Fix:** Call `tripwire.socket.new_session()` (or the appropriate proxy) before entering the sandbox.
 
 Also raised when the session script is exhausted but the code under test makes another call. In this case the hint shows the method that ran out of steps.
 

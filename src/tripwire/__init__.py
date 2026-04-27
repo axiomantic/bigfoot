@@ -304,38 +304,38 @@ __all__ = [
     "current_verifier",
     "spy",
     "http",
-    "subprocess_mock",
-    "popen_mock",
-    "smtp_mock",
-    "socket_mock",
-    "db_mock",
-    "async_websocket_mock",
-    "sync_websocket_mock",
-    "redis_mock",
-    "mongo_mock",
-    "dns_mock",
-    "memcache_mock",
-    "celery_mock",
-    "log_mock",
-    "async_subprocess_mock",
-    "psycopg2_mock",
-    "asyncpg_mock",
-    "boto3_mock",
-    "elasticsearch_mock",
-    "jwt_mock",
-    "crypto_mock",
+    "subprocess",
+    "popen",
+    "smtp",
+    "socket",
+    "db",
+    "async_websocket",
+    "sync_websocket",
+    "redis",
+    "mongo",
+    "dns",
+    "memcache",
+    "celery",
+    "log",
+    "async_subprocess",
+    "psycopg2",
+    "asyncpg",
+    "boto3",
+    "elasticsearch",
+    "jwt",
+    "crypto",
     "FileIoPlugin",
-    "file_io_mock",
+    "file_io",
     "PikaPlugin",
-    "pika_mock",
+    "pika",
     "SshPlugin",
-    "ssh_mock",
+    "ssh",
     "GrpcPlugin",
-    "grpc_mock",
+    "grpc",
     "McpPlugin",
-    "mcp_mock",
+    "mcp",
     "NativePlugin",
-    "native_mock",
+    "native",
 ]
 
 
@@ -478,7 +478,7 @@ class _SubprocessProxy:
         return getattr(plugin, name)
 
 
-subprocess_mock = _SubprocessProxy()
+subprocess = _SubprocessProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -498,7 +498,7 @@ class _PopenProxy:
         return getattr(plugin, name)
 
 
-popen_mock = _PopenProxy()
+popen = _PopenProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -518,7 +518,7 @@ class _SmtpProxy:
         return getattr(plugin, name)
 
 
-smtp_mock = _SmtpProxy()
+smtp = _SmtpProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -538,7 +538,7 @@ class _SocketProxy:
         return getattr(plugin, name)
 
 
-socket_mock = _SocketProxy()
+socket = _SocketProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -558,7 +558,7 @@ class _DatabaseProxy:
         return getattr(plugin, name)
 
 
-db_mock = _DatabaseProxy()
+db = _DatabaseProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -578,7 +578,7 @@ class _AsyncWebSocketProxy:
 
         if not _WEBSOCKETS_AVAILABLE:
             raise ImportError(
-                "tripwire[websockets] is required to use tripwire.async_websocket_mock. "
+                "tripwire[websockets] is required to use tripwire.async_websocket. "
                 "Install it with: pip install tripwire[websockets]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -586,7 +586,7 @@ class _AsyncWebSocketProxy:
         return getattr(plugin, name)
 
 
-async_websocket_mock = _AsyncWebSocketProxy()
+async_websocket = _AsyncWebSocketProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -606,7 +606,7 @@ class _SyncWebSocketProxy:
 
         if not _WEBSOCKET_CLIENT_AVAILABLE:
             raise ImportError(
-                "tripwire[websocket-client] is required to use tripwire.sync_websocket_mock. "
+                "tripwire[websocket-client] is required to use tripwire.sync_websocket. "
                 "Install it with: pip install tripwire[websocket-client]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -614,7 +614,7 @@ class _SyncWebSocketProxy:
         return getattr(plugin, name)
 
 
-sync_websocket_mock = _SyncWebSocketProxy()
+sync_websocket = _SyncWebSocketProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -634,7 +634,7 @@ class _RedisProxy:
 
         if not _REDIS_AVAILABLE:
             raise ImportError(
-                "tripwire[redis] is required to use tripwire.redis_mock. "
+                "tripwire[redis] is required to use tripwire.redis. "
                 "Install it with: pip install tripwire[redis]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -642,7 +642,7 @@ class _RedisProxy:
         return getattr(plugin, name)
 
 
-redis_mock = _RedisProxy()
+redis = _RedisProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -663,7 +663,7 @@ class _FileIoProxy:
         return getattr(plugin, name)
 
 
-file_io_mock = _FileIoProxy()
+file_io = _FileIoProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -684,7 +684,7 @@ class _NativeProxy:
         return getattr(plugin, name)
 
 
-native_mock = _NativeProxy()
+native = _NativeProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -704,7 +704,7 @@ class _PikaProxy:
 
         if not _PIKA_AVAILABLE:
             raise ImportError(
-                "tripwire[pika] is required to use tripwire.pika_mock. "
+                "tripwire[pika] is required to use tripwire.pika. "
                 "Install it with: pip install tripwire[pika]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -712,7 +712,7 @@ class _PikaProxy:
         return getattr(plugin, name)
 
 
-pika_mock = _PikaProxy()
+pika = _PikaProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -732,7 +732,7 @@ class _SshProxy:
 
         if not _PARAMIKO_AVAILABLE:
             raise ImportError(
-                "tripwire[ssh] is required to use tripwire.ssh_mock. "
+                "tripwire[ssh] is required to use tripwire.ssh. "
                 "Install it with: pip install tripwire[ssh]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -740,7 +740,7 @@ class _SshProxy:
         return getattr(plugin, name)
 
 
-ssh_mock = _SshProxy()
+ssh = _SshProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -760,7 +760,7 @@ class _GrpcProxy:
 
         if not _GRPC_AVAILABLE:
             raise ImportError(
-                "tripwire[grpc] is required to use tripwire.grpc_mock. "
+                "tripwire[grpc] is required to use tripwire.grpc. "
                 "Install it with: pip install tripwire[grpc]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -768,7 +768,7 @@ class _GrpcProxy:
         return getattr(plugin, name)
 
 
-grpc_mock = _GrpcProxy()
+grpc = _GrpcProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -788,7 +788,7 @@ class _McpProxy:
 
         if not _MCP_AVAILABLE:
             raise ImportError(
-                "tripwire[mcp] is required to use tripwire.mcp_mock. "
+                "tripwire[mcp] is required to use tripwire.mcp. "
                 "Install it with: pip install tripwire[mcp]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -796,7 +796,7 @@ class _McpProxy:
         return getattr(plugin, name)
 
 
-mcp_mock = _McpProxy()
+mcp = _McpProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -816,7 +816,7 @@ class _MongoProxy:
 
         if not _PYMONGO_AVAILABLE:
             raise ImportError(
-                "tripwire[mongo] is required to use tripwire.mongo_mock. "
+                "tripwire[mongo] is required to use tripwire.mongo. "
                 "Install it with: pip install tripwire[mongo]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -824,7 +824,7 @@ class _MongoProxy:
         return getattr(plugin, name)
 
 
-mongo_mock = _MongoProxy()
+mongo = _MongoProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -845,7 +845,7 @@ class _DnsProxy:
         return getattr(plugin, name)
 
 
-dns_mock = _DnsProxy()
+dns = _DnsProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -865,7 +865,7 @@ class _MemcacheProxy:
 
         if not _PYMEMCACHE_AVAILABLE:
             raise ImportError(
-                "tripwire[pymemcache] is required to use tripwire.memcache_mock. "
+                "tripwire[pymemcache] is required to use tripwire.memcache. "
                 "Install it with: pip install tripwire[pymemcache]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -873,7 +873,7 @@ class _MemcacheProxy:
         return getattr(plugin, name)
 
 
-memcache_mock = _MemcacheProxy()
+memcache = _MemcacheProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -893,7 +893,7 @@ class _CeleryProxy:
 
         if not _CELERY_AVAILABLE:
             raise ImportError(
-                "tripwire[celery] is required to use tripwire.celery_mock. "
+                "tripwire[celery] is required to use tripwire.celery. "
                 "Install it with: pip install tripwire[celery]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -901,7 +901,7 @@ class _CeleryProxy:
         return getattr(plugin, name)
 
 
-celery_mock = _CeleryProxy()
+celery = _CeleryProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -921,7 +921,7 @@ class _LoggingProxy:
         return getattr(plugin, name)
 
 
-log_mock = _LoggingProxy()
+log = _LoggingProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -941,7 +941,7 @@ class _Psycopg2Proxy:
 
         if not _PSYCOPG2_AVAILABLE:
             raise ImportError(
-                "tripwire[psycopg2] is required to use tripwire.psycopg2_mock. "
+                "tripwire[psycopg2] is required to use tripwire.psycopg2. "
                 "Install it with: pip install tripwire[psycopg2]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -949,7 +949,7 @@ class _Psycopg2Proxy:
         return getattr(plugin, name)
 
 
-psycopg2_mock = _Psycopg2Proxy()
+psycopg2 = _Psycopg2Proxy()
 
 
 # ---------------------------------------------------------------------------
@@ -969,7 +969,7 @@ class _AsyncpgProxy:
 
         if not _ASYNCPG_AVAILABLE:
             raise ImportError(
-                "tripwire[asyncpg] is required to use tripwire.asyncpg_mock. "
+                "tripwire[asyncpg] is required to use tripwire.asyncpg. "
                 "Install it with: pip install tripwire[asyncpg]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -977,7 +977,7 @@ class _AsyncpgProxy:
         return getattr(plugin, name)
 
 
-asyncpg_mock = _AsyncpgProxy()
+asyncpg = _AsyncpgProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -997,7 +997,7 @@ class _Boto3Proxy:
 
         if not _BOTO3_AVAILABLE:
             raise ImportError(
-                "tripwire[boto3] is required to use tripwire.boto3_mock. "
+                "tripwire[boto3] is required to use tripwire.boto3. "
                 "Install it with: pip install tripwire[boto3]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -1005,7 +1005,7 @@ class _Boto3Proxy:
         return getattr(plugin, name)
 
 
-boto3_mock = _Boto3Proxy()
+boto3 = _Boto3Proxy()
 
 
 # ---------------------------------------------------------------------------
@@ -1025,7 +1025,7 @@ class _ElasticsearchProxy:
 
         if not _ELASTICSEARCH_AVAILABLE:
             raise ImportError(
-                "tripwire[elasticsearch] is required to use tripwire.elasticsearch_mock. "
+                "tripwire[elasticsearch] is required to use tripwire.elasticsearch. "
                 "Install it with: pip install tripwire[elasticsearch]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -1033,7 +1033,7 @@ class _ElasticsearchProxy:
         return getattr(plugin, name)
 
 
-elasticsearch_mock = _ElasticsearchProxy()
+elasticsearch = _ElasticsearchProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -1053,7 +1053,7 @@ class _JwtProxy:
 
         if not _JWT_AVAILABLE:
             raise ImportError(
-                "tripwire[jwt] is required to use tripwire.jwt_mock. "
+                "tripwire[jwt] is required to use tripwire.jwt. "
                 "Install it with: pip install tripwire[jwt]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -1061,7 +1061,7 @@ class _JwtProxy:
         return getattr(plugin, name)
 
 
-jwt_mock = _JwtProxy()
+jwt = _JwtProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -1081,7 +1081,7 @@ class _CryptoProxy:
 
         if not _CRYPTOGRAPHY_AVAILABLE:
             raise ImportError(
-                "tripwire[crypto] is required to use tripwire.crypto_mock. "
+                "tripwire[crypto] is required to use tripwire.crypto. "
                 "Install it with: pip install tripwire[crypto]"
             )
         verifier = _get_test_verifier_or_raise()
@@ -1089,7 +1089,7 @@ class _CryptoProxy:
         return getattr(plugin, name)
 
 
-crypto_mock = _CryptoProxy()
+crypto = _CryptoProxy()
 
 
 # ---------------------------------------------------------------------------
@@ -1109,7 +1109,7 @@ class _AsyncSubprocessProxy:
         return getattr(plugin, name)
 
 
-async_subprocess_mock = _AsyncSubprocessProxy()
+async_subprocess = _AsyncSubprocessProxy()
 
 
 # ---------------------------------------------------------------------------

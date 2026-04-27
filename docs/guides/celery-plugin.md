@@ -12,13 +12,13 @@ This installs `celery`.
 
 ## Setup
 
-In pytest, access `CeleryPlugin` through the `tripwire.celery_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `CeleryPlugin` through the `tripwire.celery` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
 import tripwire
 
 def test_send_welcome_email():
-    tripwire.celery_mock.mock_delay(
+    tripwire.celery.mock_delay(
         "myapp.tasks.send_email",
         returns=None,
     )
@@ -27,7 +27,7 @@ def test_send_welcome_email():
         from myapp.tasks import send_email
         send_email.delay("user@example.com", "Welcome!")
 
-    tripwire.celery_mock.assert_delay(
+    tripwire.celery.assert_delay(
         task_name="myapp.tasks.send_email",
         args=("user@example.com", "Welcome!"),
         kwargs={},
@@ -42,7 +42,7 @@ from tripwire import StrictVerifier
 from tripwire.plugins.celery_plugin import CeleryPlugin
 
 verifier = StrictVerifier()
-celery_mock = CeleryPlugin(verifier)
+celery = CeleryPlugin(verifier)
 ```
 
 Each verifier may have at most one `CeleryPlugin`. A second `CeleryPlugin(verifier)` raises `ValueError`.
@@ -54,7 +54,7 @@ CeleryPlugin provides two mock registration methods, one for each dispatch metho
 ### `mock_delay(task_name, *, returns, ...)`
 
 ```python
-tripwire.celery_mock.mock_delay("myapp.tasks.process_order", returns=None)
+tripwire.celery.mock_delay("myapp.tasks.process_order", returns=None)
 ```
 
 | Parameter | Type | Default | Description |
@@ -67,7 +67,7 @@ tripwire.celery_mock.mock_delay("myapp.tasks.process_order", returns=None)
 ### `mock_apply_async(task_name, *, returns, ...)`
 
 ```python
-tripwire.celery_mock.mock_apply_async("myapp.tasks.generate_report", returns=None)
+tripwire.celery.mock_apply_async("myapp.tasks.generate_report", returns=None)
 ```
 
 | Parameter | Type | Default | Description |
@@ -83,21 +83,21 @@ Each task_name:dispatch_method pair has its own independent FIFO queue. Multiple
 
 ```python
 def test_multiple_email_dispatches():
-    tripwire.celery_mock.mock_delay("myapp.tasks.send_email", returns=None)
-    tripwire.celery_mock.mock_delay("myapp.tasks.send_email", returns=None)
+    tripwire.celery.mock_delay("myapp.tasks.send_email", returns=None)
+    tripwire.celery.mock_delay("myapp.tasks.send_email", returns=None)
 
     with tripwire:
         from myapp.tasks import send_email
         send_email.delay("alice@example.com", "Hello Alice")
         send_email.delay("bob@example.com", "Hello Bob")
 
-    tripwire.celery_mock.assert_delay(
+    tripwire.celery.assert_delay(
         task_name="myapp.tasks.send_email",
         args=("alice@example.com", "Hello Alice"),
         kwargs={},
         options={},
     )
-    tripwire.celery_mock.assert_delay(
+    tripwire.celery.assert_delay(
         task_name="myapp.tasks.send_email",
         args=("bob@example.com", "Hello Bob"),
         kwargs={},
@@ -107,12 +107,12 @@ def test_multiple_email_dispatches():
 
 ## Asserting interactions
 
-Use the typed assertion helpers on `tripwire.celery_mock`. All four fields (`task_name`, `args`, `kwargs`, `options`) are required:
+Use the typed assertion helpers on `tripwire.celery`. All four fields (`task_name`, `args`, `kwargs`, `options`) are required:
 
 ### `assert_delay(task_name, args, kwargs, options)`
 
 ```python
-tripwire.celery_mock.assert_delay(
+tripwire.celery.assert_delay(
     task_name="myapp.tasks.send_email",
     args=("user@example.com", "Welcome!"),
     kwargs={},
@@ -130,7 +130,7 @@ tripwire.celery_mock.assert_delay(
 ### `assert_apply_async(task_name, args, kwargs, options)`
 
 ```python
-tripwire.celery_mock.assert_apply_async(
+tripwire.celery.assert_apply_async(
     task_name="myapp.tasks.generate_report",
     args=("q1", 2024),
     kwargs={"format": "pdf"},
@@ -153,7 +153,7 @@ Use the `raises` parameter to simulate Celery dispatch failures:
 import tripwire
 
 def test_celery_dispatch_error():
-    tripwire.celery_mock.mock_delay(
+    tripwire.celery.mock_delay(
         "myapp.tasks.send_email",
         returns=None,
         raises=ConnectionError("Broker unavailable"),
@@ -164,7 +164,7 @@ def test_celery_dispatch_error():
         with pytest.raises(ConnectionError):
             send_email.delay("user@example.com", "Hello")
 
-    tripwire.celery_mock.assert_delay(
+    tripwire.celery.assert_delay(
         task_name="myapp.tasks.send_email",
         args=("user@example.com", "Hello"),
         kwargs={},
@@ -191,7 +191,7 @@ def test_celery_dispatch_error():
 Mark a mock as optional with `required=False`:
 
 ```python
-tripwire.celery_mock.mock_delay("myapp.tasks.update_metrics", returns=None, required=False)
+tripwire.celery.mock_delay("myapp.tasks.update_metrics", returns=None, required=False)
 ```
 
 An optional mock that is never triggered does not cause `UnusedMocksError` at teardown.
@@ -203,5 +203,5 @@ When code calls `delay()` or `apply_async()` on a task that has no remaining moc
 ```
 celery.delay('myapp.tasks.send_email', ...) was called but no mock was registered.
 Register a mock with:
-    tripwire.celery_mock.mock_delay('myapp.tasks.send_email', returns=...)
+    tripwire.celery.mock_delay('myapp.tasks.send_email', returns=...)
 ```

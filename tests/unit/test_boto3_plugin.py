@@ -337,7 +337,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    tripwire.boto3_mock.mock_call('s3', 'GetObject', returns=...)"
+    assert result == "    tripwire.boto3.mock_call('s3', 'GetObject', returns=...)"
 
 
 def test_format_unmocked_hint() -> None:
@@ -346,7 +346,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "s3.GetObject(...) was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    tripwire.boto3_mock.mock_call('s3', 'GetObject', returns=...)"
+        "    tripwire.boto3.mock_call('s3', 'GetObject', returns=...)"
     )
 
 
@@ -360,7 +360,7 @@ def test_format_assert_hint() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    tripwire.boto3_mock.assert_boto3_call(\n"
+        "    tripwire.boto3.assert_boto3_call(\n"
         "        service='s3',\n"
         "        operation='GetObject',\n"
         "        params={'Bucket': 'b'},\n"
@@ -398,21 +398,21 @@ def test_dynamic_sentinel_different_services() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: tripwire.boto3_mock
+# Module-level proxy: tripwire.boto3
 # ---------------------------------------------------------------------------
 
 
 def test_boto3_mock_proxy_mock_call(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.boto3_mock.mock_call("s3", "GetObject", returns={"Body": b"proxied"})
+    tripwire.boto3.mock_call("s3", "GetObject", returns={"Body": b"proxied"})
 
     with tripwire.sandbox():
         client = boto3.client("s3", region_name="us-east-1")
         result = client.get_object(Bucket="b", Key="k")
 
     assert result == {"Body": b"proxied"}
-    tripwire.boto3_mock.assert_boto3_call(
+    tripwire.boto3.assert_boto3_call(
         "s3", "GetObject", params={"Bucket": "b", "Key": "k"}
     )
 
@@ -424,7 +424,7 @@ def test_boto3_mock_proxy_raises_outside_context() -> None:
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = tripwire.boto3_mock.mock_call
+            _ = tripwire.boto3.mock_call
     finally:
         _current_test_verifier.reset(token)
 
@@ -439,7 +439,7 @@ def test_boto3_plugin_in_all() -> None:
     from tripwire.plugins.boto3_plugin import Boto3Plugin as _Boto3Plugin
 
     assert tripwire.Boto3Plugin is _Boto3Plugin
-    assert type(tripwire.boto3_mock).__name__ == "_Boto3Proxy"
+    assert type(tripwire.boto3).__name__ == "_Boto3Proxy"
 
 
 # ---------------------------------------------------------------------------
@@ -451,7 +451,7 @@ def test_boto3_interactions_not_auto_asserted(tripwire_verifier: StrictVerifier)
     """boto3 interactions are NOT auto-asserted."""
     import tripwire
 
-    tripwire.boto3_mock.mock_call("s3", "GetObject", returns={"Body": b"val"})
+    tripwire.boto3.mock_call("s3", "GetObject", returns={"Body": b"val"})
     with tripwire.sandbox():
         client = boto3.client("s3", region_name="us-east-1")
         client.get_object(Bucket="b", Key="k")
@@ -460,18 +460,18 @@ def test_boto3_interactions_not_auto_asserted(tripwire_verifier: StrictVerifier)
     interactions = timeline.all_unasserted()
     assert len(interactions) == 1
     assert interactions[0].source_id == "boto3:s3:GetObject"
-    tripwire.boto3_mock.assert_boto3_call("s3", "GetObject", params={"Bucket": "b", "Key": "k"})
+    tripwire.boto3.assert_boto3_call("s3", "GetObject", params={"Bucket": "b", "Key": "k"})
 
 
 def test_assert_boto3_call_typed_helper(tripwire_verifier: StrictVerifier) -> None:
     """assert_boto3_call() asserts the next boto3 interaction."""
     import tripwire
 
-    tripwire.boto3_mock.mock_call("s3", "PutObject", returns={"ETag": '"abc"'})
+    tripwire.boto3.mock_call("s3", "PutObject", returns={"ETag": '"abc"'})
     with tripwire.sandbox():
         client = boto3.client("s3", region_name="us-east-1")
         client.put_object(Bucket="b", Key="k", Body=b"data")
-    tripwire.boto3_mock.assert_boto3_call(
+    tripwire.boto3.assert_boto3_call(
         "s3", "PutObject", params={"Bucket": "b", "Key": "k", "Body": b"data"}
     )
 
@@ -480,21 +480,21 @@ def test_assert_boto3_call_wrong_params_raises(tripwire_verifier: StrictVerifier
     """assert_boto3_call() with wrong params raises InteractionMismatchError."""
     import tripwire
 
-    tripwire.boto3_mock.mock_call("s3", "GetObject", returns={"Body": b"val"})
+    tripwire.boto3.mock_call("s3", "GetObject", returns={"Body": b"val"})
     with tripwire.sandbox():
         client = boto3.client("s3", region_name="us-east-1")
         client.get_object(Bucket="b", Key="k")
     with pytest.raises(InteractionMismatchError):
-        tripwire.boto3_mock.assert_boto3_call("s3", "GetObject", params={"Bucket": "wrong"})
+        tripwire.boto3.assert_boto3_call("s3", "GetObject", params={"Bucket": "wrong"})
     # Assert correctly so teardown passes
-    tripwire.boto3_mock.assert_boto3_call("s3", "GetObject", params={"Bucket": "b", "Key": "k"})
+    tripwire.boto3.assert_boto3_call("s3", "GetObject", params={"Bucket": "b", "Key": "k"})
 
 
 def test_missing_assertion_fields_raises(tripwire_verifier: StrictVerifier) -> None:
     """Incomplete fields in assert_interaction raises MissingAssertionFieldsError."""
     import tripwire
 
-    tripwire.boto3_mock.mock_call("s3", "GetObject", returns={"Body": b"val"})
+    tripwire.boto3.mock_call("s3", "GetObject", returns={"Body": b"val"})
     with tripwire.sandbox():
         client = boto3.client("s3", region_name="us-east-1")
         client.get_object(Bucket="b", Key="k")
@@ -505,4 +505,4 @@ def test_missing_assertion_fields_raises(tripwire_verifier: StrictVerifier) -> N
     with pytest.raises(MissingAssertionFieldsError):
         tripwire.assert_interaction(sentinel, service="s3")
     # Assert correctly so teardown passes
-    tripwire.boto3_mock.assert_boto3_call("s3", "GetObject", params={"Bucket": "b", "Key": "k"})
+    tripwire.boto3.assert_boto3_call("s3", "GetObject", params={"Bucket": "b", "Key": "k"})

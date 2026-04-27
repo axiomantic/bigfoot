@@ -8,7 +8,7 @@ from .app import resolve_service_endpoint
 
 
 def test_resolve_service_endpoint():
-    tripwire.dns_mock.mock_getaddrinfo(
+    tripwire.dns.mock_getaddrinfo(
         "payments.internal",
         returns=[
             (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.0.2.15", 443)),
@@ -20,7 +20,7 @@ def test_resolve_service_endpoint():
 
     assert addr == ("10.0.2.15", 443)
 
-    tripwire.dns_mock.assert_getaddrinfo(
+    tripwire.dns.assert_getaddrinfo(
         host="payments.internal",
         port=443,
         family=socket.AF_INET,

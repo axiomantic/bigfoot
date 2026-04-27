@@ -339,7 +339,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    tripwire.elasticsearch_mock.mock_operation('search', returns=...)"
+    assert result == "    tripwire.elasticsearch.mock_operation('search', returns=...)"
 
 
 def test_format_unmocked_hint() -> None:
@@ -348,7 +348,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "elasticsearch.index(...) was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    tripwire.elasticsearch_mock.mock_operation('index', returns=...)"
+        "    tripwire.elasticsearch.mock_operation('index', returns=...)"
     )
 
 
@@ -362,7 +362,7 @@ def test_format_assert_hint() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    tripwire.elasticsearch_mock.assert_index(\n"
+        "    tripwire.elasticsearch.assert_index(\n"
         "        index='my-index',\n"
         "        document={'a': 1},\n"
         "    )"
@@ -380,21 +380,21 @@ def test_format_unused_mock_hint() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: tripwire.elasticsearch_mock
+# Module-level proxy: tripwire.elasticsearch
 # ---------------------------------------------------------------------------
 
 
 def test_elasticsearch_mock_proxy_mock_operation(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.elasticsearch_mock.mock_operation("index", returns={"_id": "1"})
+    tripwire.elasticsearch.mock_operation("index", returns={"_id": "1"})
 
     with tripwire.sandbox():
         es = elasticsearch.Elasticsearch("http://localhost:9200")
         result = es.index(index="my-index", document={"field": "val"})
 
     assert result == {"_id": "1"}
-    tripwire.elasticsearch_mock.assert_index(index="my-index", document={"field": "val"})
+    tripwire.elasticsearch.assert_index(index="my-index", document={"field": "val"})
 
 
 def test_elasticsearch_mock_proxy_raises_outside_context() -> None:
@@ -404,7 +404,7 @@ def test_elasticsearch_mock_proxy_raises_outside_context() -> None:
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = tripwire.elasticsearch_mock.mock_operation
+            _ = tripwire.elasticsearch.mock_operation
     finally:
         _current_test_verifier.reset(token)
 
@@ -421,7 +421,7 @@ def test_elasticsearch_plugin_in_all() -> None:
     )
 
     assert tripwire.ElasticsearchPlugin is _ElasticsearchPlugin
-    assert type(tripwire.elasticsearch_mock).__name__ == "_ElasticsearchProxy"
+    assert type(tripwire.elasticsearch).__name__ == "_ElasticsearchProxy"
 
 
 # ---------------------------------------------------------------------------
@@ -432,7 +432,7 @@ def test_elasticsearch_plugin_in_all() -> None:
 def test_elasticsearch_interactions_not_auto_asserted(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.elasticsearch_mock.mock_operation("index", returns={"_id": "1"})
+    tripwire.elasticsearch.mock_operation("index", returns={"_id": "1"})
     with tripwire.sandbox():
         es = elasticsearch.Elasticsearch("http://localhost:9200")
         es.index(index="idx", document={"a": 1})
@@ -441,78 +441,78 @@ def test_elasticsearch_interactions_not_auto_asserted(tripwire_verifier: StrictV
     interactions = timeline.all_unasserted()
     assert len(interactions) == 1
     assert interactions[0].source_id == "elasticsearch:index"
-    tripwire.elasticsearch_mock.assert_index(index="idx", document={"a": 1})
+    tripwire.elasticsearch.assert_index(index="idx", document={"a": 1})
 
 
 def test_assert_index_typed_helper(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.elasticsearch_mock.mock_operation("index", returns={"_id": "1"})
+    tripwire.elasticsearch.mock_operation("index", returns={"_id": "1"})
     with tripwire.sandbox():
         es = elasticsearch.Elasticsearch("http://localhost:9200")
         es.index(index="idx", document={"a": 1})
-    tripwire.elasticsearch_mock.assert_index(index="idx", document={"a": 1})
+    tripwire.elasticsearch.assert_index(index="idx", document={"a": 1})
 
 
 def test_assert_search_typed_helper(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.elasticsearch_mock.mock_operation("search", returns={"hits": {"hits": []}})
+    tripwire.elasticsearch.mock_operation("search", returns={"hits": {"hits": []}})
     with tripwire.sandbox():
         es = elasticsearch.Elasticsearch("http://localhost:9200")
         es.search(index="idx", query={"match_all": {}})
-    tripwire.elasticsearch_mock.assert_search(index="idx", query={"match_all": {}})
+    tripwire.elasticsearch.assert_search(index="idx", query={"match_all": {}})
 
 
 def test_assert_get_typed_helper(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.elasticsearch_mock.mock_operation("get", returns={"_source": {"a": 1}})
+    tripwire.elasticsearch.mock_operation("get", returns={"_source": {"a": 1}})
     with tripwire.sandbox():
         es = elasticsearch.Elasticsearch("http://localhost:9200")
         es.get(index="idx", id="1")
-    tripwire.elasticsearch_mock.assert_get(index="idx", id="1")
+    tripwire.elasticsearch.assert_get(index="idx", id="1")
 
 
 def test_assert_delete_typed_helper(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.elasticsearch_mock.mock_operation("delete", returns={"result": "deleted"})
+    tripwire.elasticsearch.mock_operation("delete", returns={"result": "deleted"})
     with tripwire.sandbox():
         es = elasticsearch.Elasticsearch("http://localhost:9200")
         es.delete(index="idx", id="1")
-    tripwire.elasticsearch_mock.assert_delete(index="idx", id="1")
+    tripwire.elasticsearch.assert_delete(index="idx", id="1")
 
 
 def test_assert_bulk_typed_helper(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
     ops = [{"index": {"_index": "idx", "_id": "1"}}, {"field": "val"}]
-    tripwire.elasticsearch_mock.mock_operation("bulk", returns={"items": []})
+    tripwire.elasticsearch.mock_operation("bulk", returns={"items": []})
     with tripwire.sandbox():
         es = elasticsearch.Elasticsearch("http://localhost:9200")
         es.bulk(operations=ops)
-    tripwire.elasticsearch_mock.assert_bulk(operations=ops)
+    tripwire.elasticsearch.assert_bulk(operations=ops)
 
 
 def test_assert_index_wrong_params_raises(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.elasticsearch_mock.mock_operation("index", returns={"_id": "1"})
+    tripwire.elasticsearch.mock_operation("index", returns={"_id": "1"})
     with tripwire.sandbox():
         es = elasticsearch.Elasticsearch("http://localhost:9200")
         es.index(index="idx", document={"a": 1})
     with pytest.raises(InteractionMismatchError):
-        tripwire.elasticsearch_mock.assert_index(index="wrong", document={"a": 1})
+        tripwire.elasticsearch.assert_index(index="wrong", document={"a": 1})
     # Assert correctly so teardown passes
-    tripwire.elasticsearch_mock.assert_index(index="idx", document={"a": 1})
+    tripwire.elasticsearch.assert_index(index="idx", document={"a": 1})
 
 
 def test_missing_assertion_fields_raises(tripwire_verifier: StrictVerifier) -> None:
     """Incomplete fields in assert_interaction raises MissingAssertionFieldsError."""
     import tripwire
 
-    tripwire.elasticsearch_mock.mock_operation("get", returns={"_source": {"a": 1}})
+    tripwire.elasticsearch.mock_operation("get", returns={"_source": {"a": 1}})
     with tripwire.sandbox():
         es = elasticsearch.Elasticsearch("http://localhost:9200")
         es.get(index="idx", id="1")
@@ -524,4 +524,4 @@ def test_missing_assertion_fields_raises(tripwire_verifier: StrictVerifier) -> N
         # Only providing index, missing id
         tripwire.assert_interaction(sentinel, index="idx")
     # Assert correctly so teardown passes
-    tripwire.elasticsearch_mock.assert_get(index="idx", id="1")
+    tripwire.elasticsearch.assert_get(index="idx", id="1")

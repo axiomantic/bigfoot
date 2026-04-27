@@ -483,12 +483,12 @@ def test_connect_with_empty_queue_raises_unmocked() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: tripwire.db_mock
+# Module-level proxy: tripwire.db
 # ---------------------------------------------------------------------------
 
 
 # ESCAPE: test_db_mock_proxy_new_session
-#   CLAIM: tripwire.db_mock.new_session() returns a SessionHandle that can
+#   CLAIM: tripwire.db.new_session() returns a SessionHandle that can
 #          be used to configure a session without importing DatabasePlugin directly.
 #   PATH:  _DatabaseProxy.__getattr__("new_session") -> get verifier -> find/create DatabasePlugin ->
 #          return plugin.new_session.
@@ -499,7 +499,7 @@ def test_connect_with_empty_queue_raises_unmocked() -> None:
 def test_db_mock_proxy_new_session(tripwire_verifier: StrictVerifier) -> None:
     from tripwire._state_machine_plugin import SessionHandle
 
-    session = tripwire.db_mock.new_session()
+    session = tripwire.db.new_session()
     assert isinstance(session, SessionHandle)
     # Chaining expect() with required=False so it doesn't trigger UnusedMocksError at teardown.
     result = session.expect("execute", returns=[], required=False)
@@ -507,7 +507,7 @@ def test_db_mock_proxy_new_session(tripwire_verifier: StrictVerifier) -> None:
 
 
 # ESCAPE: test_db_mock_proxy_raises_outside_context
-#   CLAIM: Accessing tripwire.db_mock outside a test context raises NoActiveVerifierError.
+#   CLAIM: Accessing tripwire.db outside a test context raises NoActiveVerifierError.
 #   PATH:  _DatabaseProxy.__getattr__ -> _get_test_verifier_or_raise -> NoActiveVerifierError.
 #   CHECK: NoActiveVerifierError raised.
 #   MUTATION: Silently returning None would not raise and hide context failures.
@@ -518,7 +518,7 @@ def test_db_mock_proxy_raises_outside_context() -> None:
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = tripwire.db_mock.new_session
+            _ = tripwire.db.new_session
     finally:
         _current_test_verifier.reset(token)
 

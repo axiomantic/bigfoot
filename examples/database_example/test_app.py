@@ -6,7 +6,7 @@ from .app import save_user
 
 
 def test_save_user():
-    (tripwire.db_mock
+    (tripwire.db
         .new_session()
         .expect("connect",  returns=None)
         .expect("execute",  returns=[])
@@ -16,10 +16,10 @@ def test_save_user():
     with tripwire:
         save_user("Alice", "alice@example.com")
 
-    tripwire.db_mock.assert_connect(database="app.db")
-    tripwire.db_mock.assert_execute(
+    tripwire.db.assert_connect(database="app.db")
+    tripwire.db.assert_execute(
         sql="INSERT INTO users (name, email) VALUES (?, ?)",
         parameters=("Alice", "alice@example.com"),
     )
-    tripwire.db_mock.assert_commit()
-    tripwire.db_mock.assert_close()
+    tripwire.db.assert_commit()
+    tripwire.db.assert_close()

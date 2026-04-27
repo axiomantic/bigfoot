@@ -19,9 +19,9 @@ def _silence_pymongo():
 
 def test_create_order():
     mock_result = type("InsertOneResult", (), {"inserted_id": "order_789"})()
-    tripwire.mongo_mock.mock_operation("insert_one", returns=mock_result)
+    tripwire.mongo.mock_operation("insert_one", returns=mock_result)
     update_result = type("UpdateResult", (), {"modified_count": 1})()
-    tripwire.mongo_mock.mock_operation("update_one", returns=update_result)
+    tripwire.mongo.mock_operation("update_one", returns=update_result)
 
     with tripwire:
         client = pymongo.MongoClient("mongodb://localhost:27017")
@@ -29,7 +29,7 @@ def test_create_order():
 
     assert order_id == "order_789"
 
-    tripwire.mongo_mock.assert_insert_one(
+    tripwire.mongo.assert_insert_one(
         database="shopdb",
         collection="orders",
         document={
@@ -38,7 +38,7 @@ def test_create_order():
             "status": "pending",
         },
     )
-    tripwire.mongo_mock.assert_update_one(
+    tripwire.mongo.assert_update_one(
         database="shopdb",
         collection="customers",
         filter={"_id": "cust_123"},

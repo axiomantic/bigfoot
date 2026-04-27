@@ -6,7 +6,7 @@ from .app import chat_client
 
 
 def test_chat_client():
-    (tripwire.sync_websocket_mock
+    (tripwire.sync_websocket
         .new_session()
         .expect("connect", returns=None)
         .expect("send",    returns=None)
@@ -20,9 +20,9 @@ def test_chat_client():
 
     assert responses == ["echo: hello", "echo: world"]
 
-    tripwire.sync_websocket_mock.assert_connect(uri="ws://chat.example.com/ws")
-    tripwire.sync_websocket_mock.assert_send(message="hello")
-    tripwire.sync_websocket_mock.assert_recv(message="echo: hello")
-    tripwire.sync_websocket_mock.assert_send(message="world")
-    tripwire.sync_websocket_mock.assert_recv(message="echo: world")
-    tripwire.sync_websocket_mock.assert_close()
+    tripwire.sync_websocket.assert_connect(uri="ws://chat.example.com/ws")
+    tripwire.sync_websocket.assert_send(message="hello")
+    tripwire.sync_websocket.assert_recv(message="echo: hello")
+    tripwire.sync_websocket.assert_send(message="world")
+    tripwire.sync_websocket.assert_recv(message="echo: world")
+    tripwire.sync_websocket.assert_close()

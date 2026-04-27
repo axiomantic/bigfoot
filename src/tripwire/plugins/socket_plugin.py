@@ -284,7 +284,7 @@ class SocketPlugin(StateMachinePlugin):
     def format_mock_hint(self, interaction: Interaction) -> str:
         sid = interaction.source_id
         method = sid.split(":", 1)[-1] if ":" in sid else sid
-        return f"    tripwire.socket_mock.new_session().expect({method!r}, returns=...)"
+        return f"    tripwire.socket.new_session().expect({method!r}, returns=...)"
 
     def format_unmocked_hint(
         self,
@@ -296,11 +296,11 @@ class SocketPlugin(StateMachinePlugin):
         return (
             f"socket.socket.{method}(...) was called but no session was queued.\n"
             f"Register a session with:\n"
-            f"    tripwire.socket_mock.new_session().expect({method!r}, returns=...)"
+            f"    tripwire.socket.new_session().expect({method!r}, returns=...)"
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:
-        sm = "tripwire.socket_mock"
+        sm = "tripwire.socket"
         sid = interaction.source_id
         if sid == _SOURCE_CONNECT:
             host = interaction.details.get("host", "?")

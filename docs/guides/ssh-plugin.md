@@ -12,13 +12,13 @@ This installs `paramiko`.
 
 ## Setup
 
-In pytest, access `SshPlugin` through the `tripwire.ssh_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `SshPlugin` through the `tripwire.ssh` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
 import tripwire
 
 def test_remote_command():
-    (tripwire.ssh_mock
+    (tripwire.ssh
         .new_session()
         .expect("connect",      returns=None)
         .expect("exec_command", returns=(None, b"hello\n", b""))
@@ -32,11 +32,11 @@ def test_remote_command():
         stdin, stdout, stderr = client.exec_command("echo hello")
         client.close()
 
-    tripwire.ssh_mock.assert_connect(
+    tripwire.ssh.assert_connect(
         hostname="server.example.com", port=22, username="deploy", auth_method="password",
     )
-    tripwire.ssh_mock.assert_exec_command(command="echo hello")
-    tripwire.ssh_mock.assert_close()
+    tripwire.ssh.assert_exec_command(command="echo hello")
+    tripwire.ssh.assert_close()
 ```
 
 For manual use outside pytest, construct `SshPlugin` explicitly:
@@ -46,7 +46,7 @@ from tripwire import StrictVerifier
 from tripwire.plugins.ssh_plugin import SshPlugin
 
 verifier = StrictVerifier()
-ssh_mock = SshPlugin(verifier)
+ssh = SshPlugin(verifier)
 ```
 
 Each verifier may have at most one `SshPlugin`. A second `SshPlugin(verifier)` raises `ValueError`.
@@ -69,7 +69,7 @@ Unlike pika.BlockingConnection, `paramiko.SSHClient()` does not connect on const
 Use `new_session()` to create a `SessionHandle` and chain `.expect()` calls:
 
 ```python
-(tripwire.ssh_mock
+(tripwire.ssh
     .new_session()
     .expect("connect",      returns=None)
     .expect("exec_command", returns=(None, b"output", b""))
@@ -103,14 +103,14 @@ Use `new_session()` to create a `SessionHandle` and chain `.expect()` calls:
 
 ## Asserting interactions
 
-Each step records an interaction on the timeline. Use the typed assertion helpers on `tripwire.ssh_mock`:
+Each step records an interaction on the timeline. Use the typed assertion helpers on `tripwire.ssh`:
 
 ### `assert_connect(*, hostname, port, username, auth_method)`
 
 The `auth_method` is automatically determined: `"key"` if `pkey` or `key_filename` is passed to `connect()`, otherwise `"password"`.
 
 ```python
-tripwire.ssh_mock.assert_connect(
+tripwire.ssh.assert_connect(
     hostname="server.example.com", port=22, username="deploy", auth_method="password",
 )
 ```
@@ -118,7 +118,7 @@ tripwire.ssh_mock.assert_connect(
 ### `assert_exec_command(*, command)`
 
 ```python
-tripwire.ssh_mock.assert_exec_command(command="systemctl restart nginx")
+tripwire.ssh.assert_exec_command(command="systemctl restart nginx")
 ```
 
 ### `assert_open_sftp()`
@@ -126,43 +126,43 @@ tripwire.ssh_mock.assert_exec_command(command="systemctl restart nginx")
 No fields are required.
 
 ```python
-tripwire.ssh_mock.assert_open_sftp()
+tripwire.ssh.assert_open_sftp()
 ```
 
 ### `assert_sftp_get(*, remotepath, localpath)`
 
 ```python
-tripwire.ssh_mock.assert_sftp_get(remotepath="/var/log/app.log", localpath="/tmp/app.log")
+tripwire.ssh.assert_sftp_get(remotepath="/var/log/app.log", localpath="/tmp/app.log")
 ```
 
 ### `assert_sftp_put(*, localpath, remotepath)`
 
 ```python
-tripwire.ssh_mock.assert_sftp_put(localpath="/tmp/config.yaml", remotepath="/etc/app/config.yaml")
+tripwire.ssh.assert_sftp_put(localpath="/tmp/config.yaml", remotepath="/etc/app/config.yaml")
 ```
 
 ### `assert_sftp_listdir(*, path)`
 
 ```python
-tripwire.ssh_mock.assert_sftp_listdir(path="/var/log")
+tripwire.ssh.assert_sftp_listdir(path="/var/log")
 ```
 
 ### `assert_sftp_stat(*, path)`
 
 ```python
-tripwire.ssh_mock.assert_sftp_stat(path="/etc/app/config.yaml")
+tripwire.ssh.assert_sftp_stat(path="/etc/app/config.yaml")
 ```
 
 ### `assert_sftp_mkdir(*, path)`
 
 ```python
-tripwire.ssh_mock.assert_sftp_mkdir(path="/var/data/exports")
+tripwire.ssh.assert_sftp_mkdir(path="/var/data/exports")
 ```
 
 ### `assert_sftp_remove(*, path)`
 
 ```python
-tripwire.ssh_mock.assert_sftp_remove(path="/tmp/old-backup.tar.gz")
+tripwire.ssh.assert_sftp_remove(path="/tmp/old-backup.tar.gz")
 ```
 
 ### `assert_close()`
@@ -170,7 +170,7 @@ tripwire.ssh_mock.assert_sftp_remove(path="/tmp/old-backup.tar.gz")
 No fields are required.
 
 ```python
-tripwire.ssh_mock.assert_close()
+tripwire.ssh.assert_close()
 ```
 
 ## Full example
@@ -193,7 +193,7 @@ When `pkey` or `key_filename` is passed to `connect()`, the `auth_method` detail
 
 ```python
 def test_key_auth():
-    (tripwire.ssh_mock
+    (tripwire.ssh
         .new_session()
         .expect("connect",      returns=None)
         .expect("exec_command", returns=(None, b"ok", b""))
@@ -206,11 +206,11 @@ def test_key_auth():
         client.exec_command("whoami")
         client.close()
 
-    tripwire.ssh_mock.assert_connect(
+    tripwire.ssh.assert_connect(
         hostname="bastion.example.com", port=22, username="ops", auth_method="key",
     )
-    tripwire.ssh_mock.assert_exec_command(command="whoami")
-    tripwire.ssh_mock.assert_close()
+    tripwire.ssh.assert_exec_command(command="whoami")
+    tripwire.ssh.assert_close()
 ```
 
 ## SFTP file operations
@@ -219,7 +219,7 @@ A full SFTP session with multiple file operations:
 
 ```python
 def test_sftp_operations():
-    (tripwire.ssh_mock
+    (tripwire.ssh
         .new_session()
         .expect("connect",       returns=None)
         .expect("open_sftp",     returns=None)
@@ -242,14 +242,14 @@ def test_sftp_operations():
         sftp.remove("/data/incoming/data.csv")
         client.close()
 
-    tripwire.ssh_mock.assert_connect(
+    tripwire.ssh.assert_connect(
         hostname="fileserver.example.com", port=22, username="sync", auth_method="password",
     )
-    tripwire.ssh_mock.assert_open_sftp()
-    tripwire.ssh_mock.assert_sftp_listdir(path="/data/incoming")
-    tripwire.ssh_mock.assert_sftp_get(remotepath="/data/incoming/data.csv", localpath="/tmp/data.csv")
-    tripwire.ssh_mock.assert_sftp_mkdir(path="/data/processed")
-    tripwire.ssh_mock.assert_sftp_put(localpath="/tmp/result.csv", remotepath="/data/processed/result.csv")
-    tripwire.ssh_mock.assert_sftp_remove(path="/data/incoming/data.csv")
-    tripwire.ssh_mock.assert_close()
+    tripwire.ssh.assert_open_sftp()
+    tripwire.ssh.assert_sftp_listdir(path="/data/incoming")
+    tripwire.ssh.assert_sftp_get(remotepath="/data/incoming/data.csv", localpath="/tmp/data.csv")
+    tripwire.ssh.assert_sftp_mkdir(path="/data/processed")
+    tripwire.ssh.assert_sftp_put(localpath="/tmp/result.csv", remotepath="/data/processed/result.csv")
+    tripwire.ssh.assert_sftp_remove(path="/data/incoming/data.csv")
+    tripwire.ssh.assert_close()
 ```

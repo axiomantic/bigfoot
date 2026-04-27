@@ -12,13 +12,13 @@ This installs `elasticsearch`.
 
 ## Setup
 
-In pytest, access `ElasticsearchPlugin` through the `tripwire.elasticsearch_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `ElasticsearchPlugin` through the `tripwire.elasticsearch` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
 import tripwire
 
 def test_index_document():
-    tripwire.elasticsearch_mock.mock_operation(
+    tripwire.elasticsearch.mock_operation(
         "index",
         returns={"_id": "doc_1", "result": "created"},
     )
@@ -30,7 +30,7 @@ def test_index_document():
 
     assert result["result"] == "created"
 
-    tripwire.elasticsearch_mock.assert_index(
+    tripwire.elasticsearch.assert_index(
         index="products",
         document={"name": "Widget", "price": 9.99},
         id="doc_1",
@@ -51,11 +51,11 @@ Each verifier may have at most one `ElasticsearchPlugin`. A second `Elasticsearc
 
 ## Registering mock operations
 
-Use `tripwire.elasticsearch_mock.mock_operation(operation, *, returns, ...)` to register a mock before entering the sandbox:
+Use `tripwire.elasticsearch.mock_operation(operation, *, returns, ...)` to register a mock before entering the sandbox:
 
 ```python
-tripwire.elasticsearch_mock.mock_operation("search", returns={"hits": {"hits": [], "total": {"value": 0}}})
-tripwire.elasticsearch_mock.mock_operation("index", returns={"_id": "1", "result": "created"})
+tripwire.elasticsearch.mock_operation("search", returns={"hits": {"hits": [], "total": {"value": 0}}})
+tripwire.elasticsearch.mock_operation("index", returns={"_id": "1", "result": "created"})
 ```
 
 ### Parameters
@@ -89,11 +89,11 @@ Each operation name has its own independent FIFO queue. Multiple `mock_operation
 
 ```python
 def test_paginated_search():
-    tripwire.elasticsearch_mock.mock_operation(
+    tripwire.elasticsearch.mock_operation(
         "search",
         returns={"hits": {"hits": [{"_id": "1"}], "total": {"value": 25}}},
     )
-    tripwire.elasticsearch_mock.mock_operation(
+    tripwire.elasticsearch.mock_operation(
         "search",
         returns={"hits": {"hits": [{"_id": "11"}], "total": {"value": 25}}},
     )
@@ -107,18 +107,18 @@ def test_paginated_search():
     assert page1["hits"]["hits"][0]["_id"] == "1"
     assert page2["hits"]["hits"][0]["_id"] == "11"
 
-    tripwire.elasticsearch_mock.assert_search(index="logs", query={"match_all": {}}, size=10)
-    tripwire.elasticsearch_mock.assert_search(index="logs", query={"match_all": {}}, size=10, from_=10)
+    tripwire.elasticsearch.assert_search(index="logs", query={"match_all": {}}, size=10)
+    tripwire.elasticsearch.assert_search(index="logs", query={"match_all": {}}, size=10, from_=10)
 ```
 
 ## Asserting interactions
 
-Use the typed assertion helpers on `tripwire.elasticsearch_mock`. Each helper accepts keyword arguments matching the detail fields captured for that operation.
+Use the typed assertion helpers on `tripwire.elasticsearch`. Each helper accepts keyword arguments matching the detail fields captured for that operation.
 
 ### `assert_index(*, index, document, id=None)`
 
 ```python
-tripwire.elasticsearch_mock.assert_index(
+tripwire.elasticsearch.assert_index(
     index="products",
     document={"name": "Widget", "price": 9.99},
     id="doc_1",
@@ -134,7 +134,7 @@ tripwire.elasticsearch_mock.assert_index(
 ### `assert_search(*, index=None, query=None, size=None, from_=None)`
 
 ```python
-tripwire.elasticsearch_mock.assert_search(
+tripwire.elasticsearch.assert_search(
     index="logs",
     query={"match": {"level": "error"}},
     size=50,
@@ -151,7 +151,7 @@ tripwire.elasticsearch_mock.assert_search(
 ### `assert_get(*, index, id)`
 
 ```python
-tripwire.elasticsearch_mock.assert_get(index="products", id="doc_1")
+tripwire.elasticsearch.assert_get(index="products", id="doc_1")
 ```
 
 | Parameter | Type | Description |
@@ -162,7 +162,7 @@ tripwire.elasticsearch_mock.assert_get(index="products", id="doc_1")
 ### `assert_delete(*, index, id)`
 
 ```python
-tripwire.elasticsearch_mock.assert_delete(index="products", id="doc_1")
+tripwire.elasticsearch.assert_delete(index="products", id="doc_1")
 ```
 
 | Parameter | Type | Description |
@@ -173,7 +173,7 @@ tripwire.elasticsearch_mock.assert_delete(index="products", id="doc_1")
 ### `assert_bulk(*, operations)`
 
 ```python
-tripwire.elasticsearch_mock.assert_bulk(
+tripwire.elasticsearch.assert_bulk(
     operations=[
         {"index": {"_index": "logs", "_id": "1"}},
         {"message": "first log entry"},
@@ -194,7 +194,7 @@ from elasticsearch import NotFoundError
 import tripwire
 
 def test_document_not_found():
-    tripwire.elasticsearch_mock.mock_operation(
+    tripwire.elasticsearch.mock_operation(
         "get",
         returns=None,
         raises=NotFoundError(404, "document_missing_exception", {"_index": "products", "_id": "missing"}),
@@ -206,7 +206,7 @@ def test_document_not_found():
         with pytest.raises(NotFoundError):
             es.get(index="products", id="missing")
 
-    tripwire.elasticsearch_mock.assert_get(index="products", id="missing")
+    tripwire.elasticsearch.assert_get(index="products", id="missing")
 ```
 
 ## Full example
@@ -228,7 +228,7 @@ def test_document_not_found():
 Mark a mock as optional with `required=False`:
 
 ```python
-tripwire.elasticsearch_mock.mock_operation("count", returns={"count": 0}, required=False)
+tripwire.elasticsearch.mock_operation("count", returns={"count": 0}, required=False)
 ```
 
 An optional mock that is never triggered does not cause `UnusedMocksError` at teardown.
@@ -240,5 +240,5 @@ When code calls an Elasticsearch method that has no remaining mocks in its queue
 ```
 elasticsearch.search(...) was called but no mock was registered.
 Register a mock with:
-    tripwire.elasticsearch_mock.mock_operation('search', returns=...)
+    tripwire.elasticsearch.mock_operation('search', returns=...)
 ```

@@ -384,12 +384,12 @@ def test_connect_with_empty_queue_raises_unmocked() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: tripwire.socket_mock
+# Module-level proxy: tripwire.socket
 # ---------------------------------------------------------------------------
 
 
 # ESCAPE: test_socket_mock_proxy_new_session
-#   CLAIM: tripwire.socket_mock.new_session() returns a SessionHandle that can
+#   CLAIM: tripwire.socket.new_session() returns a SessionHandle that can
 #          be used to configure a session without importing SocketPlugin directly.
 #   PATH:  _SocketProxy.__getattr__("new_session") -> get verifier -> find/create SocketPlugin ->
 #          return plugin.new_session.
@@ -400,7 +400,7 @@ def test_connect_with_empty_queue_raises_unmocked() -> None:
 def test_socket_mock_proxy_new_session(tripwire_verifier: StrictVerifier) -> None:
     from tripwire._state_machine_plugin import SessionHandle
 
-    session = tripwire.socket_mock.new_session()
+    session = tripwire.socket.new_session()
     assert isinstance(session, SessionHandle)
     # Chaining expect() with required=False so it doesn't trigger UnusedMocksError at teardown.
     result = session.expect("connect", returns=None, required=False)
@@ -408,7 +408,7 @@ def test_socket_mock_proxy_new_session(tripwire_verifier: StrictVerifier) -> Non
 
 
 # ESCAPE: test_socket_mock_proxy_raises_outside_context
-#   CLAIM: Accessing tripwire.socket_mock outside a test context raises NoActiveVerifierError.
+#   CLAIM: Accessing tripwire.socket outside a test context raises NoActiveVerifierError.
 #   PATH:  _SocketProxy.__getattr__ -> _get_test_verifier_or_raise -> NoActiveVerifierError.
 #   CHECK: NoActiveVerifierError raised.
 #   MUTATION: Silently returning None would not raise and hide context failures.
@@ -419,7 +419,7 @@ def test_socket_mock_proxy_raises_outside_context() -> None:
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = tripwire.socket_mock.new_session
+            _ = tripwire.socket.new_session
     finally:
         _current_test_verifier.reset(token)
 

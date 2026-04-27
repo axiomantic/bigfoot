@@ -3,7 +3,7 @@
 Demonstrates tripwire's Redis plugin for mocking Redis commands.
 
 The application module (`app.py`) reads from a Redis cache. The test
-(`test_app.py`) uses `tripwire.redis_mock` to mock `GET` commands and
+(`test_app.py`) uses `tripwire.redis` to mock `GET` commands and
 verify the exact key lookups, covering both cache hit and cache miss
 scenarios.
 

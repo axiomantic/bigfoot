@@ -970,7 +970,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == f"    tripwire.file_io_mock.mock_operation('open', '{os.path.normpath('/tmp/f.txt')}', returns=...)"
+    assert result == f"    tripwire.file_io.mock_operation('open', '{os.path.normpath('/tmp/f.txt')}', returns=...)"
 
 
 # ESCAPE: test_format_unmocked_hint
@@ -986,7 +986,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         f"open('{np('/tmp/f.txt')}', ...) was called but no mock was registered.\n"
         "Register a mock with:\n"
-        f"    tripwire.file_io_mock.mock_operation('open', '{np('/tmp/f.txt')}', returns=...)"
+        f"    tripwire.file_io.mock_operation('open', '{np('/tmp/f.txt')}', returns=...)"
     )
 
 
@@ -1007,7 +1007,7 @@ def test_format_assert_hint() -> None:
     result = p.format_assert_hint(interaction)
     npath = os.path.normpath("/tmp/f.txt")
     assert result == (
-        "    tripwire.file_io_mock.assert_open(\n"
+        "    tripwire.file_io.assert_open(\n"
         f"        path={npath!r},\n"
         "        mode='r',\n"
         "        encoding='utf-8',\n"
@@ -1032,7 +1032,7 @@ def test_format_assert_hint_remove() -> None:
     result = p.format_assert_hint(interaction)
     npath = os.path.normpath("/tmp/del.txt")
     assert result == (
-        "    tripwire.file_io_mock.assert_remove(\n"
+        "    tripwire.file_io.assert_remove(\n"
         f"        path={npath!r},\n"
         "    )"
     )
@@ -1191,8 +1191,8 @@ def test_reference_counting_nested() -> None:
 
 
 # ESCAPE: test_file_io_plugin_in_all
-#   CLAIM: FileIoPlugin and file_io_mock are exported from tripwire.__all__.
-#   PATH:  tripwire.__all__ contains "FileIoPlugin" and "file_io_mock".
+#   CLAIM: FileIoPlugin and file_io are exported from tripwire.__all__.
+#   PATH:  tripwire.__all__ contains "FileIoPlugin" and "file_io".
 #   CHECK: Both names in __all__; tripwire.FileIoPlugin is the real class.
 #   MUTATION: Omitting either from __all__ fails membership check.
 #   ESCAPE: Nothing reasonable -- exact membership check.
@@ -1200,12 +1200,12 @@ def test_file_io_plugin_in_all() -> None:
     import tripwire
 
     assert "FileIoPlugin" in tripwire.__all__
-    assert "file_io_mock" in tripwire.__all__
+    assert "file_io" in tripwire.__all__
     assert tripwire.FileIoPlugin is FileIoPlugin
 
 
 # ESCAPE: test_file_io_mock_proxy
-#   CLAIM: tripwire.file_io_mock proxies to FileIoPlugin on the active verifier.
+#   CLAIM: tripwire.file_io proxies to FileIoPlugin on the active verifier.
 #   PATH:  _FileIoProxy.__getattr__ -> get verifier -> find/create FileIoPlugin.
 #   CHECK: Proxy attribute access does not raise when verifier is active.
 #   MUTATION: Wrong proxy class or missing registration fails with AttributeError.
@@ -1214,12 +1214,12 @@ def test_file_io_mock_proxy(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
     # End-to-end: register mock through proxy, trigger it, verify interaction
-    tripwire.file_io_mock.mock_operation("open", "/tmp/proxy-test.txt", returns="proxied")
+    tripwire.file_io.mock_operation("open", "/tmp/proxy-test.txt", returns="proxied")
     with tripwire.sandbox():
         f = builtins.open("/tmp/proxy-test.txt")
         result = f.read()
     assert result == "proxied"
-    tripwire.file_io_mock.assert_open(path="/tmp/proxy-test.txt", mode="r", encoding="utf-8")
+    tripwire.file_io.assert_open(path="/tmp/proxy-test.txt", mode="r", encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------

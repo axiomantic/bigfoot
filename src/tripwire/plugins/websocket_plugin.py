@@ -289,7 +289,7 @@ class AsyncWebSocketPlugin(StateMachinePlugin):
     def format_mock_hint(self, interaction: Interaction) -> str:
         sid = interaction.source_id
         step = sid.split(":")[-1] if ":" in sid else sid
-        return f"    tripwire.async_websocket_mock.new_session().expect({step!r}, returns=...)"
+        return f"    tripwire.async_websocket.new_session().expect({step!r}, returns=...)"
 
     def format_unmocked_hint(
         self,
@@ -301,11 +301,11 @@ class AsyncWebSocketPlugin(StateMachinePlugin):
         return (
             f"websockets.{method}(...) was called but no session was queued.\n"
             f"Register a session with:\n"
-            f"    tripwire.async_websocket_mock.new_session().expect({method!r}, returns=...)"
+            f"    tripwire.async_websocket.new_session().expect({method!r}, returns=...)"
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:
-        sm = "tripwire.async_websocket_mock"
+        sm = "tripwire.async_websocket"
         sid = interaction.source_id
         if sid == _ASYNC_SOURCE_CONNECT:
             uri = interaction.details.get("uri", "?")
@@ -548,7 +548,7 @@ class SyncWebSocketPlugin(StateMachinePlugin):
     def format_mock_hint(self, interaction: Interaction) -> str:
         sid = interaction.source_id
         step = sid.split(":")[-1] if ":" in sid else sid
-        return f"    tripwire.sync_websocket_mock.new_session().expect({step!r}, returns=...)"
+        return f"    tripwire.sync_websocket.new_session().expect({step!r}, returns=...)"
 
     def format_unmocked_hint(
         self,
@@ -560,11 +560,11 @@ class SyncWebSocketPlugin(StateMachinePlugin):
         return (
             f"websocket.{method}(...) was called but no session was queued.\n"
             f"Register a session with:\n"
-            f"    tripwire.sync_websocket_mock.new_session().expect({method!r}, returns=...)"
+            f"    tripwire.sync_websocket.new_session().expect({method!r}, returns=...)"
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:
-        sm = "tripwire.sync_websocket_mock"
+        sm = "tripwire.sync_websocket"
         sid = interaction.source_id
         if sid == _SYNC_SOURCE_CONNECT:
             uri = interaction.details.get("uri", "?")

@@ -494,7 +494,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    tripwire.redis_mock.mock_command('GET', returns=...)"
+    assert result == "    tripwire.redis.mock_command('GET', returns=...)"
 
 
 # ESCAPE: test_format_unmocked_hint
@@ -509,7 +509,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "redis.GET(...) was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    tripwire.redis_mock.mock_command('GET', returns=...)"
+        "    tripwire.redis.mock_command('GET', returns=...)"
     )
 
 
@@ -531,7 +531,7 @@ def test_format_assert_hint() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    tripwire.redis_mock.assert_command(\n"
+        "    tripwire.redis.assert_command(\n"
         "        command='GET',\n"
         "        args=('mykey',),\n"
         "        kwargs={},\n"
@@ -556,12 +556,12 @@ def test_format_unused_mock_hint() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: tripwire.redis_mock
+# Module-level proxy: tripwire.redis
 # ---------------------------------------------------------------------------
 
 
 # ESCAPE: test_redis_mock_proxy_mock_command
-#   CLAIM: tripwire.redis_mock.mock_command("GET", returns="v") works when verifier is active.
+#   CLAIM: tripwire.redis.mock_command("GET", returns="v") works when verifier is active.
 #   PATH:  _RedisProxy.__getattr__("mock_command") -> get verifier ->
 #          find/create RedisPlugin -> return plugin.mock_command.
 #   CHECK: The proxy call does not raise and the mock is registered.
@@ -570,18 +570,18 @@ def test_format_unused_mock_hint() -> None:
 def test_redis_mock_proxy_mock_command(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.redis_mock.mock_command("GET", returns="proxy_value", required=True)
+    tripwire.redis.mock_command("GET", returns="proxy_value", required=True)
 
     with tripwire.sandbox():
         r = redis.Redis()
         result = r.execute_command("GET", "somekey")
 
     assert result == "proxy_value"
-    tripwire.redis_mock.assert_command("GET", args=("somekey",), kwargs={})
+    tripwire.redis.assert_command("GET", args=("somekey",), kwargs={})
 
 
 # ESCAPE: test_redis_mock_proxy_raises_outside_context
-#   CLAIM: Accessing tripwire.redis_mock outside a test context raises NoActiveVerifierError.
+#   CLAIM: Accessing tripwire.redis outside a test context raises NoActiveVerifierError.
 #   PATH:  _RedisProxy.__getattr__ -> _get_test_verifier_or_raise -> NoActiveVerifierError.
 #   CHECK: NoActiveVerifierError raised.
 #   MUTATION: Silently returning None would not raise.
@@ -593,7 +593,7 @@ def test_redis_mock_proxy_raises_outside_context() -> None:
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = tripwire.redis_mock.mock_command
+            _ = tripwire.redis.mock_command
     finally:
         _current_test_verifier.reset(token)
 
@@ -604,9 +604,9 @@ def test_redis_mock_proxy_raises_outside_context() -> None:
 
 
 # ESCAPE: test_redis_plugin_in_all
-#   CLAIM: RedisPlugin and redis_mock are exported from tripwire.__all__.
-#   PATH:  tripwire.__all__ contains "RedisPlugin" and "redis_mock".
-#   CHECK: "RedisPlugin" in tripwire.__all__; "redis_mock" in tripwire.__all__.
+#   CLAIM: RedisPlugin and redis are exported from tripwire.__all__.
+#   PATH:  tripwire.__all__ contains "RedisPlugin" and "redis".
+#   CHECK: "RedisPlugin" in tripwire.__all__; "redis" in tripwire.__all__.
 #   MUTATION: Omitting either from __all__ fails the membership check.
 #   ESCAPE: Nothing reasonable -- exact membership check.
 def test_redis_plugin_in_all() -> None:
@@ -614,7 +614,7 @@ def test_redis_plugin_in_all() -> None:
     from tripwire.plugins.redis_plugin import RedisPlugin as _RedisPlugin
 
     assert tripwire.RedisPlugin is _RedisPlugin
-    assert type(tripwire.redis_mock).__name__ == "_RedisProxy"
+    assert type(tripwire.redis).__name__ == "_RedisProxy"
 
 
 # ---------------------------------------------------------------------------
@@ -626,7 +626,7 @@ def test_redis_interactions_not_auto_asserted(tripwire_verifier: StrictVerifier)
     """Redis interactions are NOT auto-asserted — they land on the timeline unasserted."""
     import tripwire
 
-    tripwire.redis_mock.mock_command("GET", returns=b"value")
+    tripwire.redis.mock_command("GET", returns=b"value")
     with tripwire.sandbox():
         client = redis.Redis()
         client.execute_command("GET", "key")
@@ -636,29 +636,29 @@ def test_redis_interactions_not_auto_asserted(tripwire_verifier: StrictVerifier)
     assert len(interactions) == 1
     assert interactions[0].source_id == "redis:get"
     # Assert it so verify_all() at teardown succeeds
-    tripwire.redis_mock.assert_command("GET", args=("key",), kwargs={})
+    tripwire.redis.assert_command("GET", args=("key",), kwargs={})
 
 
 def test_assert_command_typed_helper(tripwire_verifier: StrictVerifier) -> None:
     """assert_command() asserts the next Redis interaction."""
     import tripwire
 
-    tripwire.redis_mock.mock_command("SET", returns=True)
+    tripwire.redis.mock_command("SET", returns=True)
     with tripwire.sandbox():
         client = redis.Redis()
         client.execute_command("SET", "key", "value")
-    tripwire.redis_mock.assert_command("SET", args=("key", "value"), kwargs={})
+    tripwire.redis.assert_command("SET", args=("key", "value"), kwargs={})
 
 
 def test_assert_command_wrong_args_raises(tripwire_verifier: StrictVerifier) -> None:
     """assert_command() with wrong args raises InteractionMismatchError."""
     import tripwire
 
-    tripwire.redis_mock.mock_command("GET", returns=b"val")
+    tripwire.redis.mock_command("GET", returns=b"val")
     with tripwire.sandbox():
         client = redis.Redis()
         client.execute_command("GET", "key")
     with pytest.raises(InteractionMismatchError):
-        tripwire.redis_mock.assert_command("GET", args=("wrong_key",), kwargs={})
+        tripwire.redis.assert_command("GET", args=("wrong_key",), kwargs={})
     # Now assert correctly so teardown passes
-    tripwire.redis_mock.assert_command("GET", args=("key",), kwargs={})
+    tripwire.redis.assert_command("GET", args=("key",), kwargs={})

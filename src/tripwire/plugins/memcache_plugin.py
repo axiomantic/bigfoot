@@ -297,7 +297,7 @@ class MemcachePlugin(BasePlugin):
 
     def format_mock_hint(self, interaction: Interaction) -> str:
         command = interaction.details.get("command", "?")
-        return f"    tripwire.memcache_mock.mock_command({command!r}, returns=...)"
+        return f"    tripwire.memcache.mock_command({command!r}, returns=...)"
 
     def format_unmocked_hint(
         self,
@@ -309,11 +309,11 @@ class MemcachePlugin(BasePlugin):
         return (
             f"memcache.{cmd}(...) was called but no mock was registered.\n"
             f"Register a mock with:\n"
-            f"    tripwire.memcache_mock.mock_command({cmd!r}, returns=...)"
+            f"    tripwire.memcache.mock_command({cmd!r}, returns=...)"
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:
-        sm = "tripwire.memcache_mock"
+        sm = "tripwire.memcache"
         command = interaction.details.get("command", "?")
         # Determine which helper to suggest
         helper = f"assert_{command.lower()}"

@@ -323,7 +323,7 @@ class CeleryPlugin(BasePlugin):
     def format_mock_hint(self, interaction: Interaction) -> str:
         task_name = interaction.details.get("task_name", "?")
         dispatch = interaction.details.get("dispatch_method", "?")
-        return f"    tripwire.celery_mock.mock_{dispatch}({task_name!r}, returns=...)"
+        return f"    tripwire.celery.mock_{dispatch}({task_name!r}, returns=...)"
 
     def format_unmocked_hint(
         self,
@@ -338,11 +338,11 @@ class CeleryPlugin(BasePlugin):
         return (
             f"celery.{dispatch}({task_name!r}, ...) was called but no mock was registered.\n"
             f"Register a mock with:\n"
-            f"    tripwire.celery_mock.mock_{dispatch}({task_name!r}, returns=...)"
+            f"    tripwire.celery.mock_{dispatch}({task_name!r}, returns=...)"
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:
-        sm = "tripwire.celery_mock"
+        sm = "tripwire.celery"
         dispatch = interaction.details.get("dispatch_method", "?")
         parts = []
         for k, v in interaction.details.items():

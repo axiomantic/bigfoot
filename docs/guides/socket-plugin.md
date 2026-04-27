@@ -4,13 +4,13 @@
 
 ## Setup
 
-In pytest, access `SocketPlugin` through the `tripwire.socket_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `SocketPlugin` through the `tripwire.socket` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
 import tripwire
 
 def test_echo_client():
-    (tripwire.socket_mock
+    (tripwire.socket
         .new_session()
         .expect("connect",  returns=None)
         .expect("sendall",  returns=None)
@@ -27,10 +27,10 @@ def test_echo_client():
 
     assert data == b"pong"
 
-    tripwire.socket_mock.assert_connect(host="127.0.0.1", port=9999)
-    tripwire.socket_mock.assert_sendall(data=b"ping")
-    tripwire.socket_mock.assert_recv(size=1024, data=b"pong")
-    tripwire.socket_mock.assert_close()
+    tripwire.socket.assert_connect(host="127.0.0.1", port=9999)
+    tripwire.socket.assert_sendall(data=b"ping")
+    tripwire.socket.assert_recv(size=1024, data=b"pong")
+    tripwire.socket.assert_close()
 ```
 
 For manual use outside pytest, construct `SocketPlugin` explicitly:
@@ -58,7 +58,7 @@ disconnected --connect--> connected --send/sendall/recv--> connected --close--> 
 Use `new_session()` to create a `SessionHandle` and chain `.expect()` calls:
 
 ```python
-(tripwire.socket_mock
+(tripwire.socket
     .new_session()
     .expect("connect",  returns=None)
     .expect("send",     returns=5)
@@ -87,24 +87,24 @@ Use `new_session()` to create a `SessionHandle` and chain `.expect()` calls:
 
 ## Asserting interactions
 
-Each step records an interaction on the timeline. Use the typed assertion helpers on `tripwire.socket_mock`:
+Each step records an interaction on the timeline. Use the typed assertion helpers on `tripwire.socket`:
 
 ### `assert_connect(*, host, port)`
 
 ```python
-tripwire.socket_mock.assert_connect(host="127.0.0.1", port=8080)
+tripwire.socket.assert_connect(host="127.0.0.1", port=8080)
 ```
 
 ### `assert_send(*, data)`
 
 ```python
-tripwire.socket_mock.assert_send(data=b"hello")
+tripwire.socket.assert_send(data=b"hello")
 ```
 
 ### `assert_sendall(*, data)`
 
 ```python
-tripwire.socket_mock.assert_sendall(data=b"hello")
+tripwire.socket.assert_sendall(data=b"hello")
 ```
 
 ### `assert_recv(*, size, data)`
@@ -112,7 +112,7 @@ tripwire.socket_mock.assert_sendall(data=b"hello")
 Both `size` and `data` are required. `size` is the buffer size passed to `recv()`, and `data` is the bytes actually returned.
 
 ```python
-tripwire.socket_mock.assert_recv(size=1024, data=b"response")
+tripwire.socket.assert_recv(size=1024, data=b"response")
 ```
 
 ### `assert_close()`
@@ -120,7 +120,7 @@ tripwire.socket_mock.assert_recv(size=1024, data=b"response")
 No fields are required.
 
 ```python
-tripwire.socket_mock.assert_close()
+tripwire.socket.assert_close()
 ```
 
 ## Multiple connections
@@ -129,13 +129,13 @@ Sessions are consumed in registration order. The first `socket.connect()` pops t
 
 ```python
 def test_two_connections():
-    (tripwire.socket_mock
+    (tripwire.socket
         .new_session()
         .expect("connect", returns=None)
         .expect("recv",    returns=b"first")
         .expect("close",   returns=None))
 
-    (tripwire.socket_mock
+    (tripwire.socket
         .new_session()
         .expect("connect", returns=None)
         .expect("recv",    returns=b"second")
@@ -151,12 +151,12 @@ def test_two_connections():
         s1.close()
         s2.close()
 
-    tripwire.socket_mock.assert_connect(host="127.0.0.1", port=9001)
-    tripwire.socket_mock.assert_connect(host="127.0.0.1", port=9002)
-    tripwire.socket_mock.assert_recv(size=1024, data=b"first")
-    tripwire.socket_mock.assert_recv(size=1024, data=b"second")
-    tripwire.socket_mock.assert_close()
-    tripwire.socket_mock.assert_close()
+    tripwire.socket.assert_connect(host="127.0.0.1", port=9001)
+    tripwire.socket.assert_connect(host="127.0.0.1", port=9002)
+    tripwire.socket.assert_recv(size=1024, data=b"first")
+    tripwire.socket.assert_recv(size=1024, data=b"second")
+    tripwire.socket.assert_close()
+    tripwire.socket.assert_close()
 ```
 
 ## Full example

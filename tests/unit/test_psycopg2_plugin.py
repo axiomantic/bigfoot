@@ -355,14 +355,14 @@ def test_connect_with_empty_queue_raises_unmocked() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: tripwire.psycopg2_mock
+# Module-level proxy: tripwire.psycopg2
 # ---------------------------------------------------------------------------
 
 
 def test_psycopg2_mock_proxy_new_session(tripwire_verifier: StrictVerifier) -> None:
     from tripwire._state_machine_plugin import SessionHandle
 
-    session = tripwire.psycopg2_mock.new_session()
+    session = tripwire.psycopg2.new_session()
     assert isinstance(session, SessionHandle)
     result = session.expect("execute", returns=[], required=False)
     assert result is session
@@ -374,7 +374,7 @@ def test_psycopg2_mock_proxy_raises_outside_context() -> None:
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = tripwire.psycopg2_mock.new_session
+            _ = tripwire.psycopg2.new_session
     finally:
         _current_test_verifier.reset(token)
 

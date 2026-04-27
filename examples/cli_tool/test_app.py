@@ -6,11 +6,11 @@ from .app import build_and_run
 
 
 def test_build_and_run_compiles_and_executes():
-    tripwire.subprocess_mock.mock_which("gcc", returns="/usr/bin/gcc")
-    tripwire.subprocess_mock.mock_run(
+    tripwire.subprocess.mock_which("gcc", returns="/usr/bin/gcc")
+    tripwire.subprocess.mock_run(
         ["/usr/bin/gcc", "-o", "/tmp/out", "hello.c"], returncode=0
     )
-    tripwire.subprocess_mock.mock_run(
+    tripwire.subprocess.mock_run(
         ["/tmp/out"], returncode=0, stdout="Hello, world!\n"
     )
 
@@ -20,17 +20,17 @@ def test_build_and_run_compiles_and_executes():
     assert output == "Hello, world!\n"
 
     tripwire.assert_interaction(
-        tripwire.subprocess_mock.which, name="gcc", returns="/usr/bin/gcc"
+        tripwire.subprocess.which, name="gcc", returns="/usr/bin/gcc"
     )
     tripwire.assert_interaction(
-        tripwire.subprocess_mock.run,
+        tripwire.subprocess.run,
         command=["/usr/bin/gcc", "-o", "/tmp/out", "hello.c"],
         returncode=0,
         stdout="",
         stderr="",
     )
     tripwire.assert_interaction(
-        tripwire.subprocess_mock.run,
+        tripwire.subprocess.run,
         command=["/tmp/out"],
         returncode=0,
         stdout="Hello, world!\n",
@@ -39,7 +39,7 @@ def test_build_and_run_compiles_and_executes():
 
 
 def test_build_and_run_raises_when_gcc_missing():
-    tripwire.subprocess_mock.mock_which("gcc", returns=None)
+    tripwire.subprocess.mock_which("gcc", returns=None)
 
     with tripwire:
         try:
@@ -50,5 +50,5 @@ def test_build_and_run_raises_when_gcc_missing():
             raise AssertionError("Expected RuntimeError")
 
     tripwire.assert_interaction(
-        tripwire.subprocess_mock.which, name="gcc", returns=None
+        tripwire.subprocess.which, name="gcc", returns=None
     )

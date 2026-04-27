@@ -26,7 +26,7 @@ For example, with both `boto3` and `http` enabled:
 ```python
 def test_s3_both_layers():
     # Must mock at BOTH levels
-    tripwire.boto3_mock.mock_call("s3", "GetObject", returns={"Body": b"data", "ContentLength": 4})
+    tripwire.boto3.mock_call("s3", "GetObject", returns={"Body": b"data", "ContentLength": 4})
     tripwire.http.mock_request("PUT", "https://s3.amazonaws.com/...", returns=httpx.Response(200))
 
     with tripwire:
@@ -34,7 +34,7 @@ def test_s3_both_layers():
         client.get_object(Bucket="my-bucket", Key="file.txt")
 
     # Must assert at BOTH levels
-    tripwire.boto3_mock.assert_boto3_call(service="s3", operation="GetObject", params={...})
+    tripwire.boto3.assert_boto3_call(service="s3", operation="GetObject", params={...})
     tripwire.http.assert_request("PUT", "https://s3.amazonaws.com/...")
 ```
 
@@ -55,12 +55,12 @@ disabled_plugins = ["http", "socket"]
 
 ```python
 def test_s3_get(tripwire):
-    tripwire.boto3_mock.mock_call("s3", "GetObject", returns={"Body": b"data", "ContentLength": 4})
+    tripwire.boto3.mock_call("s3", "GetObject", returns={"Body": b"data", "ContentLength": 4})
 
     with tripwire:
         response = boto3.client("s3").get_object(Bucket="b", Key="k")
 
-    tripwire.boto3_mock.assert_boto3_call(
+    tripwire.boto3.assert_boto3_call(
         service="s3", operation="GetObject",
         params={"Bucket": "b", "Key": "k"},
     )

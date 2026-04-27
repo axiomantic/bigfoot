@@ -401,7 +401,7 @@ class MongoPlugin(BasePlugin):
 
     def format_mock_hint(self, interaction: Interaction) -> str:
         operation = interaction.details.get("operation", "?")
-        return f"    tripwire.mongo_mock.mock_operation({operation!r}, returns=...)"
+        return f"    tripwire.mongo.mock_operation({operation!r}, returns=...)"
 
     def format_unmocked_hint(
         self,
@@ -413,11 +413,11 @@ class MongoPlugin(BasePlugin):
         return (
             f"mongo.{op}(...) was called but no mock was registered.\n"
             f"Register a mock with:\n"
-            f"    tripwire.mongo_mock.mock_operation({op!r}, returns=...)"
+            f"    tripwire.mongo.mock_operation({op!r}, returns=...)"
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:
-        sm = "tripwire.mongo_mock"
+        sm = "tripwire.mongo"
         operation = interaction.details.get("operation", "?")
         helper_name = _ASSERT_HELPER_NAMES.get(operation, f"assert_{operation}")
 

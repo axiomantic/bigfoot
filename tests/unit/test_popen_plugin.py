@@ -557,12 +557,12 @@ def test_popen_with_empty_queue_raises_unmocked() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: tripwire.popen_mock
+# Module-level proxy: tripwire.popen
 # ---------------------------------------------------------------------------
 
 
 # ESCAPE: test_popen_mock_proxy_new_session
-#   CLAIM: tripwire.popen_mock.new_session() returns a SessionHandle that can
+#   CLAIM: tripwire.popen.new_session() returns a SessionHandle that can
 #          be used to configure a session without importing PopenPlugin directly.
 #   PATH:  _PopenProxy.__getattr__("new_session") -> get verifier -> find/create PopenPlugin ->
 #          return plugin.new_session.
@@ -572,14 +572,14 @@ def test_popen_with_empty_queue_raises_unmocked() -> None:
 def test_popen_mock_proxy_new_session(tripwire_verifier: StrictVerifier) -> None:
     from tripwire._state_machine_plugin import SessionHandle
 
-    session = tripwire.popen_mock.new_session()
+    session = tripwire.popen.new_session()
     assert isinstance(session, SessionHandle)
     result = session.expect("spawn", returns=None, required=False)
     assert result is session  # expect() returns self for chaining
 
 
 # ESCAPE: test_popen_mock_proxy_raises_outside_context
-#   CLAIM: Accessing tripwire.popen_mock outside a test context raises NoActiveVerifierError.
+#   CLAIM: Accessing tripwire.popen outside a test context raises NoActiveVerifierError.
 #   PATH:  _PopenProxy.__getattr__ -> _get_test_verifier_or_raise -> NoActiveVerifierError.
 #   CHECK: NoActiveVerifierError raised.
 #   MUTATION: Silently returning None would not raise and hide context failures.
@@ -590,7 +590,7 @@ def test_popen_mock_proxy_raises_outside_context() -> None:
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = tripwire.popen_mock.new_session
+            _ = tripwire.popen.new_session
     finally:
         _current_test_verifier.reset(token)
 
@@ -699,12 +699,12 @@ def test_conflict_error_popen_already_patched() -> None:
 # ESCAPE: test_full_session_via_sandbox
 #   CLAIM: A complete Popen session (spawn -> communicate) runs end-to-end through
 #          the module-level tripwire.sandbox() API, returning the scripted values.
-#   PATH:  tripwire.popen_mock.new_session() -> sandbox -> _FakePopen.__init__ -> communicate.
+#   PATH:  tripwire.popen.new_session() -> sandbox -> _FakePopen.__init__ -> communicate.
 #   CHECK: stdout == b"build output"; stderr == b""; proc.returncode == 0.
 #   MUTATION: Returning wrong stdout bytes would fail the equality check.
 #   ESCAPE: Nothing reasonable -- exact bytes equality on all three fields.
 def test_full_session_via_sandbox(tripwire_verifier: StrictVerifier) -> None:
-    session = tripwire.popen_mock.new_session()
+    session = tripwire.popen.new_session()
     session.expect("spawn", returns=None)
     session.expect("communicate", returns=(b"build output", b"", 0))
 
@@ -712,8 +712,8 @@ def test_full_session_via_sandbox(tripwire_verifier: StrictVerifier) -> None:
         proc = subprocess.Popen(["make", "all"])
         stdout, stderr = proc.communicate()
 
-    tripwire.popen_mock.assert_spawn(command=["make", "all"], stdin=None)
-    tripwire.popen_mock.assert_communicate(input=None)
+    tripwire.popen.assert_spawn(command=["make", "all"], stdin=None)
+    tripwire.popen.assert_communicate(input=None)
 
     assert stdout == b"build output"
     assert stderr == b""

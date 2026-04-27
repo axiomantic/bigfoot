@@ -566,7 +566,7 @@ def test_assert_interaction_missing_fields_raises() -> None:
 #   MUTATION: Wrong host/port/virtual_host would raise InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- helper delegates to assert_interaction with full fields.
 def test_assert_connect_helper(tripwire_verifier: StrictVerifier) -> None:
-    session = tripwire.pika_mock.new_session()
+    session = tripwire.pika.new_session()
     session.expect("connect", returns=None)
     session.expect("close", returns=None)
 
@@ -576,8 +576,8 @@ def test_assert_connect_helper(tripwire_verifier: StrictVerifier) -> None:
         )
         conn.close()
 
-    tripwire.pika_mock.assert_connect(host="rabbitmq.local", port=5672, virtual_host="/")
-    tripwire.pika_mock.assert_close()
+    tripwire.pika.assert_connect(host="rabbitmq.local", port=5672, virtual_host="/")
+    tripwire.pika.assert_close()
 
 
 # ESCAPE: test_assert_publish_helper
@@ -587,7 +587,7 @@ def test_assert_connect_helper(tripwire_verifier: StrictVerifier) -> None:
 #   MUTATION: Wrong exchange/routing_key/body/properties would raise InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- helper delegates to assert_interaction with full fields.
 def test_assert_publish_helper(tripwire_verifier: StrictVerifier) -> None:
-    session = tripwire.pika_mock.new_session()
+    session = tripwire.pika.new_session()
     session.expect("connect", returns=None)
     session.expect("channel", returns=None)
     session.expect("publish", returns=None)
@@ -606,15 +606,15 @@ def test_assert_publish_helper(tripwire_verifier: StrictVerifier) -> None:
         )
         conn.close()
 
-    tripwire.pika_mock.assert_connect(host="localhost", port=5672, virtual_host="/")
-    tripwire.pika_mock.assert_channel()
-    tripwire.pika_mock.assert_publish(
+    tripwire.pika.assert_connect(host="localhost", port=5672, virtual_host="/")
+    tripwire.pika.assert_channel()
+    tripwire.pika.assert_publish(
         exchange="amq.direct",
         routing_key="test.route",
         body=b"payload",
         properties=None,
     )
-    tripwire.pika_mock.assert_close()
+    tripwire.pika.assert_close()
 
 
 # ESCAPE: test_assert_consume_helper
@@ -624,7 +624,7 @@ def test_assert_publish_helper(tripwire_verifier: StrictVerifier) -> None:
 #   MUTATION: Wrong queue/auto_ack would raise InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- helper delegates to assert_interaction with full fields.
 def test_assert_consume_helper(tripwire_verifier: StrictVerifier) -> None:
-    session = tripwire.pika_mock.new_session()
+    session = tripwire.pika.new_session()
     session.expect("connect", returns=None)
     session.expect("channel", returns=None)
     session.expect("consume", returns="ctag_1")
@@ -638,10 +638,10 @@ def test_assert_consume_helper(tripwire_verifier: StrictVerifier) -> None:
         ch.basic_consume(queue="my_queue", auto_ack=True)
         conn.close()
 
-    tripwire.pika_mock.assert_connect(host="localhost", port=5672, virtual_host="/")
-    tripwire.pika_mock.assert_channel()
-    tripwire.pika_mock.assert_consume(queue="my_queue", auto_ack=True)
-    tripwire.pika_mock.assert_close()
+    tripwire.pika.assert_connect(host="localhost", port=5672, virtual_host="/")
+    tripwire.pika.assert_channel()
+    tripwire.pika.assert_consume(queue="my_queue", auto_ack=True)
+    tripwire.pika.assert_close()
 
 
 # ---------------------------------------------------------------------------
@@ -688,7 +688,7 @@ def test_pika_available_flag() -> None:
 
 
 # ESCAPE: test_pika_mock_proxy_raises_import_error_when_unavailable
-#   CLAIM: Accessing tripwire.pika_mock raises ImportError when pika is not installed.
+#   CLAIM: Accessing tripwire.pika raises ImportError when pika is not installed.
 #   PATH:  _PikaProxy.__getattr__ -> checks _PIKA_AVAILABLE -> raises ImportError.
 #   CHECK: ImportError raised with message containing "tripwire[pika]" and "pip install".
 #   MUTATION: Not checking _PIKA_AVAILABLE would defer the error.
@@ -701,10 +701,10 @@ def test_pika_mock_proxy_raises_import_error_when_unavailable(
     monkeypatch.setattr(pika_mod, "_PIKA_AVAILABLE", False)
 
     with pytest.raises(ImportError) as exc_info:
-        _ = tripwire.pika_mock.new_session  # noqa: B018
+        _ = tripwire.pika.new_session  # noqa: B018
 
     assert str(exc_info.value) == (
-        "tripwire[pika] is required to use tripwire.pika_mock. "
+        "tripwire[pika] is required to use tripwire.pika. "
         "Install it with: pip install tripwire[pika]"
     )
 
@@ -953,12 +953,12 @@ def test_sentinel_properties() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: tripwire.pika_mock
+# Module-level proxy: tripwire.pika
 # ---------------------------------------------------------------------------
 
 
 # ESCAPE: test_pika_mock_proxy_new_session
-#   CLAIM: tripwire.pika_mock.new_session() returns a SessionHandle.
+#   CLAIM: tripwire.pika.new_session() returns a SessionHandle.
 #   PATH:  _PikaProxy.__getattr__("new_session") -> get verifier -> find/create PikaPlugin ->
 #          return plugin.new_session.
 #   CHECK: session is a SessionHandle instance; chaining .expect() does not raise.
@@ -967,14 +967,14 @@ def test_sentinel_properties() -> None:
 def test_pika_mock_proxy_new_session(tripwire_verifier: StrictVerifier) -> None:
     from tripwire._state_machine_plugin import SessionHandle
 
-    session = tripwire.pika_mock.new_session()
+    session = tripwire.pika.new_session()
     assert isinstance(session, SessionHandle)
     result = session.expect("connect", returns=None, required=False)
     assert result is session  # expect() returns self for chaining
 
 
 # ESCAPE: test_pika_mock_proxy_raises_outside_context
-#   CLAIM: Accessing tripwire.pika_mock outside a test context raises NoActiveVerifierError.
+#   CLAIM: Accessing tripwire.pika outside a test context raises NoActiveVerifierError.
 #   PATH:  _PikaProxy.__getattr__ -> _get_test_verifier_or_raise -> NoActiveVerifierError.
 #   CHECK: NoActiveVerifierError raised.
 #   MUTATION: Silently returning None would not raise and hide context failures.
@@ -985,7 +985,7 @@ def test_pika_mock_proxy_raises_outside_context() -> None:
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = tripwire.pika_mock.new_session  # noqa: B018
+            _ = tripwire.pika.new_session  # noqa: B018
     finally:
         _current_test_verifier.reset(token)
 
@@ -1028,7 +1028,7 @@ def test_close_from_connected() -> None:
 #   MUTATION: Wrong detail values in any step fail the assertion.
 #   ESCAPE: Nothing reasonable -- full field coverage on all assertable steps.
 def test_full_publish_flow_assertions(tripwire_verifier: StrictVerifier) -> None:
-    session = tripwire.pika_mock.new_session()
+    session = tripwire.pika.new_session()
     session.expect("connect", returns=None)
     session.expect("channel", returns=None)
     session.expect("publish", returns=None)
@@ -1046,15 +1046,15 @@ def test_full_publish_flow_assertions(tripwire_verifier: StrictVerifier) -> None
         )
         conn.close()
 
-    tripwire.pika_mock.assert_connect(host="localhost", port=5672, virtual_host="/")
-    tripwire.pika_mock.assert_channel()
-    tripwire.pika_mock.assert_publish(
+    tripwire.pika.assert_connect(host="localhost", port=5672, virtual_host="/")
+    tripwire.pika.assert_channel()
+    tripwire.pika.assert_publish(
         exchange="test_exchange",
         routing_key="test.key",
         body=b"hello",
         properties=None,
     )
-    tripwire.pika_mock.assert_close()
+    tripwire.pika.assert_close()
 
 
 # ESCAPE: test_consume_flow_assertions
@@ -1064,7 +1064,7 @@ def test_full_publish_flow_assertions(tripwire_verifier: StrictVerifier) -> None
 #   MUTATION: Wrong queue or auto_ack values fail the assertion.
 #   ESCAPE: Nothing reasonable -- full field coverage on all assertable steps.
 def test_consume_flow_assertions(tripwire_verifier: StrictVerifier) -> None:
-    session = tripwire.pika_mock.new_session()
+    session = tripwire.pika.new_session()
     session.expect("connect", returns=None)
     session.expect("channel", returns=None)
     session.expect("consume", returns="ctag_1")
@@ -1080,10 +1080,10 @@ def test_consume_flow_assertions(tripwire_verifier: StrictVerifier) -> None:
 
     assert tag == "ctag_1"
 
-    tripwire.pika_mock.assert_connect(host="localhost", port=5672, virtual_host="/")
-    tripwire.pika_mock.assert_channel()
-    tripwire.pika_mock.assert_consume(queue="test_queue", auto_ack=True)
-    tripwire.pika_mock.assert_close()
+    tripwire.pika.assert_connect(host="localhost", port=5672, virtual_host="/")
+    tripwire.pika.assert_channel()
+    tripwire.pika.assert_consume(queue="test_queue", auto_ack=True)
+    tripwire.pika.assert_close()
 
 
 # ESCAPE: test_ack_nack_flow_assertions
@@ -1093,7 +1093,7 @@ def test_consume_flow_assertions(tripwire_verifier: StrictVerifier) -> None:
 #   MUTATION: Wrong delivery_tag or requeue values fail the assertion.
 #   ESCAPE: Nothing reasonable -- full field coverage on all assertable steps.
 def test_ack_nack_flow_assertions(tripwire_verifier: StrictVerifier) -> None:
-    session = tripwire.pika_mock.new_session()
+    session = tripwire.pika.new_session()
     session.expect("connect", returns=None)
     session.expect("channel", returns=None)
     session.expect("ack", returns=None)
@@ -1109,11 +1109,11 @@ def test_ack_nack_flow_assertions(tripwire_verifier: StrictVerifier) -> None:
         ch.basic_nack(delivery_tag=2, requeue=True)
         conn.close()
 
-    tripwire.pika_mock.assert_connect(host="localhost", port=5672, virtual_host="/")
-    tripwire.pika_mock.assert_channel()
-    tripwire.pika_mock.assert_ack(delivery_tag=1)
-    tripwire.pika_mock.assert_nack(delivery_tag=2, requeue=True)
-    tripwire.pika_mock.assert_close()
+    tripwire.pika.assert_connect(host="localhost", port=5672, virtual_host="/")
+    tripwire.pika.assert_channel()
+    tripwire.pika.assert_ack(delivery_tag=1)
+    tripwire.pika.assert_nack(delivery_tag=2, requeue=True)
+    tripwire.pika.assert_close()
 
 
 # ESCAPE: test_close_from_connected_assertions
@@ -1123,7 +1123,7 @@ def test_ack_nack_flow_assertions(tripwire_verifier: StrictVerifier) -> None:
 #   MUTATION: Wrong host/port/virtual_host fail the assertion.
 #   ESCAPE: Nothing reasonable -- full field coverage.
 def test_close_from_connected_assertions(tripwire_verifier: StrictVerifier) -> None:
-    session = tripwire.pika_mock.new_session()
+    session = tripwire.pika.new_session()
     session.expect("connect", returns=None)
     session.expect("close", returns=None)
 
@@ -1133,8 +1133,8 @@ def test_close_from_connected_assertions(tripwire_verifier: StrictVerifier) -> N
         )
         conn.close()
 
-    tripwire.pika_mock.assert_connect(host="rabbitmq.local", port=5672, virtual_host="/")
-    tripwire.pika_mock.assert_close()
+    tripwire.pika.assert_connect(host="rabbitmq.local", port=5672, virtual_host="/")
+    tripwire.pika.assert_close()
 
 
 # ESCAPE: test_session_lifecycle_assertions
@@ -1144,7 +1144,7 @@ def test_close_from_connected_assertions(tripwire_verifier: StrictVerifier) -> N
 #   MUTATION: Wrong detail values fail the assertion.
 #   ESCAPE: Nothing reasonable -- full field coverage.
 def test_session_lifecycle_assertions(tripwire_verifier: StrictVerifier) -> None:
-    session = tripwire.pika_mock.new_session()
+    session = tripwire.pika.new_session()
     session.expect("connect", returns=None)
     session.expect("channel", returns=None)
     session.expect("publish", returns=None)
@@ -1158,12 +1158,12 @@ def test_session_lifecycle_assertions(tripwire_verifier: StrictVerifier) -> None
         ch.basic_publish(exchange="", routing_key="q", body=b"data")
         conn.close()
 
-    tripwire.pika_mock.assert_connect(host="localhost", port=5672, virtual_host="/")
-    tripwire.pika_mock.assert_channel()
-    tripwire.pika_mock.assert_publish(
+    tripwire.pika.assert_connect(host="localhost", port=5672, virtual_host="/")
+    tripwire.pika.assert_channel()
+    tripwire.pika.assert_publish(
         exchange="", routing_key="q", body=b"data", properties=None,
     )
-    tripwire.pika_mock.assert_close()
+    tripwire.pika.assert_close()
 
 
 # ESCAPE: test_multiple_sequential_sessions_assertions
@@ -1175,14 +1175,14 @@ def test_session_lifecycle_assertions(tripwire_verifier: StrictVerifier) -> None
 #   ESCAPE: Nothing reasonable -- full field coverage on both sessions.
 def test_multiple_sequential_sessions_assertions(tripwire_verifier: StrictVerifier) -> None:
     # First session
-    s1 = tripwire.pika_mock.new_session()
+    s1 = tripwire.pika.new_session()
     s1.expect("connect", returns=None)
     s1.expect("channel", returns=None)
     s1.expect("publish", returns=None)
     s1.expect("close", returns=None)
 
     # Second session
-    s2 = tripwire.pika_mock.new_session()
+    s2 = tripwire.pika.new_session()
     s2.expect("connect", returns=None)
     s2.expect("channel", returns=None)
     s2.expect("consume", returns="ctag_2")
@@ -1208,18 +1208,18 @@ def test_multiple_sequential_sessions_assertions(tripwire_verifier: StrictVerifi
     assert tag == "ctag_2"
 
     # Assert first session interactions
-    tripwire.pika_mock.assert_connect(host="host1", port=5672, virtual_host="/")
-    tripwire.pika_mock.assert_channel()
-    tripwire.pika_mock.assert_publish(
+    tripwire.pika.assert_connect(host="host1", port=5672, virtual_host="/")
+    tripwire.pika.assert_channel()
+    tripwire.pika.assert_publish(
         exchange="", routing_key="q1", body=b"msg1", properties=None,
     )
-    tripwire.pika_mock.assert_close()
+    tripwire.pika.assert_close()
 
     # Assert second session interactions
-    tripwire.pika_mock.assert_connect(host="host2", port=5672, virtual_host="/")
-    tripwire.pika_mock.assert_channel()
-    tripwire.pika_mock.assert_consume(queue="q2", auto_ack=False)
-    tripwire.pika_mock.assert_close()
+    tripwire.pika.assert_connect(host="host2", port=5672, virtual_host="/")
+    tripwire.pika.assert_channel()
+    tripwire.pika.assert_consume(queue="q2", auto_ack=False)
+    tripwire.pika.assert_close()
 
 
 # ---------------------------------------------------------------------------
@@ -1234,7 +1234,7 @@ def test_multiple_sequential_sessions_assertions(tripwire_verifier: StrictVerifi
 #   MUTATION: Wrong delivery_tag would raise InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- helper delegates to assert_interaction with full fields.
 def test_assert_ack_helper(tripwire_verifier: StrictVerifier) -> None:
-    session = tripwire.pika_mock.new_session()
+    session = tripwire.pika.new_session()
     session.expect("connect", returns=None)
     session.expect("channel", returns=None)
     session.expect("ack", returns=None)
@@ -1248,10 +1248,10 @@ def test_assert_ack_helper(tripwire_verifier: StrictVerifier) -> None:
         ch.basic_ack(delivery_tag=42)
         conn.close()
 
-    tripwire.pika_mock.assert_connect(host="localhost", port=5672, virtual_host="/")
-    tripwire.pika_mock.assert_channel()
-    tripwire.pika_mock.assert_ack(delivery_tag=42)
-    tripwire.pika_mock.assert_close()
+    tripwire.pika.assert_connect(host="localhost", port=5672, virtual_host="/")
+    tripwire.pika.assert_channel()
+    tripwire.pika.assert_ack(delivery_tag=42)
+    tripwire.pika.assert_close()
 
 
 # ESCAPE: test_assert_nack_helper
@@ -1261,7 +1261,7 @@ def test_assert_ack_helper(tripwire_verifier: StrictVerifier) -> None:
 #   MUTATION: Wrong delivery_tag or requeue would raise InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- helper delegates to assert_interaction with full fields.
 def test_assert_nack_helper(tripwire_verifier: StrictVerifier) -> None:
-    session = tripwire.pika_mock.new_session()
+    session = tripwire.pika.new_session()
     session.expect("connect", returns=None)
     session.expect("channel", returns=None)
     session.expect("nack", returns=None)
@@ -1275,10 +1275,10 @@ def test_assert_nack_helper(tripwire_verifier: StrictVerifier) -> None:
         ch.basic_nack(delivery_tag=7, requeue=False)
         conn.close()
 
-    tripwire.pika_mock.assert_connect(host="localhost", port=5672, virtual_host="/")
-    tripwire.pika_mock.assert_channel()
-    tripwire.pika_mock.assert_nack(delivery_tag=7, requeue=False)
-    tripwire.pika_mock.assert_close()
+    tripwire.pika.assert_connect(host="localhost", port=5672, virtual_host="/")
+    tripwire.pika.assert_channel()
+    tripwire.pika.assert_nack(delivery_tag=7, requeue=False)
+    tripwire.pika.assert_close()
 
 
 # ---------------------------------------------------------------------------
@@ -1558,7 +1558,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    tripwire.pika_mock.new_session().expect('publish', returns=...)"
+    assert result == "    tripwire.pika.new_session().expect('publish', returns=...)"
 
 
 # ESCAPE: test_format_mock_hint_connect
@@ -1578,7 +1578,7 @@ def test_format_mock_hint_connect() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    tripwire.pika_mock.new_session().expect('connect', returns=...)"
+    assert result == "    tripwire.pika.new_session().expect('connect', returns=...)"
 
 
 # ESCAPE: test_format_unmocked_hint
@@ -1593,7 +1593,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "pika.BlockingConnection.connect(...) was called but no session was queued.\n"
         "Register a session with:\n"
-        "    tripwire.pika_mock.new_session().expect('connect', returns=...)"
+        "    tripwire.pika.new_session().expect('connect', returns=...)"
     )
 
 
@@ -1609,7 +1609,7 @@ def test_format_unmocked_hint_publish() -> None:
     assert result == (
         "pika.BlockingConnection.publish(...) was called but no session was queued.\n"
         "Register a session with:\n"
-        "    tripwire.pika_mock.new_session().expect('publish', returns=...)"
+        "    tripwire.pika.new_session().expect('publish', returns=...)"
     )
 
 
@@ -1630,7 +1630,7 @@ def test_format_assert_hint_connect() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    tripwire.pika_mock.assert_connect(host='localhost', port=5672, virtual_host='/')"
+    assert result == "    tripwire.pika.assert_connect(host='localhost', port=5672, virtual_host='/')"
 
 
 # ESCAPE: test_format_assert_hint_channel
@@ -1650,7 +1650,7 @@ def test_format_assert_hint_channel() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    tripwire.pika_mock.assert_channel()"
+    assert result == "    tripwire.pika.assert_channel()"
 
 
 # ESCAPE: test_format_assert_hint_publish
@@ -1671,7 +1671,7 @@ def test_format_assert_hint_publish() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    tripwire.pika_mock.assert_publish("
+        "    tripwire.pika.assert_publish("
         "exchange='amq.direct', routing_key='test', "
         "body=b'msg', properties=None)"
     )
@@ -1694,7 +1694,7 @@ def test_format_assert_hint_consume() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    tripwire.pika_mock.assert_consume(queue='my_queue', auto_ack=True)"
+    assert result == "    tripwire.pika.assert_consume(queue='my_queue', auto_ack=True)"
 
 
 # ESCAPE: test_format_assert_hint_ack
@@ -1714,7 +1714,7 @@ def test_format_assert_hint_ack() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    tripwire.pika_mock.assert_ack(delivery_tag=42)"
+    assert result == "    tripwire.pika.assert_ack(delivery_tag=42)"
 
 
 # ESCAPE: test_format_assert_hint_nack
@@ -1734,7 +1734,7 @@ def test_format_assert_hint_nack() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    tripwire.pika_mock.assert_nack(delivery_tag=5, requeue=False)"
+    assert result == "    tripwire.pika.assert_nack(delivery_tag=5, requeue=False)"
 
 
 # ESCAPE: test_format_assert_hint_close
@@ -1754,7 +1754,7 @@ def test_format_assert_hint_close() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    tripwire.pika_mock.assert_close()"
+    assert result == "    tripwire.pika.assert_close()"
 
 
 # ESCAPE: test_format_assert_hint_unknown
@@ -1774,7 +1774,7 @@ def test_format_assert_hint_unknown() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    # tripwire.pika_mock: unknown source_id='pika:unknown_op'"
+    assert result == "    # tripwire.pika: unknown source_id='pika:unknown_op'"
 
 
 # ESCAPE: test_format_unused_mock_hint

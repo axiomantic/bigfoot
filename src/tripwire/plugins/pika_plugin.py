@@ -345,7 +345,7 @@ class PikaPlugin(StateMachinePlugin):
     def format_mock_hint(self, interaction: Interaction) -> str:
         sid = interaction.source_id
         method = sid.split(":")[-1] if ":" in sid else sid
-        return f"    tripwire.pika_mock.new_session().expect({method!r}, returns=...)"
+        return f"    tripwire.pika.new_session().expect({method!r}, returns=...)"
 
     def format_unmocked_hint(
         self,
@@ -357,11 +357,11 @@ class PikaPlugin(StateMachinePlugin):
         return (
             f"pika.BlockingConnection.{method}(...) was called but no session was queued.\n"
             f"Register a session with:\n"
-            f"    tripwire.pika_mock.new_session().expect({method!r}, returns=...)"
+            f"    tripwire.pika.new_session().expect({method!r}, returns=...)"
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:
-        sm = "tripwire.pika_mock"
+        sm = "tripwire.pika"
         sid = interaction.source_id
         if sid == _SOURCE_CONNECT:
             host = interaction.details.get("host", "?")

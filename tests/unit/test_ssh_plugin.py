@@ -651,7 +651,7 @@ def test_assert_interaction_missing_fields_raises() -> None:
 #   MUTATION: Wrong hostname/port/username/auth_method would raise InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- helper delegates to assert_interaction with full fields.
 def test_assert_connect_helper(tripwire_verifier: StrictVerifier) -> None:
-    session = tripwire.ssh_mock.new_session()
+    session = tripwire.ssh.new_session()
     session.expect("connect", returns=None)
     session.expect("close", returns=None)
 
@@ -660,10 +660,10 @@ def test_assert_connect_helper(tripwire_verifier: StrictVerifier) -> None:
         client.connect("server.example.com", port=22, username="deploy")
         client.close()
 
-    tripwire.ssh_mock.assert_connect(
+    tripwire.ssh.assert_connect(
         hostname="server.example.com", port=22, username="deploy", auth_method="password"
     )
-    tripwire.ssh_mock.assert_close()
+    tripwire.ssh.assert_close()
 
 
 # ESCAPE: test_assert_exec_command_helper
@@ -673,7 +673,7 @@ def test_assert_connect_helper(tripwire_verifier: StrictVerifier) -> None:
 #   MUTATION: Wrong command would raise InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- helper delegates to assert_interaction with full fields.
 def test_assert_exec_command_helper(tripwire_verifier: StrictVerifier) -> None:
-    session = tripwire.ssh_mock.new_session()
+    session = tripwire.ssh.new_session()
     session.expect("connect", returns=None)
     session.expect("exec_command", returns=("stdin", "stdout", "stderr"))
     session.expect("close", returns=None)
@@ -684,11 +684,11 @@ def test_assert_exec_command_helper(tripwire_verifier: StrictVerifier) -> None:
         client.exec_command("uptime")
         client.close()
 
-    tripwire.ssh_mock.assert_connect(
+    tripwire.ssh.assert_connect(
         hostname="server.example.com", port=22, username="deploy", auth_method="password"
     )
-    tripwire.ssh_mock.assert_exec_command(command="uptime")
-    tripwire.ssh_mock.assert_close()
+    tripwire.ssh.assert_exec_command(command="uptime")
+    tripwire.ssh.assert_close()
 
 
 # ESCAPE: test_assert_sftp_get_helper
@@ -698,7 +698,7 @@ def test_assert_exec_command_helper(tripwire_verifier: StrictVerifier) -> None:
 #   MUTATION: Wrong remotepath/localpath would raise InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- helper delegates to assert_interaction with full fields.
 def test_assert_sftp_get_helper(tripwire_verifier: StrictVerifier) -> None:
-    session = tripwire.ssh_mock.new_session()
+    session = tripwire.ssh.new_session()
     session.expect("connect", returns=None)
     session.expect("open_sftp", returns=None)
     session.expect("sftp_get", returns=None)
@@ -711,12 +711,12 @@ def test_assert_sftp_get_helper(tripwire_verifier: StrictVerifier) -> None:
         sftp.get("/remote/data.csv", "/local/data.csv")
         client.close()
 
-    tripwire.ssh_mock.assert_connect(
+    tripwire.ssh.assert_connect(
         hostname="server.example.com", port=22, username="deploy", auth_method="password"
     )
-    tripwire.ssh_mock.assert_open_sftp()
-    tripwire.ssh_mock.assert_sftp_get(remotepath="/remote/data.csv", localpath="/local/data.csv")
-    tripwire.ssh_mock.assert_close()
+    tripwire.ssh.assert_open_sftp()
+    tripwire.ssh.assert_sftp_get(remotepath="/remote/data.csv", localpath="/local/data.csv")
+    tripwire.ssh.assert_close()
 
 
 # ESCAPE: test_assert_sftp_put_helper
@@ -726,7 +726,7 @@ def test_assert_sftp_get_helper(tripwire_verifier: StrictVerifier) -> None:
 #   MUTATION: Wrong localpath/remotepath would raise InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- helper delegates to assert_interaction with full fields.
 def test_assert_sftp_put_helper(tripwire_verifier: StrictVerifier) -> None:
-    session = tripwire.ssh_mock.new_session()
+    session = tripwire.ssh.new_session()
     session.expect("connect", returns=None)
     session.expect("open_sftp", returns=None)
     session.expect("sftp_put", returns=None)
@@ -739,12 +739,12 @@ def test_assert_sftp_put_helper(tripwire_verifier: StrictVerifier) -> None:
         sftp.put("/local/upload.txt", "/remote/upload.txt")
         client.close()
 
-    tripwire.ssh_mock.assert_connect(
+    tripwire.ssh.assert_connect(
         hostname="server.example.com", port=22, username="deploy", auth_method="password"
     )
-    tripwire.ssh_mock.assert_open_sftp()
-    tripwire.ssh_mock.assert_sftp_put(localpath="/local/upload.txt", remotepath="/remote/upload.txt")
-    tripwire.ssh_mock.assert_close()
+    tripwire.ssh.assert_open_sftp()
+    tripwire.ssh.assert_sftp_put(localpath="/local/upload.txt", remotepath="/remote/upload.txt")
+    tripwire.ssh.assert_close()
 
 
 # ---------------------------------------------------------------------------
@@ -920,7 +920,7 @@ def test_paramiko_available_flag() -> None:
 
 
 # ESCAPE: test_ssh_mock_proxy_raises_import_error_when_unavailable
-#   CLAIM: Accessing tripwire.ssh_mock raises ImportError when paramiko is not installed.
+#   CLAIM: Accessing tripwire.ssh raises ImportError when paramiko is not installed.
 #   PATH:  _SshProxy.__getattr__ -> checks _PARAMIKO_AVAILABLE -> raises ImportError.
 #   CHECK: ImportError raised with exact expected message.
 #   MUTATION: Not checking _PARAMIKO_AVAILABLE would defer the error.
@@ -933,10 +933,10 @@ def test_ssh_mock_proxy_raises_import_error_when_unavailable(
     monkeypatch.setattr(ssh_mod, "_PARAMIKO_AVAILABLE", False)
 
     with pytest.raises(ImportError) as exc_info:
-        _ = tripwire.ssh_mock.new_session  # noqa: B018
+        _ = tripwire.ssh.new_session  # noqa: B018
 
     assert str(exc_info.value) == (
-        "tripwire[ssh] is required to use tripwire.ssh_mock. "
+        "tripwire[ssh] is required to use tripwire.ssh. "
         "Install it with: pip install tripwire[ssh]"
     )
 
@@ -1278,12 +1278,12 @@ def test_sentinel_properties() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: tripwire.ssh_mock
+# Module-level proxy: tripwire.ssh
 # ---------------------------------------------------------------------------
 
 
 # ESCAPE: test_ssh_mock_proxy_new_session
-#   CLAIM: tripwire.ssh_mock.new_session() returns a SessionHandle.
+#   CLAIM: tripwire.ssh.new_session() returns a SessionHandle.
 #   PATH:  _SshProxy.__getattr__("new_session") -> get verifier -> find/create SshPlugin ->
 #          return plugin.new_session.
 #   CHECK: session is a SessionHandle instance; chaining .expect() does not raise.
@@ -1292,14 +1292,14 @@ def test_sentinel_properties() -> None:
 def test_ssh_mock_proxy_new_session(tripwire_verifier: StrictVerifier) -> None:
     from tripwire._state_machine_plugin import SessionHandle
 
-    session = tripwire.ssh_mock.new_session()
+    session = tripwire.ssh.new_session()
     assert isinstance(session, SessionHandle)
     result = session.expect("connect", returns=None, required=False)
     assert result is session  # expect() returns self for chaining
 
 
 # ESCAPE: test_ssh_mock_proxy_raises_outside_context
-#   CLAIM: Accessing tripwire.ssh_mock outside a test context raises NoActiveVerifierError.
+#   CLAIM: Accessing tripwire.ssh outside a test context raises NoActiveVerifierError.
 #   PATH:  _SshProxy.__getattr__ -> _get_test_verifier_or_raise -> NoActiveVerifierError.
 #   CHECK: NoActiveVerifierError raised.
 #   MUTATION: Silently returning None would not raise and hide context failures.
@@ -1310,7 +1310,7 @@ def test_ssh_mock_proxy_raises_outside_context() -> None:
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = tripwire.ssh_mock.new_session  # noqa: B018
+            _ = tripwire.ssh.new_session  # noqa: B018
     finally:
         _current_test_verifier.reset(token)
 
@@ -1327,7 +1327,7 @@ def test_ssh_mock_proxy_raises_outside_context() -> None:
 #   MUTATION: Wrong detail values in any step fail the assertion.
 #   ESCAPE: Nothing reasonable -- full field coverage on all assertable steps.
 def test_full_exec_command_flow_assertions(tripwire_verifier: StrictVerifier) -> None:
-    session = tripwire.ssh_mock.new_session()
+    session = tripwire.ssh.new_session()
     session.expect("connect", returns=None)
     session.expect("exec_command", returns=("stdin", "stdout", "stderr"))
     session.expect("close", returns=None)
@@ -1338,11 +1338,11 @@ def test_full_exec_command_flow_assertions(tripwire_verifier: StrictVerifier) ->
         client.exec_command("whoami")
         client.close()
 
-    tripwire.ssh_mock.assert_connect(
+    tripwire.ssh.assert_connect(
         hostname="server.example.com", port=2222, username="admin", auth_method="password"
     )
-    tripwire.ssh_mock.assert_exec_command(command="whoami")
-    tripwire.ssh_mock.assert_close()
+    tripwire.ssh.assert_exec_command(command="whoami")
+    tripwire.ssh.assert_close()
 
 
 # ESCAPE: test_sftp_flow_assertions
@@ -1352,7 +1352,7 @@ def test_full_exec_command_flow_assertions(tripwire_verifier: StrictVerifier) ->
 #   MUTATION: Wrong detail values in any step fail the assertion.
 #   ESCAPE: Nothing reasonable -- full field coverage on all assertable steps.
 def test_sftp_flow_assertions(tripwire_verifier: StrictVerifier) -> None:
-    session = tripwire.ssh_mock.new_session()
+    session = tripwire.ssh.new_session()
     session.expect("connect", returns=None)
     session.expect("open_sftp", returns=None)
     session.expect("sftp_get", returns=None)
@@ -1367,13 +1367,13 @@ def test_sftp_flow_assertions(tripwire_verifier: StrictVerifier) -> None:
         sftp.put("/local/results.csv", "/remote/results.csv")
         client.close()
 
-    tripwire.ssh_mock.assert_connect(
+    tripwire.ssh.assert_connect(
         hostname="sftp.example.com", port=22, username="transfer", auth_method="password"
     )
-    tripwire.ssh_mock.assert_open_sftp()
-    tripwire.ssh_mock.assert_sftp_get(remotepath="/remote/data.csv", localpath="/local/data.csv")
-    tripwire.ssh_mock.assert_sftp_put(localpath="/local/results.csv", remotepath="/remote/results.csv")
-    tripwire.ssh_mock.assert_close()
+    tripwire.ssh.assert_open_sftp()
+    tripwire.ssh.assert_sftp_get(remotepath="/remote/data.csv", localpath="/local/data.csv")
+    tripwire.ssh.assert_sftp_put(localpath="/local/results.csv", remotepath="/remote/results.csv")
+    tripwire.ssh.assert_close()
 
 
 # ESCAPE: test_multiple_sequential_sessions_assertions
@@ -1385,13 +1385,13 @@ def test_sftp_flow_assertions(tripwire_verifier: StrictVerifier) -> None:
 #   ESCAPE: Nothing reasonable -- full field coverage on both sessions.
 def test_multiple_sequential_sessions_assertions(tripwire_verifier: StrictVerifier) -> None:
     # First session
-    s1 = tripwire.ssh_mock.new_session()
+    s1 = tripwire.ssh.new_session()
     s1.expect("connect", returns=None)
     s1.expect("exec_command", returns=("stdin", "stdout", "stderr"))
     s1.expect("close", returns=None)
 
     # Second session
-    s2 = tripwire.ssh_mock.new_session()
+    s2 = tripwire.ssh.new_session()
     s2.expect("connect", returns=None)
     s2.expect("open_sftp", returns=None)
     s2.expect("sftp_get", returns=None)
@@ -1412,19 +1412,19 @@ def test_multiple_sequential_sessions_assertions(tripwire_verifier: StrictVerifi
         client2.close()
 
     # Assert first session interactions
-    tripwire.ssh_mock.assert_connect(
+    tripwire.ssh.assert_connect(
         hostname="host1", port=22, username="user1", auth_method="password"
     )
-    tripwire.ssh_mock.assert_exec_command(command="ls")
-    tripwire.ssh_mock.assert_close()
+    tripwire.ssh.assert_exec_command(command="ls")
+    tripwire.ssh.assert_close()
 
     # Assert second session interactions
-    tripwire.ssh_mock.assert_connect(
+    tripwire.ssh.assert_connect(
         hostname="host2", port=22, username="user2", auth_method="password"
     )
-    tripwire.ssh_mock.assert_open_sftp()
-    tripwire.ssh_mock.assert_sftp_get(remotepath="/remote/file.txt", localpath="/local/file.txt")
-    tripwire.ssh_mock.assert_close()
+    tripwire.ssh.assert_open_sftp()
+    tripwire.ssh.assert_sftp_get(remotepath="/remote/file.txt", localpath="/local/file.txt")
+    tripwire.ssh.assert_close()
 
 
 # ---------------------------------------------------------------------------
@@ -1669,7 +1669,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    tripwire.ssh_mock.new_session().expect('exec_command', returns=...)"
+    assert result == "    tripwire.ssh.new_session().expect('exec_command', returns=...)"
 
 
 # ESCAPE: test_format_mock_hint_connect
@@ -1689,7 +1689,7 @@ def test_format_mock_hint_connect() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    tripwire.ssh_mock.new_session().expect('connect', returns=...)"
+    assert result == "    tripwire.ssh.new_session().expect('connect', returns=...)"
 
 
 # ESCAPE: test_format_unmocked_hint
@@ -1704,7 +1704,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "paramiko.SSHClient.connect(...) was called but no session was queued.\n"
         "Register a session with:\n"
-        "    tripwire.ssh_mock.new_session().expect('connect', returns=...)"
+        "    tripwire.ssh.new_session().expect('connect', returns=...)"
     )
 
 
@@ -1720,7 +1720,7 @@ def test_format_unmocked_hint_exec_command() -> None:
     assert result == (
         "paramiko.SSHClient.exec_command(...) was called but no session was queued.\n"
         "Register a session with:\n"
-        "    tripwire.ssh_mock.new_session().expect('exec_command', returns=...)"
+        "    tripwire.ssh.new_session().expect('exec_command', returns=...)"
     )
 
 
@@ -1742,7 +1742,7 @@ def test_format_assert_hint_connect() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    tripwire.ssh_mock.assert_connect("
+        "    tripwire.ssh.assert_connect("
         "hostname='myhost', port=22, username='user', auth_method='password')"
     )
 
@@ -1764,7 +1764,7 @@ def test_format_assert_hint_exec_command() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    tripwire.ssh_mock.assert_exec_command(command='uptime')"
+    assert result == "    tripwire.ssh.assert_exec_command(command='uptime')"
 
 
 # ESCAPE: test_format_assert_hint_open_sftp
@@ -1784,7 +1784,7 @@ def test_format_assert_hint_open_sftp() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    tripwire.ssh_mock.assert_open_sftp()"
+    assert result == "    tripwire.ssh.assert_open_sftp()"
 
 
 # ESCAPE: test_format_assert_hint_sftp_get
@@ -1805,7 +1805,7 @@ def test_format_assert_hint_sftp_get() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    tripwire.ssh_mock.assert_sftp_get("
+        "    tripwire.ssh.assert_sftp_get("
         "remotepath='/remote/file.txt', localpath='/local/file.txt')"
     )
 
@@ -1828,7 +1828,7 @@ def test_format_assert_hint_sftp_put() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    tripwire.ssh_mock.assert_sftp_put("
+        "    tripwire.ssh.assert_sftp_put("
         "localpath='/local/file.txt', remotepath='/remote/file.txt')"
     )
 
@@ -1850,7 +1850,7 @@ def test_format_assert_hint_close() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    tripwire.ssh_mock.assert_close()"
+    assert result == "    tripwire.ssh.assert_close()"
 
 
 # ESCAPE: test_format_assert_hint_unknown
@@ -1870,7 +1870,7 @@ def test_format_assert_hint_unknown() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    # tripwire.ssh_mock: unknown source_id='ssh:unknown_op'"
+    assert result == "    # tripwire.ssh: unknown source_id='ssh:unknown_op'"
 
 
 # ESCAPE: test_format_unused_mock_hint
@@ -1912,7 +1912,7 @@ def test_format_assert_hint_sftp_listdir() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    tripwire.ssh_mock.assert_sftp_listdir(path='/remote/dir')"
+    assert result == "    tripwire.ssh.assert_sftp_listdir(path='/remote/dir')"
 
 
 # ESCAPE: test_format_assert_hint_sftp_stat
@@ -1932,7 +1932,7 @@ def test_format_assert_hint_sftp_stat() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    tripwire.ssh_mock.assert_sftp_stat(path='/remote/file.txt')"
+    assert result == "    tripwire.ssh.assert_sftp_stat(path='/remote/file.txt')"
 
 
 # ESCAPE: test_format_assert_hint_sftp_mkdir
@@ -1952,7 +1952,7 @@ def test_format_assert_hint_sftp_mkdir() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    tripwire.ssh_mock.assert_sftp_mkdir(path='/remote/newdir')"
+    assert result == "    tripwire.ssh.assert_sftp_mkdir(path='/remote/newdir')"
 
 
 # ESCAPE: test_format_assert_hint_sftp_remove
@@ -1972,7 +1972,7 @@ def test_format_assert_hint_sftp_remove() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    tripwire.ssh_mock.assert_sftp_remove(path='/remote/oldfile.txt')"
+    assert result == "    tripwire.ssh.assert_sftp_remove(path='/remote/oldfile.txt')"
 
 
 # ---------------------------------------------------------------------------
@@ -1987,7 +1987,7 @@ def test_format_assert_hint_sftp_remove() -> None:
 #   MUTATION: Wrong path would raise InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- helper delegates to assert_interaction with full fields.
 def test_assert_sftp_listdir_helper(tripwire_verifier: StrictVerifier) -> None:
-    session = tripwire.ssh_mock.new_session()
+    session = tripwire.ssh.new_session()
     session.expect("connect", returns=None)
     session.expect("open_sftp", returns=None)
     session.expect("sftp_listdir", returns=["file1.txt", "file2.txt"])
@@ -2000,12 +2000,12 @@ def test_assert_sftp_listdir_helper(tripwire_verifier: StrictVerifier) -> None:
         sftp.listdir("/remote/dir")
         client.close()
 
-    tripwire.ssh_mock.assert_connect(
+    tripwire.ssh.assert_connect(
         hostname="server.example.com", port=22, username="deploy", auth_method="password"
     )
-    tripwire.ssh_mock.assert_open_sftp()
-    tripwire.ssh_mock.assert_sftp_listdir(path="/remote/dir")
-    tripwire.ssh_mock.assert_close()
+    tripwire.ssh.assert_open_sftp()
+    tripwire.ssh.assert_sftp_listdir(path="/remote/dir")
+    tripwire.ssh.assert_close()
 
 
 # ESCAPE: test_assert_sftp_stat_helper
@@ -2015,7 +2015,7 @@ def test_assert_sftp_listdir_helper(tripwire_verifier: StrictVerifier) -> None:
 #   MUTATION: Wrong path would raise InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- helper delegates to assert_interaction with full fields.
 def test_assert_sftp_stat_helper(tripwire_verifier: StrictVerifier) -> None:
-    session = tripwire.ssh_mock.new_session()
+    session = tripwire.ssh.new_session()
     session.expect("connect", returns=None)
     session.expect("open_sftp", returns=None)
     session.expect("sftp_stat", returns="fake_stat_result")
@@ -2028,12 +2028,12 @@ def test_assert_sftp_stat_helper(tripwire_verifier: StrictVerifier) -> None:
         sftp.stat("/remote/file.txt")
         client.close()
 
-    tripwire.ssh_mock.assert_connect(
+    tripwire.ssh.assert_connect(
         hostname="server.example.com", port=22, username="deploy", auth_method="password"
     )
-    tripwire.ssh_mock.assert_open_sftp()
-    tripwire.ssh_mock.assert_sftp_stat(path="/remote/file.txt")
-    tripwire.ssh_mock.assert_close()
+    tripwire.ssh.assert_open_sftp()
+    tripwire.ssh.assert_sftp_stat(path="/remote/file.txt")
+    tripwire.ssh.assert_close()
 
 
 # ESCAPE: test_assert_sftp_mkdir_helper
@@ -2043,7 +2043,7 @@ def test_assert_sftp_stat_helper(tripwire_verifier: StrictVerifier) -> None:
 #   MUTATION: Wrong path would raise InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- helper delegates to assert_interaction with full fields.
 def test_assert_sftp_mkdir_helper(tripwire_verifier: StrictVerifier) -> None:
-    session = tripwire.ssh_mock.new_session()
+    session = tripwire.ssh.new_session()
     session.expect("connect", returns=None)
     session.expect("open_sftp", returns=None)
     session.expect("sftp_mkdir", returns=None)
@@ -2056,12 +2056,12 @@ def test_assert_sftp_mkdir_helper(tripwire_verifier: StrictVerifier) -> None:
         sftp.mkdir("/remote/newdir")
         client.close()
 
-    tripwire.ssh_mock.assert_connect(
+    tripwire.ssh.assert_connect(
         hostname="server.example.com", port=22, username="deploy", auth_method="password"
     )
-    tripwire.ssh_mock.assert_open_sftp()
-    tripwire.ssh_mock.assert_sftp_mkdir(path="/remote/newdir")
-    tripwire.ssh_mock.assert_close()
+    tripwire.ssh.assert_open_sftp()
+    tripwire.ssh.assert_sftp_mkdir(path="/remote/newdir")
+    tripwire.ssh.assert_close()
 
 
 # ESCAPE: test_assert_sftp_remove_helper
@@ -2071,7 +2071,7 @@ def test_assert_sftp_mkdir_helper(tripwire_verifier: StrictVerifier) -> None:
 #   MUTATION: Wrong path would raise InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- helper delegates to assert_interaction with full fields.
 def test_assert_sftp_remove_helper(tripwire_verifier: StrictVerifier) -> None:
-    session = tripwire.ssh_mock.new_session()
+    session = tripwire.ssh.new_session()
     session.expect("connect", returns=None)
     session.expect("open_sftp", returns=None)
     session.expect("sftp_remove", returns=None)
@@ -2084,12 +2084,12 @@ def test_assert_sftp_remove_helper(tripwire_verifier: StrictVerifier) -> None:
         sftp.remove("/remote/oldfile.txt")
         client.close()
 
-    tripwire.ssh_mock.assert_connect(
+    tripwire.ssh.assert_connect(
         hostname="server.example.com", port=22, username="deploy", auth_method="password"
     )
-    tripwire.ssh_mock.assert_open_sftp()
-    tripwire.ssh_mock.assert_sftp_remove(path="/remote/oldfile.txt")
-    tripwire.ssh_mock.assert_close()
+    tripwire.ssh.assert_open_sftp()
+    tripwire.ssh.assert_sftp_remove(path="/remote/oldfile.txt")
+    tripwire.ssh.assert_close()
 
 
 # ---------------------------------------------------------------------------

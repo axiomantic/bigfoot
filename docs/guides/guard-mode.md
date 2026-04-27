@@ -287,13 +287,13 @@ Widen the allowlist for a scoped block:
 import tripwire
 
 def test_boto3_integration():
-    tripwire.boto3_mock.mock_api_call("s3", "PutObject", returns={})
+    tripwire.boto3.mock_api_call("s3", "PutObject", returns={})
 
     with tripwire.allow("dns", "socket"):
         with tripwire:
             upload_file("my-bucket", "key", b"data")
 
-    tripwire.boto3_mock.assert_api_call(
+    tripwire.boto3.assert_api_call(
         service="s3", operation="PutObject", params={"Bucket": "my-bucket"},
     )
 ```
@@ -493,12 +493,12 @@ from tripwire import M
 
 @pytest.mark.allow("dns", "socket")
 def test_s3_upload():
-    tripwire.boto3_mock.mock_api_call("s3", "PutObject", returns={})
+    tripwire.boto3.mock_api_call("s3", "PutObject", returns={})
 
     with tripwire:
         upload_to_s3("my-bucket", "my-key", b"hello")
 
-    tripwire.boto3_mock.assert_api_call(
+    tripwire.boto3.assert_api_call(
         service="s3", operation="PutObject",
         params={"Bucket": "my-bucket", "Key": "my-key", "Body": b"hello"},
     )

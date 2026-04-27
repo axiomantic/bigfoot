@@ -12,13 +12,13 @@ This installs `PyJWT`.
 
 ## Setup
 
-In pytest, access `JwtPlugin` through the `tripwire.jwt_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `JwtPlugin` through the `tripwire.jwt` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
 import tripwire
 
 def test_token_generation():
-    tripwire.jwt_mock.mock_encode(returns="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.test")
+    tripwire.jwt.mock_encode(returns="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.test")
 
     with tripwire:
         import jwt
@@ -26,7 +26,7 @@ def test_token_generation():
 
     assert token == "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.test"
 
-    tripwire.jwt_mock.assert_encode(
+    tripwire.jwt.assert_encode(
         payload={"user_id": "42", "exp": 1700000000},
         algorithm="HS256",
         extra_kwargs={},
@@ -40,7 +40,7 @@ from tripwire import StrictVerifier
 from tripwire.plugins.jwt_plugin import JwtPlugin
 
 verifier = StrictVerifier()
-jwt_mock = JwtPlugin(verifier)
+jwt = JwtPlugin(verifier)
 ```
 
 Each verifier may have at most one `JwtPlugin`. A second `JwtPlugin(verifier)` raises `ValueError`.
@@ -54,7 +54,7 @@ Each verifier may have at most one `JwtPlugin`. A second `JwtPlugin(verifier)` r
 Register a mock for `jwt.encode()`:
 
 ```python
-tripwire.jwt_mock.mock_encode(returns="mocked.jwt.token")
+tripwire.jwt.mock_encode(returns="mocked.jwt.token")
 ```
 
 | Parameter | Type | Default | Description |
@@ -68,7 +68,7 @@ tripwire.jwt_mock.mock_encode(returns="mocked.jwt.token")
 Register a mock for `jwt.decode()`:
 
 ```python
-tripwire.jwt_mock.mock_decode(returns={"user_id": "42", "role": "admin"})
+tripwire.jwt.mock_decode(returns={"user_id": "42", "role": "admin"})
 ```
 
 | Parameter | Type | Default | Description |
@@ -83,8 +83,8 @@ Each operation (`encode`, `decode`) has its own independent FIFO queue. Multiple
 
 ```python
 def test_multiple_decodes():
-    tripwire.jwt_mock.mock_decode(returns={"user_id": "1", "role": "admin"})
-    tripwire.jwt_mock.mock_decode(returns={"user_id": "2", "role": "viewer"})
+    tripwire.jwt.mock_decode(returns={"user_id": "1", "role": "admin"})
+    tripwire.jwt.mock_decode(returns={"user_id": "2", "role": "viewer"})
 
     with tripwire:
         import jwt
@@ -94,20 +94,20 @@ def test_multiple_decodes():
     assert claims1["role"] == "admin"
     assert claims2["role"] == "viewer"
 
-    tripwire.jwt_mock.assert_decode(token="token1", algorithms=["HS256"], options=None)
-    tripwire.jwt_mock.assert_decode(token="token2", algorithms=["HS256"], options=None)
+    tripwire.jwt.assert_decode(token="token1", algorithms=["HS256"], options=None)
+    tripwire.jwt.assert_decode(token="token2", algorithms=["HS256"], options=None)
 ```
 
 ## Asserting interactions
 
-Use the typed assertion helpers on `tripwire.jwt_mock`.
+Use the typed assertion helpers on `tripwire.jwt`.
 
 ### `assert_encode(*, payload, algorithm, extra_kwargs=None)`
 
 Asserts the next `jwt.encode()` interaction.
 
 ```python
-tripwire.jwt_mock.assert_encode(
+tripwire.jwt.assert_encode(
     payload={"user_id": "42", "exp": 1700000000},
     algorithm="HS256",
     extra_kwargs={},
@@ -125,7 +125,7 @@ tripwire.jwt_mock.assert_encode(
 Asserts the next `jwt.decode()` interaction.
 
 ```python
-tripwire.jwt_mock.assert_decode(
+tripwire.jwt.assert_decode(
     token="eyJ0eXAiOiJKV1Qi...",
     algorithms=["HS256"],
     options=None,
@@ -151,7 +151,7 @@ import jwt
 import tripwire
 
 def test_expired_token():
-    tripwire.jwt_mock.mock_decode(
+    tripwire.jwt.mock_decode(
         returns=None,
         raises=jwt.ExpiredSignatureError("Signature has expired"),
     )
@@ -160,7 +160,7 @@ def test_expired_token():
         with pytest.raises(jwt.ExpiredSignatureError):
             jwt.decode("expired.token", "secret", algorithms=["HS256"])
 
-    tripwire.jwt_mock.assert_decode(
+    tripwire.jwt.assert_decode(
         token="expired.token",
         algorithms=["HS256"],
         options=None,
@@ -186,7 +186,7 @@ def test_expired_token():
 Mark a mock as optional with `required=False`:
 
 ```python
-tripwire.jwt_mock.mock_decode(returns={"sub": "test"}, required=False)
+tripwire.jwt.mock_decode(returns={"sub": "test"}, required=False)
 ```
 
 An optional mock that is never triggered does not cause `UnusedMocksError` at teardown.
@@ -198,5 +198,5 @@ When code calls `jwt.encode()` or `jwt.decode()` with no remaining mocks in the 
 ```
 jwt.encode(...) was called but no mock was registered.
 Register a mock with:
-    tripwire.jwt_mock.mock_encode(returns=...)
+    tripwire.jwt.mock_encode(returns=...)
 ```

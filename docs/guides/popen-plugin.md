@@ -8,13 +8,13 @@
 
 ## Setup
 
-In pytest, access `PopenPlugin` through the `tripwire.popen_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `PopenPlugin` through the `tripwire.popen` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
 import tripwire
 
 def test_run_command():
-    (tripwire.popen_mock
+    (tripwire.popen
         .new_session()
         .expect("spawn",       returns=None)
         .expect("communicate", returns=(b"hello\n", b"", 0)))
@@ -27,8 +27,8 @@ def test_run_command():
     assert stdout == b"hello\n"
     assert proc.returncode == 0
 
-    tripwire.popen_mock.assert_spawn(command=["echo", "hello"], stdin=None)
-    tripwire.popen_mock.assert_communicate(input=None)
+    tripwire.popen.assert_spawn(command=["echo", "hello"], stdin=None)
+    tripwire.popen.assert_communicate(input=None)
 ```
 
 For manual use outside pytest, construct `PopenPlugin` explicitly:
@@ -57,7 +57,7 @@ The `spawn` step fires automatically during `subprocess.Popen(...)` construction
 Use `new_session()` to create a `SessionHandle` and chain `.expect()` calls to build the script:
 
 ```python
-(tripwire.popen_mock
+(tripwire.popen
     .new_session()
     .expect("spawn",       returns=None)
     .expect("communicate", returns=(b"output", b"errors", 0)))
@@ -82,14 +82,14 @@ Use `new_session()` to create a `SessionHandle` and chain `.expect()` calls to b
 
 ## Asserting interactions
 
-Each step records an interaction on the timeline. Use the typed assertion helpers on `tripwire.popen_mock`:
+Each step records an interaction on the timeline. Use the typed assertion helpers on `tripwire.popen`:
 
 ### `assert_spawn(*, command, stdin)`
 
 Asserts the next spawn interaction. Both `command` and `stdin` are required fields.
 
 ```python
-tripwire.popen_mock.assert_spawn(command=["git", "status"], stdin=None)
+tripwire.popen.assert_spawn(command=["git", "status"], stdin=None)
 ```
 
 ### `assert_communicate(*, input)`
@@ -97,7 +97,7 @@ tripwire.popen_mock.assert_spawn(command=["git", "status"], stdin=None)
 Asserts the next communicate interaction. The `input` field is required.
 
 ```python
-tripwire.popen_mock.assert_communicate(input=None)
+tripwire.popen.assert_communicate(input=None)
 ```
 
 ### `assert_wait()`
@@ -105,7 +105,7 @@ tripwire.popen_mock.assert_communicate(input=None)
 Asserts the next wait interaction. No fields are required.
 
 ```python
-tripwire.popen_mock.assert_wait()
+tripwire.popen.assert_wait()
 ```
 
 ## Full example
@@ -126,7 +126,7 @@ tripwire.popen_mock.assert_wait()
 
 ```python
 def test_failing_command():
-    (tripwire.popen_mock
+    (tripwire.popen
         .new_session()
         .expect("spawn",       returns=None)
         .expect("communicate", returns=(b"", b"command not found\n", 127)))
@@ -138,15 +138,15 @@ def test_failing_command():
     assert proc.returncode == 127
     assert stderr == b"command not found\n"
 
-    tripwire.popen_mock.assert_spawn(command=["bogus-cmd"], stdin=None)
-    tripwire.popen_mock.assert_communicate(input=None)
+    tripwire.popen.assert_spawn(command=["bogus-cmd"], stdin=None)
+    tripwire.popen.assert_communicate(input=None)
 ```
 
 ## Passing input to communicate()
 
 ```python
 def test_communicate_with_input():
-    (tripwire.popen_mock
+    (tripwire.popen
         .new_session()
         .expect("spawn",       returns=None)
         .expect("communicate", returns=(b"response\n", b"", 0)))
@@ -157,8 +157,8 @@ def test_communicate_with_input():
 
     assert stdout == b"response\n"
 
-    tripwire.popen_mock.assert_spawn(command=["cat"], stdin=None)
-    tripwire.popen_mock.assert_communicate(input=b"hello\n")
+    tripwire.popen.assert_spawn(command=["cat"], stdin=None)
+    tripwire.popen.assert_communicate(input=b"hello\n")
 ```
 
 ## ConflictError

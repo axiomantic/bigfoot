@@ -11,7 +11,7 @@ from .app import fetch_weather
 async def test_fetch_weather():
     from mcp.client.session import ClientSession
 
-    tripwire.mcp_mock.mock_call_tool(
+    tripwire.mcp.mock_call_tool(
         "get_weather",
         returns={"content": [{"type": "text", "text": "Sunny, 72F"}]},
     )
@@ -22,7 +22,7 @@ async def test_fetch_weather():
 
     assert result == {"content": [{"type": "text", "text": "Sunny, 72F"}]}
 
-    tripwire.mcp_mock.assert_call_tool(
+    tripwire.mcp.assert_call_tool(
         "get_weather",
         arguments={"city": "San Francisco"},
         direction="client",

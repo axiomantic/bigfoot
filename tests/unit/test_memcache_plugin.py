@@ -179,7 +179,7 @@ def test_mock_command_set_returns_value() -> None:
 def test_assert_get_full_assertion(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.memcache_mock.mock_command("GET", returns=b"value")
+    tripwire.memcache.mock_command("GET", returns=b"value")
 
     with tripwire.sandbox():
         from pymemcache.client.base import Client
@@ -187,13 +187,13 @@ def test_assert_get_full_assertion(tripwire_verifier: StrictVerifier) -> None:
         client = Client(("localhost", 11211))
         client.get("mykey")
 
-    tripwire.memcache_mock.assert_get(command="GET", key="mykey")
+    tripwire.memcache.assert_get(command="GET", key="mykey")
 
 
 def test_assert_set_full_assertion(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.memcache_mock.mock_command("SET", returns=True)
+    tripwire.memcache.mock_command("SET", returns=True)
 
     with tripwire.sandbox():
         from pymemcache.client.base import Client
@@ -201,7 +201,7 @@ def test_assert_set_full_assertion(tripwire_verifier: StrictVerifier) -> None:
         client = Client(("localhost", 11211))
         client.set("mykey", b"myvalue", expire=300)
 
-    tripwire.memcache_mock.assert_set(
+    tripwire.memcache.assert_set(
         command="SET", key="mykey", value=b"myvalue", expire=300,
     )
 
@@ -343,7 +343,7 @@ def test_missing_assertion_fields(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
     from tripwire.plugins.memcache_plugin import _MemcacheSentinel
 
-    tripwire.memcache_mock.mock_command("SET", returns=True)
+    tripwire.memcache.mock_command("SET", returns=True)
 
     with tripwire.sandbox():
         from pymemcache.client.base import Client
@@ -358,7 +358,7 @@ def test_missing_assertion_fields(tripwire_verifier: StrictVerifier) -> None:
 
     assert "key" in exc_info.value.missing_fields
     # Now assert fully so teardown passes
-    tripwire.memcache_mock.assert_set(
+    tripwire.memcache.assert_set(
         command="SET", key="mykey", value=b"myvalue", expire=300,
     )
 
@@ -371,7 +371,7 @@ def test_missing_assertion_fields(tripwire_verifier: StrictVerifier) -> None:
 def test_memcache_interactions_not_auto_asserted(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.memcache_mock.mock_command("GET", returns=b"value")
+    tripwire.memcache.mock_command("GET", returns=b"value")
 
     with tripwire.sandbox():
         from pymemcache.client.base import Client
@@ -384,7 +384,7 @@ def test_memcache_interactions_not_auto_asserted(tripwire_verifier: StrictVerifi
     assert len(interactions) == 1
     assert interactions[0].source_id == "memcache:get"
     # Assert it so verify_all() at teardown succeeds
-    tripwire.memcache_mock.assert_get(command="GET", key="mykey")
+    tripwire.memcache.assert_get(command="GET", key="mykey")
 
 
 # ---------------------------------------------------------------------------
@@ -442,7 +442,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    tripwire.memcache_mock.mock_command('GET', returns=...)"
+    assert result == "    tripwire.memcache.mock_command('GET', returns=...)"
 
 
 def test_format_unmocked_hint() -> None:
@@ -451,7 +451,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "memcache.GET(...) was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    tripwire.memcache_mock.mock_command('GET', returns=...)"
+        "    tripwire.memcache.mock_command('GET', returns=...)"
     )
 
 
@@ -465,7 +465,7 @@ def test_format_assert_hint() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    tripwire.memcache_mock.assert_get(\n"
+        "    tripwire.memcache.assert_get(\n"
         "        command='GET',\n"
         "        key='mykey',\n"
         "    )"
@@ -484,14 +484,14 @@ def test_format_unused_mock_hint() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: tripwire.memcache_mock
+# Module-level proxy: tripwire.memcache
 # ---------------------------------------------------------------------------
 
 
 def test_memcache_mock_proxy_mock_command(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.memcache_mock.mock_command("GET", returns=b"proxy_value")
+    tripwire.memcache.mock_command("GET", returns=b"proxy_value")
 
     with tripwire.sandbox():
         from pymemcache.client.base import Client
@@ -500,7 +500,7 @@ def test_memcache_mock_proxy_mock_command(tripwire_verifier: StrictVerifier) -> 
         result = client.get("somekey")
 
     assert result == b"proxy_value"
-    tripwire.memcache_mock.assert_get(command="GET", key="somekey")
+    tripwire.memcache.assert_get(command="GET", key="somekey")
 
 
 def test_memcache_mock_proxy_raises_outside_context() -> None:
@@ -510,7 +510,7 @@ def test_memcache_mock_proxy_raises_outside_context() -> None:
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = tripwire.memcache_mock.mock_command
+            _ = tripwire.memcache.mock_command
     finally:
         _current_test_verifier.reset(token)
 
@@ -524,8 +524,8 @@ def test_memcache_plugin_in_all() -> None:
     import tripwire
 
     assert "MemcachePlugin" in tripwire.__all__
-    assert "memcache_mock" in tripwire.__all__
-    assert type(tripwire.memcache_mock).__name__ == "_MemcacheProxy"
+    assert "memcache" in tripwire.__all__
+    assert type(tripwire.memcache).__name__ == "_MemcacheProxy"
 
 
 # ---------------------------------------------------------------------------
@@ -536,7 +536,7 @@ def test_memcache_plugin_in_all() -> None:
 def test_assert_delete(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.memcache_mock.mock_command("DELETE", returns=True)
+    tripwire.memcache.mock_command("DELETE", returns=True)
 
     with tripwire.sandbox():
         from pymemcache.client.base import Client
@@ -544,13 +544,13 @@ def test_assert_delete(tripwire_verifier: StrictVerifier) -> None:
         client = Client(("localhost", 11211))
         client.delete("mykey")
 
-    tripwire.memcache_mock.assert_delete(command="DELETE", key="mykey")
+    tripwire.memcache.assert_delete(command="DELETE", key="mykey")
 
 
 def test_assert_incr(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.memcache_mock.mock_command("INCR", returns=42)
+    tripwire.memcache.mock_command("INCR", returns=42)
 
     with tripwire.sandbox():
         from pymemcache.client.base import Client
@@ -558,13 +558,13 @@ def test_assert_incr(tripwire_verifier: StrictVerifier) -> None:
         client = Client(("localhost", 11211))
         client.incr("counter", 1)
 
-    tripwire.memcache_mock.assert_incr(command="INCR", key="counter", value=1)
+    tripwire.memcache.assert_incr(command="INCR", key="counter", value=1)
 
 
 def test_assert_get_wrong_args_raises(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.memcache_mock.mock_command("GET", returns=b"val")
+    tripwire.memcache.mock_command("GET", returns=b"val")
 
     with tripwire.sandbox():
         from pymemcache.client.base import Client
@@ -573,6 +573,6 @@ def test_assert_get_wrong_args_raises(tripwire_verifier: StrictVerifier) -> None
         client.get("mykey")
 
     with pytest.raises(InteractionMismatchError):
-        tripwire.memcache_mock.assert_get(command="GET", key="wrongkey")
+        tripwire.memcache.assert_get(command="GET", key="wrongkey")
     # Assert correctly so teardown passes
-    tripwire.memcache_mock.assert_get(command="GET", key="mykey")
+    tripwire.memcache.assert_get(command="GET", key="mykey")

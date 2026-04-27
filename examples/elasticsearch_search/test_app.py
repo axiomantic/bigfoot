@@ -6,7 +6,7 @@ from .app import search_error_logs
 
 
 def test_search_error_logs():
-    tripwire.elasticsearch_mock.mock_operation(
+    tripwire.elasticsearch.mock_operation(
         "search",
         returns={
             "hits": {
@@ -28,7 +28,7 @@ def test_search_error_logs():
     assert logs[0]["message"] == "timeout"
     assert logs[1]["message"] == "connection refused"
 
-    tripwire.elasticsearch_mock.assert_search(
+    tripwire.elasticsearch.assert_search(
         index="app-logs",
         query={
             "bool": {

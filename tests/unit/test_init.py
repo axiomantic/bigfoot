@@ -84,38 +84,38 @@ def test_all_contains_expected_names() -> None:
         "current_verifier",
         "spy",
         "http",
-        "subprocess_mock",
-        "popen_mock",
-        "smtp_mock",
-        "socket_mock",
-        "db_mock",
-        "async_websocket_mock",
-        "sync_websocket_mock",
-        "redis_mock",
-        "mongo_mock",
-        "dns_mock",
-        "memcache_mock",
-        "celery_mock",
-        "log_mock",
-        "async_subprocess_mock",
-        "psycopg2_mock",
-        "asyncpg_mock",
-        "boto3_mock",
-        "elasticsearch_mock",
-        "jwt_mock",
-        "crypto_mock",
+        "subprocess",
+        "popen",
+        "smtp",
+        "socket",
+        "db",
+        "async_websocket",
+        "sync_websocket",
+        "redis",
+        "mongo",
+        "dns",
+        "memcache",
+        "celery",
+        "log",
+        "async_subprocess",
+        "psycopg2",
+        "asyncpg",
+        "boto3",
+        "elasticsearch",
+        "jwt",
+        "crypto",
         "FileIoPlugin",
-        "file_io_mock",
+        "file_io",
         "PikaPlugin",
-        "pika_mock",
+        "pika",
         "SshPlugin",
-        "ssh_mock",
+        "ssh",
         "GrpcPlugin",
-        "grpc_mock",
+        "grpc",
         "McpPlugin",
-        "mcp_mock",
+        "mcp",
         "NativePlugin",
-        "native_mock",
+        "native",
     }
     assert set(tripwire.__all__) == expected_all
 
@@ -376,13 +376,13 @@ def test_mock_accepts_path_parameter() -> None:
     assert "path" in sig.parameters
 
 
-def test_async_websocket_mock_raises_import_error_when_websockets_unavailable(
+def test_async_websocket_raises_import_error_when_websockets_unavailable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """async_websocket_mock.__getattr__ raises ImportError with install instructions when websockets is not installed.
+    """async_websocket.__getattr__ raises ImportError with install instructions when websockets is not installed.
 
-    ESCAPE: async_websocket_mock
-      CLAIM: Accessing any attribute on async_websocket_mock raises ImportError with
+    ESCAPE: async_websocket
+      CLAIM: Accessing any attribute on async_websocket raises ImportError with
              instructions when tripwire.plugins.websocket_plugin._WEBSOCKETS_AVAILABLE is False.
       PATH:  _AsyncWebSocketProxy.__getattr__ -> checks _WEBSOCKETS_AVAILABLE -> raises ImportError.
       CHECK: Raises ImportError with message containing "tripwire[websockets]" and "pip install".
@@ -397,7 +397,7 @@ def test_async_websocket_mock_raises_import_error_when_websockets_unavailable(
     monkeypatch.setattr(ws_mod, "_WEBSOCKETS_AVAILABLE", False)
 
     with pytest.raises(ImportError) as exc_info:
-        _ = tripwire.async_websocket_mock.new_session  # noqa: B018
+        _ = tripwire.async_websocket.new_session  # noqa: B018
 
     assert "tripwire[websockets]" in str(exc_info.value)
     assert "pip install" in str(exc_info.value)
@@ -490,13 +490,13 @@ def test_tripwire_nested_sandboxes_via_with_tripwire(tripwire_verifier: object) 
             assert v1 is v2
 
 
-def test_sync_websocket_mock_raises_import_error_when_websocket_client_unavailable(
+def test_sync_websocket_raises_import_error_when_websocket_client_unavailable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """sync_websocket_mock.__getattr__ raises ImportError with install instructions when websocket-client is not installed.
+    """sync_websocket.__getattr__ raises ImportError with install instructions when websocket-client is not installed.
 
-    ESCAPE: sync_websocket_mock
-      CLAIM: Accessing any attribute on sync_websocket_mock raises ImportError with
+    ESCAPE: sync_websocket
+      CLAIM: Accessing any attribute on sync_websocket raises ImportError with
              instructions when tripwire.plugins.websocket_plugin._WEBSOCKET_CLIENT_AVAILABLE is False.
       PATH:  _SyncWebSocketProxy.__getattr__ -> checks _WEBSOCKET_CLIENT_AVAILABLE -> raises ImportError.
       CHECK: Raises ImportError with message containing "tripwire[websocket-client]" and "pip install".
@@ -511,7 +511,9 @@ def test_sync_websocket_mock_raises_import_error_when_websocket_client_unavailab
     monkeypatch.setattr(ws_mod, "_WEBSOCKET_CLIENT_AVAILABLE", False)
 
     with pytest.raises(ImportError) as exc_info:
-        _ = tripwire.sync_websocket_mock.new_session  # noqa: B018
+        _ = tripwire.sync_websocket.new_session  # noqa: B018
 
     assert "tripwire[websocket-client]" in str(exc_info.value)
     assert "pip install" in str(exc_info.value)
+
+

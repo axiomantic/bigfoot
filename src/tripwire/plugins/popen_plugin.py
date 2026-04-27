@@ -290,15 +290,15 @@ class PopenPlugin(StateMachinePlugin):
 
     def format_mock_hint(self, interaction: Interaction) -> str:
         if interaction.source_id == _SOURCE_SPAWN:
-            return "    tripwire.popen_mock.new_session().expect('spawn', returns=None)"
+            return "    tripwire.popen.new_session().expect('spawn', returns=None)"
         if interaction.source_id == _SOURCE_COMMUNICATE:
             return (
-                "    tripwire.popen_mock.new_session()"
+                "    tripwire.popen.new_session()"
                 ".expect('communicate', returns=(b'', b'', 0))"
             )
         if interaction.source_id == _SOURCE_WAIT:
-            return "    tripwire.popen_mock.new_session().expect('wait', returns=0)"
-        return "    tripwire.popen_mock.new_session().expect('?', returns=...)"
+            return "    tripwire.popen.new_session().expect('wait', returns=0)"
+        return "    tripwire.popen.new_session().expect('?', returns=...)"
 
     def format_unmocked_hint(
         self,
@@ -310,11 +310,11 @@ class PopenPlugin(StateMachinePlugin):
         return (
             f"subprocess.Popen.{method}(...) was called but no session was queued.\n"
             f"Register a session with:\n"
-            f"    tripwire.popen_mock.new_session().expect({method!r}, returns=...)"
+            f"    tripwire.popen.new_session().expect({method!r}, returns=...)"
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:
-        pm = "tripwire.popen_mock"
+        pm = "tripwire.popen"
         sid = interaction.source_id
         if sid == _SOURCE_SPAWN:
             command = interaction.details.get("command", [])

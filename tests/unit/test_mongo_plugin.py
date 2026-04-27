@@ -518,7 +518,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    tripwire.mongo_mock.mock_operation('find_one', returns=...)"
+    assert result == "    tripwire.mongo.mock_operation('find_one', returns=...)"
 
 
 # ESCAPE: test_format_unmocked_hint
@@ -533,7 +533,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "mongo.find_one(...) was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    tripwire.mongo_mock.mock_operation('find_one', returns=...)"
+        "    tripwire.mongo.mock_operation('find_one', returns=...)"
     )
 
 
@@ -561,7 +561,7 @@ def test_format_assert_hint() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    tripwire.mongo_mock.assert_find_one(\n"
+        "    tripwire.mongo.assert_find_one(\n"
         "        database='testdb',\n"
         "        collection='testcoll',\n"
         "        filter={'_id': 1},\n"
@@ -593,7 +593,7 @@ def test_format_assert_hint_insert_one() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    tripwire.mongo_mock.assert_insert_one(\n"
+        "    tripwire.mongo.assert_insert_one(\n"
         "        database='testdb',\n"
         "        collection='testcoll',\n"
         "        document={'name': 'Alice'},\n"
@@ -631,12 +631,12 @@ def test_format_unused_mock_hint() -> None:
 def test_assert_find_typed_helper(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.mongo_mock.mock_operation("find", returns=[{"x": 1}])
+    tripwire.mongo.mock_operation("find", returns=[{"x": 1}])
     with tripwire.sandbox():
         coll = _make_collection("mydb", "users")
         coll.find({"active": True}, {"name": 1})
 
-    tripwire.mongo_mock.assert_find(
+    tripwire.mongo.assert_find(
         database="mydb",
         collection="users",
         filter={"active": True},
@@ -653,12 +653,12 @@ def test_assert_find_typed_helper(tripwire_verifier: StrictVerifier) -> None:
 def test_assert_find_one_typed_helper(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.mongo_mock.mock_operation("find_one", returns={"_id": 1})
+    tripwire.mongo.mock_operation("find_one", returns={"_id": 1})
     with tripwire.sandbox():
         coll = _make_collection("mydb", "users")
         coll.find_one({"_id": 1}, {"name": 1})
 
-    tripwire.mongo_mock.assert_find_one(
+    tripwire.mongo.assert_find_one(
         database="mydb",
         collection="users",
         filter={"_id": 1},
@@ -675,12 +675,12 @@ def test_assert_find_one_typed_helper(tripwire_verifier: StrictVerifier) -> None
 def test_assert_insert_one_typed_helper(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.mongo_mock.mock_operation("insert_one", returns=MagicMock(inserted_id="abc"))
+    tripwire.mongo.mock_operation("insert_one", returns=MagicMock(inserted_id="abc"))
     with tripwire.sandbox():
         coll = _make_collection("mydb", "users")
         coll.insert_one({"name": "Alice"})
 
-    tripwire.mongo_mock.assert_insert_one(
+    tripwire.mongo.assert_insert_one(
         database="mydb",
         collection="users",
         document={"name": "Alice"},
@@ -696,12 +696,12 @@ def test_assert_insert_one_typed_helper(tripwire_verifier: StrictVerifier) -> No
 def test_assert_update_one_typed_helper(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.mongo_mock.mock_operation("update_one", returns=MagicMock(modified_count=1))
+    tripwire.mongo.mock_operation("update_one", returns=MagicMock(modified_count=1))
     with tripwire.sandbox():
         coll = _make_collection("mydb", "users")
         coll.update_one({"_id": 1}, {"$set": {"name": "Bob"}})
 
-    tripwire.mongo_mock.assert_update_one(
+    tripwire.mongo.assert_update_one(
         database="mydb",
         collection="users",
         filter={"_id": 1},
@@ -718,12 +718,12 @@ def test_assert_update_one_typed_helper(tripwire_verifier: StrictVerifier) -> No
 def test_assert_delete_one_typed_helper(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.mongo_mock.mock_operation("delete_one", returns=MagicMock(deleted_count=1))
+    tripwire.mongo.mock_operation("delete_one", returns=MagicMock(deleted_count=1))
     with tripwire.sandbox():
         coll = _make_collection("mydb", "users")
         coll.delete_one({"_id": 1})
 
-    tripwire.mongo_mock.assert_delete_one(
+    tripwire.mongo.assert_delete_one(
         database="mydb",
         collection="users",
         filter={"_id": 1},
@@ -740,12 +740,12 @@ def test_assert_aggregate_typed_helper(tripwire_verifier: StrictVerifier) -> Non
     import tripwire
 
     pipeline = [{"$match": {"active": True}}, {"$group": {"_id": "$type"}}]
-    tripwire.mongo_mock.mock_operation("aggregate", returns=[{"_id": "A"}])
+    tripwire.mongo.mock_operation("aggregate", returns=[{"_id": "A"}])
     with tripwire.sandbox():
         coll = _make_collection("mydb", "users")
         coll.aggregate(pipeline)
 
-    tripwire.mongo_mock.assert_aggregate(
+    tripwire.mongo.assert_aggregate(
         database="mydb",
         collection="users",
         pipeline=pipeline,
@@ -761,12 +761,12 @@ def test_assert_aggregate_typed_helper(tripwire_verifier: StrictVerifier) -> Non
 def test_assert_insert_many_typed_helper(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.mongo_mock.mock_operation("insert_many", returns=MagicMock(inserted_ids=["a", "b"]))
+    tripwire.mongo.mock_operation("insert_many", returns=MagicMock(inserted_ids=["a", "b"]))
     with tripwire.sandbox():
         coll = _make_collection("mydb", "items")
         coll.insert_many([{"x": 1}, {"x": 2}])
 
-    tripwire.mongo_mock.assert_insert_many(
+    tripwire.mongo.assert_insert_many(
         database="mydb",
         collection="items",
         documents=[{"x": 1}, {"x": 2}],
@@ -782,12 +782,12 @@ def test_assert_insert_many_typed_helper(tripwire_verifier: StrictVerifier) -> N
 def test_assert_update_many_typed_helper(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.mongo_mock.mock_operation("update_many", returns=MagicMock(modified_count=5))
+    tripwire.mongo.mock_operation("update_many", returns=MagicMock(modified_count=5))
     with tripwire.sandbox():
         coll = _make_collection("mydb", "items")
         coll.update_many({"status": "old"}, {"$set": {"status": "new"}})
 
-    tripwire.mongo_mock.assert_update_many(
+    tripwire.mongo.assert_update_many(
         database="mydb",
         collection="items",
         filter={"status": "old"},
@@ -804,12 +804,12 @@ def test_assert_update_many_typed_helper(tripwire_verifier: StrictVerifier) -> N
 def test_assert_delete_many_typed_helper(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.mongo_mock.mock_operation("delete_many", returns=MagicMock(deleted_count=3))
+    tripwire.mongo.mock_operation("delete_many", returns=MagicMock(deleted_count=3))
     with tripwire.sandbox():
         coll = _make_collection("mydb", "items")
         coll.delete_many({"status": "old"})
 
-    tripwire.mongo_mock.assert_delete_many(
+    tripwire.mongo.assert_delete_many(
         database="mydb",
         collection="items",
         filter={"status": "old"},
@@ -825,12 +825,12 @@ def test_assert_delete_many_typed_helper(tripwire_verifier: StrictVerifier) -> N
 def test_assert_count_documents_typed_helper(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.mongo_mock.mock_operation("count_documents", returns=42)
+    tripwire.mongo.mock_operation("count_documents", returns=42)
     with tripwire.sandbox():
         coll = _make_collection("mydb", "items")
         coll.count_documents({"active": True})
 
-    tripwire.mongo_mock.assert_count_documents(
+    tripwire.mongo.assert_count_documents(
         database="mydb",
         collection="items",
         filter={"active": True},
@@ -851,20 +851,20 @@ def test_assert_count_documents_typed_helper(tripwire_verifier: StrictVerifier) 
 def test_assert_find_one_wrong_filter_raises(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.mongo_mock.mock_operation("find_one", returns={"x": 1})
+    tripwire.mongo.mock_operation("find_one", returns={"x": 1})
     with tripwire.sandbox():
         coll = _make_collection("mydb", "users")
         coll.find_one({"_id": 1})
 
     with pytest.raises(InteractionMismatchError):
-        tripwire.mongo_mock.assert_find_one(
+        tripwire.mongo.assert_find_one(
             database="mydb",
             collection="users",
             filter={"_id": 999},
             projection=None,
         )
     # Now assert correctly so teardown passes
-    tripwire.mongo_mock.assert_find_one(
+    tripwire.mongo.assert_find_one(
         database="mydb",
         collection="users",
         filter={"_id": 1},
@@ -886,7 +886,7 @@ def test_assert_find_one_wrong_filter_raises(tripwire_verifier: StrictVerifier) 
 def test_mongo_interactions_not_auto_asserted(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.mongo_mock.mock_operation("find_one", returns={"x": 1})
+    tripwire.mongo.mock_operation("find_one", returns={"x": 1})
     with tripwire.sandbox():
         coll = _make_collection("mydb", "users")
         coll.find_one({"_id": 1})
@@ -896,7 +896,7 @@ def test_mongo_interactions_not_auto_asserted(tripwire_verifier: StrictVerifier)
     assert len(interactions) == 1
     assert interactions[0].source_id == "mongo:find_one"
     # Assert it so verify_all() at teardown succeeds
-    tripwire.mongo_mock.assert_find_one(
+    tripwire.mongo.assert_find_one(
         database="mydb",
         collection="users",
         filter={"_id": 1},
@@ -905,12 +905,12 @@ def test_mongo_interactions_not_auto_asserted(tripwire_verifier: StrictVerifier)
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: tripwire.mongo_mock
+# Module-level proxy: tripwire.mongo
 # ---------------------------------------------------------------------------
 
 
 # ESCAPE: test_mongo_mock_proxy_mock_operation
-#   CLAIM: tripwire.mongo_mock.mock_operation("find_one", returns=...) works when verifier active.
+#   CLAIM: tripwire.mongo.mock_operation("find_one", returns=...) works when verifier active.
 #   PATH:  _MongoProxy.__getattr__("mock_operation") -> get verifier ->
 #          find/create MongoPlugin -> return plugin.mock_operation.
 #   CHECK: The proxy call does not raise and the mock is registered.
@@ -919,13 +919,13 @@ def test_mongo_interactions_not_auto_asserted(tripwire_verifier: StrictVerifier)
 def test_mongo_mock_proxy_mock_operation(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.mongo_mock.mock_operation("find_one", returns={"proxy": True})
+    tripwire.mongo.mock_operation("find_one", returns={"proxy": True})
     with tripwire.sandbox():
         coll = _make_collection("proxydb", "proxycoll")
         result = coll.find_one({"k": 1})
 
     assert result == {"proxy": True}
-    tripwire.mongo_mock.assert_find_one(
+    tripwire.mongo.assert_find_one(
         database="proxydb",
         collection="proxycoll",
         filter={"k": 1},
@@ -934,7 +934,7 @@ def test_mongo_mock_proxy_mock_operation(tripwire_verifier: StrictVerifier) -> N
 
 
 # ESCAPE: test_mongo_mock_proxy_raises_outside_context
-#   CLAIM: Accessing tripwire.mongo_mock outside a test context raises NoActiveVerifierError.
+#   CLAIM: Accessing tripwire.mongo outside a test context raises NoActiveVerifierError.
 #   PATH:  _MongoProxy.__getattr__ -> _get_test_verifier_or_raise -> NoActiveVerifierError.
 #   CHECK: NoActiveVerifierError raised.
 #   MUTATION: Silently returning None would not raise.
@@ -946,7 +946,7 @@ def test_mongo_mock_proxy_raises_outside_context() -> None:
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = tripwire.mongo_mock.mock_operation
+            _ = tripwire.mongo.mock_operation
     finally:
         _current_test_verifier.reset(token)
 
@@ -957,16 +957,16 @@ def test_mongo_mock_proxy_raises_outside_context() -> None:
 
 
 # ESCAPE: test_mongo_plugin_in_all
-#   CLAIM: MongoPlugin and mongo_mock are exported from tripwire.__all__.
-#   PATH:  tripwire.__all__ contains "MongoPlugin" and "mongo_mock".
-#   CHECK: "MongoPlugin" in tripwire.__all__; "mongo_mock" in tripwire.__all__.
+#   CLAIM: MongoPlugin and mongo are exported from tripwire.__all__.
+#   PATH:  tripwire.__all__ contains "MongoPlugin" and "mongo".
+#   CHECK: "MongoPlugin" in tripwire.__all__; "mongo" in tripwire.__all__.
 #   MUTATION: Omitting either from __all__ fails the membership check.
 #   ESCAPE: Nothing reasonable -- exact membership check.
 def test_mongo_plugin_in_all() -> None:
     import tripwire
 
     assert "MongoPlugin" in tripwire.__all__
-    assert "mongo_mock" in tripwire.__all__
+    assert "mongo" in tripwire.__all__
 
 
 # ---------------------------------------------------------------------------
@@ -984,7 +984,7 @@ def test_missing_fields_raises_error(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
     from tripwire.plugins.mongo_plugin import _MongoSentinel
 
-    tripwire.mongo_mock.mock_operation("find_one", returns={"x": 1})
+    tripwire.mongo.mock_operation("find_one", returns={"x": 1})
     with tripwire.sandbox():
         coll = _make_collection("mydb", "users")
         coll.find_one({"_id": 1})
@@ -1001,7 +1001,7 @@ def test_missing_fields_raises_error(tripwire_verifier: StrictVerifier) -> None:
     assert "filter" in exc_info.value.missing_fields
 
     # Now assert correctly so teardown passes
-    tripwire.mongo_mock.assert_find_one(
+    tripwire.mongo.assert_find_one(
         database="mydb",
         collection="users",
         filter={"_id": 1},
@@ -1135,13 +1135,13 @@ def test_aggregate_interception() -> None:
 def test_find_one_records_correct_details(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.mongo_mock.mock_operation("find_one", returns={"x": 1})
+    tripwire.mongo.mock_operation("find_one", returns={"x": 1})
     with tripwire.sandbox():
         coll = _make_collection("recdb", "reccoll")
         coll.find_one({"_id": 1}, {"name": 1})
 
     # This asserts ALL required fields
-    tripwire.mongo_mock.assert_find_one(
+    tripwire.mongo.assert_find_one(
         database="recdb",
         collection="reccoll",
         filter={"_id": 1},
@@ -1158,12 +1158,12 @@ def test_find_one_records_correct_details(tripwire_verifier: StrictVerifier) -> 
 def test_insert_one_records_correct_details(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.mongo_mock.mock_operation("insert_one", returns=MagicMock(inserted_id="abc"))
+    tripwire.mongo.mock_operation("insert_one", returns=MagicMock(inserted_id="abc"))
     with tripwire.sandbox():
         coll = _make_collection("recdb", "reccoll")
         coll.insert_one({"name": "Alice", "age": 30})
 
-    tripwire.mongo_mock.assert_insert_one(
+    tripwire.mongo.assert_insert_one(
         database="recdb",
         collection="reccoll",
         document={"name": "Alice", "age": 30},
@@ -1179,12 +1179,12 @@ def test_insert_one_records_correct_details(tripwire_verifier: StrictVerifier) -
 def test_update_one_records_correct_details(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.mongo_mock.mock_operation("update_one", returns=MagicMock(modified_count=1))
+    tripwire.mongo.mock_operation("update_one", returns=MagicMock(modified_count=1))
     with tripwire.sandbox():
         coll = _make_collection("recdb", "reccoll")
         coll.update_one({"_id": 1}, {"$set": {"name": "Bob"}})
 
-    tripwire.mongo_mock.assert_update_one(
+    tripwire.mongo.assert_update_one(
         database="recdb",
         collection="reccoll",
         filter={"_id": 1},
@@ -1201,12 +1201,12 @@ def test_update_one_records_correct_details(tripwire_verifier: StrictVerifier) -
 def test_delete_one_records_correct_details(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.mongo_mock.mock_operation("delete_one", returns=MagicMock(deleted_count=1))
+    tripwire.mongo.mock_operation("delete_one", returns=MagicMock(deleted_count=1))
     with tripwire.sandbox():
         coll = _make_collection("recdb", "reccoll")
         coll.delete_one({"_id": 1})
 
-    tripwire.mongo_mock.assert_delete_one(
+    tripwire.mongo.assert_delete_one(
         database="recdb",
         collection="reccoll",
         filter={"_id": 1},
@@ -1223,12 +1223,12 @@ def test_aggregate_records_correct_details(tripwire_verifier: StrictVerifier) ->
     import tripwire
 
     pipeline = [{"$match": {"active": True}}]
-    tripwire.mongo_mock.mock_operation("aggregate", returns=[])
+    tripwire.mongo.mock_operation("aggregate", returns=[])
     with tripwire.sandbox():
         coll = _make_collection("recdb", "reccoll")
         coll.aggregate(pipeline)
 
-    tripwire.mongo_mock.assert_aggregate(
+    tripwire.mongo.assert_aggregate(
         database="recdb",
         collection="reccoll",
         pipeline=pipeline,
@@ -1245,7 +1245,7 @@ def test_count_documents_records_correct_details(tripwire_verifier: StrictVerifi
     import tripwire
     from tripwire.plugins.mongo_plugin import _MongoSentinel
 
-    tripwire.mongo_mock.mock_operation("count_documents", returns=42)
+    tripwire.mongo.mock_operation("count_documents", returns=42)
     with tripwire.sandbox():
         coll = _make_collection("recdb", "reccoll")
         coll.count_documents({"active": True})
@@ -1270,12 +1270,12 @@ def test_insert_many_records_correct_details(tripwire_verifier: StrictVerifier) 
     import tripwire
 
     docs = [{"x": 1}, {"x": 2}]
-    tripwire.mongo_mock.mock_operation("insert_many", returns=MagicMock(inserted_ids=["a", "b"]))
+    tripwire.mongo.mock_operation("insert_many", returns=MagicMock(inserted_ids=["a", "b"]))
     with tripwire.sandbox():
         coll = _make_collection("recdb", "reccoll")
         coll.insert_many(docs)
 
-    tripwire.mongo_mock.assert_insert_many(
+    tripwire.mongo.assert_insert_many(
         database="recdb",
         collection="reccoll",
         documents=docs,
@@ -1291,12 +1291,12 @@ def test_insert_many_records_correct_details(tripwire_verifier: StrictVerifier) 
 def test_update_many_records_correct_details(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.mongo_mock.mock_operation("update_many", returns=MagicMock(modified_count=5))
+    tripwire.mongo.mock_operation("update_many", returns=MagicMock(modified_count=5))
     with tripwire.sandbox():
         coll = _make_collection("recdb", "reccoll")
         coll.update_many({"status": "old"}, {"$set": {"status": "new"}})
 
-    tripwire.mongo_mock.assert_update_many(
+    tripwire.mongo.assert_update_many(
         database="recdb",
         collection="reccoll",
         filter={"status": "old"},
@@ -1313,12 +1313,12 @@ def test_update_many_records_correct_details(tripwire_verifier: StrictVerifier) 
 def test_delete_many_records_correct_details(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.mongo_mock.mock_operation("delete_many", returns=MagicMock(deleted_count=3))
+    tripwire.mongo.mock_operation("delete_many", returns=MagicMock(deleted_count=3))
     with tripwire.sandbox():
         coll = _make_collection("recdb", "reccoll")
         coll.delete_many({"status": "old"})
 
-    tripwire.mongo_mock.assert_delete_many(
+    tripwire.mongo.assert_delete_many(
         database="recdb",
         collection="reccoll",
         filter={"status": "old"},
@@ -1339,12 +1339,12 @@ def test_delete_many_records_correct_details(tripwire_verifier: StrictVerifier) 
 def test_find_one_kwargs_extraction(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.mongo_mock.mock_operation("find_one", returns={"x": 1})
+    tripwire.mongo.mock_operation("find_one", returns={"x": 1})
     with tripwire.sandbox():
         coll = _make_collection("mydb", "users")
         coll.find_one(filter={"_id": 1}, projection={"name": 1})
 
-    tripwire.mongo_mock.assert_find_one(
+    tripwire.mongo.assert_find_one(
         database="mydb",
         collection="users",
         filter={"_id": 1},
@@ -1361,12 +1361,12 @@ def test_find_one_kwargs_extraction(tripwire_verifier: StrictVerifier) -> None:
 def test_insert_one_kwargs_extraction(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
-    tripwire.mongo_mock.mock_operation("insert_one", returns=MagicMock(inserted_id="abc"))
+    tripwire.mongo.mock_operation("insert_one", returns=MagicMock(inserted_id="abc"))
     with tripwire.sandbox():
         coll = _make_collection("mydb", "users")
         coll.insert_one(document={"name": "Alice"})
 
-    tripwire.mongo_mock.assert_insert_one(
+    tripwire.mongo.assert_insert_one(
         database="mydb",
         collection="users",
         document={"name": "Alice"},

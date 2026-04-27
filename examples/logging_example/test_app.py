@@ -11,6 +11,6 @@ def test_process_order():
 
     assert result == "success"
 
-    tripwire.log_mock.assert_info("Processing order 42", "orders")
-    tripwire.log_mock.assert_debug("Validating payment for order 42", "orders")
-    tripwire.log_mock.assert_info("Order 42 completed", "orders")
+    tripwire.log.assert_info("Processing order 42", "orders")
+    tripwire.log.assert_debug("Validating payment for order 42", "orders")
+    tripwire.log.assert_info("Order 42 completed", "orders")

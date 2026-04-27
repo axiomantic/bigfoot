@@ -6,7 +6,7 @@ from .app import run_linter
 
 
 def test_linter_clean():
-    (tripwire.popen_mock
+    (tripwire.popen
         .new_session()
         .expect("spawn",       returns=None)
         .expect("communicate", returns=(b"All checks passed.\n", b"", 0)))
@@ -17,5 +17,5 @@ def test_linter_clean():
     assert rc == 0
     assert output == "All checks passed.\n"
 
-    tripwire.popen_mock.assert_spawn(command=["ruff", "check", "src/"], stdin=None)
-    tripwire.popen_mock.assert_communicate(input=None)
+    tripwire.popen.assert_spawn(command=["ruff", "check", "src/"], stdin=None)
+    tripwire.popen.assert_communicate(input=None)

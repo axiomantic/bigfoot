@@ -17,8 +17,8 @@ def _silence_botocore():
 
 
 def test_upload_and_notify():
-    tripwire.boto3_mock.mock_call("s3", "PutObject", returns={})
-    tripwire.boto3_mock.mock_call("sqs", "SendMessage", returns={"MessageId": "msg-001"})
+    tripwire.boto3.mock_call("s3", "PutObject", returns={})
+    tripwire.boto3.mock_call("sqs", "SendMessage", returns={"MessageId": "msg-001"})
 
     with tripwire:
         upload_and_notify(
@@ -26,11 +26,11 @@ def test_upload_and_notify():
             "https://sqs.us-east-1.amazonaws.com/123/notifications",
         )
 
-    tripwire.boto3_mock.assert_boto3_call(
+    tripwire.boto3.assert_boto3_call(
         service="s3", operation="PutObject",
         params={"Bucket": "data-bucket", "Key": "reports/q1.csv", "Body": b"revenue,100"},
     )
-    tripwire.boto3_mock.assert_boto3_call(
+    tripwire.boto3.assert_boto3_call(
         service="sqs", operation="SendMessage",
         params={
             "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123/notifications",

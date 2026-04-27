@@ -12,13 +12,13 @@ This installs `pymemcache`.
 
 ## Setup
 
-In pytest, access `MemcachePlugin` through the `tripwire.memcache_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `MemcachePlugin` through the `tripwire.memcache` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
 import tripwire
 
 def test_session_cache():
-    tripwire.memcache_mock.mock_command("GET", returns=b"user:42")
+    tripwire.memcache.mock_command("GET", returns=b"user:42")
 
     with tripwire:
         from pymemcache.client.base import Client
@@ -27,7 +27,7 @@ def test_session_cache():
 
     assert value == b"user:42"
 
-    tripwire.memcache_mock.assert_get(command="GET", key="session:abc")
+    tripwire.memcache.assert_get(command="GET", key="session:abc")
 ```
 
 For manual use outside pytest, construct `MemcachePlugin` explicitly:
@@ -37,18 +37,18 @@ from tripwire import StrictVerifier
 from tripwire.plugins.memcache_plugin import MemcachePlugin
 
 verifier = StrictVerifier()
-memcache_mock = MemcachePlugin(verifier)
+memcache = MemcachePlugin(verifier)
 ```
 
 Each verifier may have at most one `MemcachePlugin`. A second `MemcachePlugin(verifier)` raises `ValueError`.
 
 ## Registering mock commands
 
-Use `tripwire.memcache_mock.mock_command(command, *, returns, ...)` to register a mock before entering the sandbox:
+Use `tripwire.memcache.mock_command(command, *, returns, ...)` to register a mock before entering the sandbox:
 
 ```python
-tripwire.memcache_mock.mock_command("SET", returns=True)
-tripwire.memcache_mock.mock_command("GET", returns=b"cached")
+tripwire.memcache.mock_command("SET", returns=True)
+tripwire.memcache.mock_command("GET", returns=b"cached")
 ```
 
 ### Parameters
@@ -80,8 +80,8 @@ Each command name has its own independent FIFO queue. Multiple `mock_command("GE
 
 ```python
 def test_multiple_gets():
-    tripwire.memcache_mock.mock_command("GET", returns=b"first")
-    tripwire.memcache_mock.mock_command("GET", returns=b"second")
+    tripwire.memcache.mock_command("GET", returns=b"first")
+    tripwire.memcache.mock_command("GET", returns=b"second")
 
     with tripwire:
         from pymemcache.client.base import Client
@@ -92,22 +92,22 @@ def test_multiple_gets():
     assert v1 == b"first"
     assert v2 == b"second"
 
-    tripwire.memcache_mock.assert_get(command="GET", key="key1")
-    tripwire.memcache_mock.assert_get(command="GET", key="key2")
+    tripwire.memcache.assert_get(command="GET", key="key1")
+    tripwire.memcache.assert_get(command="GET", key="key2")
 ```
 
 Command names are case-insensitive: `mock_command("get", ...)` matches a `client.get(...)` call.
 
 ## Asserting interactions
 
-Use the typed assertion helpers on `tripwire.memcache_mock`. Each helper requires all detail fields for its operation type.
+Use the typed assertion helpers on `tripwire.memcache`. Each helper requires all detail fields for its operation type.
 
 ### `assert_get(command, key)`
 
 Asserts the next read interaction (GET, GETS, DELETE).
 
 ```python
-tripwire.memcache_mock.assert_get(command="GET", key="session:abc")
+tripwire.memcache.assert_get(command="GET", key="session:abc")
 ```
 
 | Parameter | Type | Description |
@@ -120,7 +120,7 @@ tripwire.memcache_mock.assert_get(command="GET", key="session:abc")
 Asserts the next write interaction (SET, ADD, REPLACE, CAS, APPEND, PREPEND).
 
 ```python
-tripwire.memcache_mock.assert_set(command="SET", key="session:abc", value=b"user:42", expire=3600)
+tripwire.memcache.assert_set(command="SET", key="session:abc", value=b"user:42", expire=3600)
 ```
 
 | Parameter | Type | Default | Description |
@@ -135,7 +135,7 @@ tripwire.memcache_mock.assert_set(command="SET", key="session:abc", value=b"user
 Asserts the next delete interaction.
 
 ```python
-tripwire.memcache_mock.assert_delete(command="DELETE", key="session:abc")
+tripwire.memcache.assert_delete(command="DELETE", key="session:abc")
 ```
 
 | Parameter | Type | Description |
@@ -148,7 +148,7 @@ tripwire.memcache_mock.assert_delete(command="DELETE", key="session:abc")
 Asserts the next counter interaction (INCR, DECR).
 
 ```python
-tripwire.memcache_mock.assert_incr(command="INCR", key="page_views", value=1)
+tripwire.memcache.assert_incr(command="INCR", key="page_views", value=1)
 ```
 
 | Parameter | Type | Default | Description |
@@ -165,7 +165,7 @@ Use the `raises` parameter to simulate memcache errors:
 import tripwire
 
 def test_memcache_connection_error():
-    tripwire.memcache_mock.mock_command(
+    tripwire.memcache.mock_command(
         "GET",
         returns=None,
         raises=ConnectionError("memcached unreachable"),
@@ -177,7 +177,7 @@ def test_memcache_connection_error():
         with pytest.raises(ConnectionError):
             client.get("mykey")
 
-    tripwire.memcache_mock.assert_get(command="GET", key="mykey")
+    tripwire.memcache.assert_get(command="GET", key="mykey")
 ```
 
 ## Full example
@@ -199,7 +199,7 @@ def test_memcache_connection_error():
 Mark a mock as optional with `required=False`:
 
 ```python
-tripwire.memcache_mock.mock_command("DELETE", returns=True, required=False)
+tripwire.memcache.mock_command("DELETE", returns=True, required=False)
 ```
 
 An optional mock that is never triggered does not cause `UnusedMocksError` at teardown.
@@ -211,5 +211,5 @@ When code calls a memcache method that has no remaining mocks in its queue, trip
 ```
 memcache.GET(...) was called but no mock was registered.
 Register a mock with:
-    tripwire.memcache_mock.mock_command('GET', returns=...)
+    tripwire.memcache.mock_command('GET', returns=...)
 ```

@@ -35,7 +35,7 @@ The `connect` step fires during `websockets.connect().__aenter__()` (async) or `
 
 ## AsyncWebSocketPlugin
 
-**Proxy:** `tripwire.async_websocket_mock`
+**Proxy:** `tripwire.async_websocket`
 
 ### Setup
 
@@ -43,7 +43,7 @@ The `connect` step fires during `websockets.connect().__aenter__()` (async) or `
 import tripwire
 
 async def test_ws_echo():
-    (tripwire.async_websocket_mock
+    (tripwire.async_websocket
         .new_session()
         .expect("connect", returns=None)
         .expect("send",    returns=None)
@@ -59,10 +59,10 @@ async def test_ws_echo():
 
     assert message == "pong"
 
-    tripwire.async_websocket_mock.assert_connect(uri="ws://localhost:8765")
-    tripwire.async_websocket_mock.assert_send(message="ping")
-    tripwire.async_websocket_mock.assert_recv(message="pong")
-    tripwire.async_websocket_mock.assert_close()
+    tripwire.async_websocket.assert_connect(uri="ws://localhost:8765")
+    tripwire.async_websocket.assert_send(message="ping")
+    tripwire.async_websocket.assert_recv(message="pong")
+    tripwire.async_websocket.assert_close()
 ```
 
 For manual use outside pytest:
@@ -87,13 +87,13 @@ Sessions are consumed in registration order:
 
 ```python
 async def test_two_ws_connections():
-    (tripwire.async_websocket_mock
+    (tripwire.async_websocket
         .new_session()
         .expect("connect", returns=None)
         .expect("recv",    returns="first")
         .expect("close",   returns=None))
 
-    (tripwire.async_websocket_mock
+    (tripwire.async_websocket
         .new_session()
         .expect("connect", returns=None)
         .expect("recv",    returns="second")
@@ -107,12 +107,12 @@ async def test_two_ws_connections():
                 assert await ws1.recv() == "first"
                 assert await ws2.recv() == "second"
 
-    tripwire.async_websocket_mock.assert_connect(uri="ws://localhost:8765")
-    tripwire.async_websocket_mock.assert_connect(uri="ws://localhost:8765")
-    tripwire.async_websocket_mock.assert_recv(message="first")
-    tripwire.async_websocket_mock.assert_recv(message="second")
-    tripwire.async_websocket_mock.assert_close()
-    tripwire.async_websocket_mock.assert_close()
+    tripwire.async_websocket.assert_connect(uri="ws://localhost:8765")
+    tripwire.async_websocket.assert_connect(uri="ws://localhost:8765")
+    tripwire.async_websocket.assert_recv(message="first")
+    tripwire.async_websocket.assert_recv(message="second")
+    tripwire.async_websocket.assert_close()
+    tripwire.async_websocket.assert_close()
 ```
 
 ### Assertion helpers
@@ -120,19 +120,19 @@ async def test_two_ws_connections():
 #### `assert_connect(*, uri)`
 
 ```python
-tripwire.async_websocket_mock.assert_connect(uri="ws://localhost:8765")
+tripwire.async_websocket.assert_connect(uri="ws://localhost:8765")
 ```
 
 #### `assert_send(*, message)`
 
 ```python
-tripwire.async_websocket_mock.assert_send(message="hello")
+tripwire.async_websocket.assert_send(message="hello")
 ```
 
 #### `assert_recv(*, message)`
 
 ```python
-tripwire.async_websocket_mock.assert_recv(message="world")
+tripwire.async_websocket.assert_recv(message="world")
 ```
 
 #### `assert_close()`
@@ -140,14 +140,14 @@ tripwire.async_websocket_mock.assert_recv(message="world")
 No fields are required.
 
 ```python
-tripwire.async_websocket_mock.assert_close()
+tripwire.async_websocket.assert_close()
 ```
 
 ---
 
 ## SyncWebSocketPlugin
 
-**Proxy:** `tripwire.sync_websocket_mock`
+**Proxy:** `tripwire.sync_websocket`
 
 ### Setup
 
@@ -155,7 +155,7 @@ tripwire.async_websocket_mock.assert_close()
 import tripwire
 
 def test_sync_ws():
-    (tripwire.sync_websocket_mock
+    (tripwire.sync_websocket
         .new_session()
         .expect("connect", returns=None)
         .expect("send",    returns=None)
@@ -171,10 +171,10 @@ def test_sync_ws():
 
     assert message == "hello"
 
-    tripwire.sync_websocket_mock.assert_connect(uri="ws://localhost:8765")
-    tripwire.sync_websocket_mock.assert_send(message="hi")
-    tripwire.sync_websocket_mock.assert_recv(message="hello")
-    tripwire.sync_websocket_mock.assert_close()
+    tripwire.sync_websocket.assert_connect(uri="ws://localhost:8765")
+    tripwire.sync_websocket.assert_send(message="hi")
+    tripwire.sync_websocket.assert_recv(message="hello")
+    tripwire.sync_websocket.assert_close()
 ```
 
 For manual use outside pytest:
@@ -196,19 +196,19 @@ The `connect` step executes immediately inside `create_connection()` before the 
 #### `assert_connect(*, uri)`
 
 ```python
-tripwire.sync_websocket_mock.assert_connect(uri="ws://localhost:8765")
+tripwire.sync_websocket.assert_connect(uri="ws://localhost:8765")
 ```
 
 #### `assert_send(*, message)`
 
 ```python
-tripwire.sync_websocket_mock.assert_send(message="hello")
+tripwire.sync_websocket.assert_send(message="hello")
 ```
 
 #### `assert_recv(*, message)`
 
 ```python
-tripwire.sync_websocket_mock.assert_recv(message="world")
+tripwire.sync_websocket.assert_recv(message="world")
 ```
 
 #### `assert_close()`
@@ -216,7 +216,7 @@ tripwire.sync_websocket_mock.assert_recv(message="world")
 No fields are required.
 
 ```python
-tripwire.sync_websocket_mock.assert_close()
+tripwire.sync_websocket.assert_close()
 ```
 
 ---

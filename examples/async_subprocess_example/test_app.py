@@ -6,7 +6,7 @@ from .app import run_linter
 
 
 async def test_linter_clean():
-    (tripwire.async_subprocess_mock
+    (tripwire.async_subprocess
         .new_session()
         .expect("spawn",       returns=None)
         .expect("communicate", returns=(b"All checks passed.\n", b"", 0)))
@@ -17,7 +17,7 @@ async def test_linter_clean():
     assert rc == 0
     assert output == "All checks passed.\n"
 
-    tripwire.async_subprocess_mock.assert_spawn(
+    tripwire.async_subprocess.assert_spawn(
         command=["ruff", "check", "src/"], stdin=None
     )
-    tripwire.async_subprocess_mock.assert_communicate(input=None)
+    tripwire.async_subprocess.assert_communicate(input=None)

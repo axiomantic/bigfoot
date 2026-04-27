@@ -445,7 +445,7 @@ class GrpcPlugin(BasePlugin):
     def format_mock_hint(self, interaction: Interaction) -> str:
         call_type = interaction.details.get("call_type", "?")
         method = interaction.details.get("method", "?")
-        return f"    tripwire.grpc_mock.mock_{call_type}({method!r}, returns=...)"
+        return f"    tripwire.grpc.mock_{call_type}({method!r}, returns=...)"
 
     def format_unmocked_hint(
         self,
@@ -460,11 +460,11 @@ class GrpcPlugin(BasePlugin):
         return (
             f"grpc.{call_type}({method!r}) was called but no mock was registered.\n"
             f"Register a mock with:\n"
-            f"    tripwire.grpc_mock.mock_{call_type}({method!r}, returns=...)"
+            f"    tripwire.grpc.mock_{call_type}({method!r}, returns=...)"
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:
-        sm = "tripwire.grpc_mock"
+        sm = "tripwire.grpc"
         call_type = interaction.details.get("call_type", "?")
         method = interaction.details.get("method", "?")
         request = interaction.details.get("request")

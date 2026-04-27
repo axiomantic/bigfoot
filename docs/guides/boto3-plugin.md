@@ -12,13 +12,13 @@ This installs `botocore`.
 
 ## Setup
 
-In pytest, access `Boto3Plugin` through the `tripwire.boto3_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `Boto3Plugin` through the `tripwire.boto3` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
 import tripwire
 
 def test_s3_get_object():
-    tripwire.boto3_mock.mock_call(
+    tripwire.boto3.mock_call(
         "s3", "GetObject",
         returns={"Body": b"file-contents", "ContentLength": 13},
     )
@@ -30,7 +30,7 @@ def test_s3_get_object():
 
     assert response["ContentLength"] == 13
 
-    tripwire.boto3_mock.assert_boto3_call(
+    tripwire.boto3.assert_boto3_call(
         service="s3",
         operation="GetObject",
         params={"Bucket": "my-bucket", "Key": "data.csv"},
@@ -44,18 +44,18 @@ from tripwire import StrictVerifier
 from tripwire.plugins.boto3_plugin import Boto3Plugin
 
 verifier = StrictVerifier()
-boto3_mock = Boto3Plugin(verifier)
+boto3 = Boto3Plugin(verifier)
 ```
 
 Each verifier may have at most one `Boto3Plugin`. A second `Boto3Plugin(verifier)` raises `ValueError`.
 
 ## Registering mocks
 
-Use `tripwire.boto3_mock.mock_call(service, operation, *, returns, ...)` to register a mock before entering the sandbox:
+Use `tripwire.boto3.mock_call(service, operation, *, returns, ...)` to register a mock before entering the sandbox:
 
 ```python
-tripwire.boto3_mock.mock_call("sqs", "SendMessage", returns={"MessageId": "abc123"})
-tripwire.boto3_mock.mock_call("dynamodb", "PutItem", returns={})
+tripwire.boto3.mock_call("sqs", "SendMessage", returns={"MessageId": "abc123"})
+tripwire.boto3.mock_call("dynamodb", "PutItem", returns={})
 ```
 
 ### Parameters
@@ -74,11 +74,11 @@ Each service:operation pair has its own independent FIFO queue. Multiple `mock_c
 
 ```python
 def test_multiple_s3_gets():
-    tripwire.boto3_mock.mock_call(
+    tripwire.boto3.mock_call(
         "s3", "GetObject",
         returns={"Body": b"first", "ContentLength": 5},
     )
-    tripwire.boto3_mock.mock_call(
+    tripwire.boto3.mock_call(
         "s3", "GetObject",
         returns={"Body": b"second", "ContentLength": 6},
     )
@@ -92,11 +92,11 @@ def test_multiple_s3_gets():
     assert r1["Body"] == b"first"
     assert r2["Body"] == b"second"
 
-    tripwire.boto3_mock.assert_boto3_call(
+    tripwire.boto3.assert_boto3_call(
         service="s3", operation="GetObject",
         params={"Bucket": "bucket", "Key": "a.txt"},
     )
-    tripwire.boto3_mock.assert_boto3_call(
+    tripwire.boto3.assert_boto3_call(
         service="s3", operation="GetObject",
         params={"Bucket": "bucket", "Key": "b.txt"},
     )
@@ -104,12 +104,12 @@ def test_multiple_s3_gets():
 
 ## Asserting interactions
 
-Use the `assert_boto3_call` helper on `tripwire.boto3_mock`. All three fields (`service`, `operation`, `params`) are required:
+Use the `assert_boto3_call` helper on `tripwire.boto3`. All three fields (`service`, `operation`, `params`) are required:
 
 ### `assert_boto3_call(service, operation, *, params)`
 
 ```python
-tripwire.boto3_mock.assert_boto3_call(
+tripwire.boto3.assert_boto3_call(
     service="sqs",
     operation="SendMessage",
     params={"QueueUrl": "https://sqs.us-east-1.amazonaws.com/123/my-queue", "MessageBody": "hello"},
@@ -132,7 +132,7 @@ import tripwire
 
 def test_s3_not_found():
     error_response = {"Error": {"Code": "NoSuchKey", "Message": "The specified key does not exist."}}
-    tripwire.boto3_mock.mock_call(
+    tripwire.boto3.mock_call(
         "s3", "GetObject",
         returns=None,
         raises=ClientError(error_response, "GetObject"),
@@ -146,7 +146,7 @@ def test_s3_not_found():
 
     assert exc_info.value.response["Error"]["Code"] == "NoSuchKey"
 
-    tripwire.boto3_mock.assert_boto3_call(
+    tripwire.boto3.assert_boto3_call(
         service="s3", operation="GetObject",
         params={"Bucket": "my-bucket", "Key": "missing.csv"},
     )
@@ -171,7 +171,7 @@ def test_s3_not_found():
 Mark a mock as optional with `required=False`:
 
 ```python
-tripwire.boto3_mock.mock_call("cloudwatch", "PutMetricData", returns={}, required=False)
+tripwire.boto3.mock_call("cloudwatch", "PutMetricData", returns={}, required=False)
 ```
 
 An optional mock that is never triggered does not cause `UnusedMocksError` at teardown.
@@ -183,5 +183,5 @@ When code calls a boto3 API operation that has no remaining mocks in its queue, 
 ```
 s3.GetObject(...) was called but no mock was registered.
 Register a mock with:
-    tripwire.boto3_mock.mock_call('s3', 'GetObject', returns=...)
+    tripwire.boto3.mock_call('s3', 'GetObject', returns=...)
 ```

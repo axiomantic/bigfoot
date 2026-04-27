@@ -484,12 +484,12 @@ def test_smtp_with_empty_queue_raises_unmocked() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: tripwire.smtp_mock
+# Module-level proxy: tripwire.smtp
 # ---------------------------------------------------------------------------
 
 
 # ESCAPE: test_smtp_mock_proxy_new_session
-#   CLAIM: tripwire.smtp_mock.new_session() returns a SessionHandle that can
+#   CLAIM: tripwire.smtp.new_session() returns a SessionHandle that can
 #          be used to configure a session without importing SmtpPlugin directly.
 #   PATH:  _SmtpProxy.__getattr__("new_session") -> get verifier -> find/create SmtpPlugin ->
 #          return plugin.new_session.
@@ -499,14 +499,14 @@ def test_smtp_with_empty_queue_raises_unmocked() -> None:
 def test_smtp_mock_proxy_new_session(tripwire_verifier: StrictVerifier) -> None:
     from tripwire._state_machine_plugin import SessionHandle
 
-    session = tripwire.smtp_mock.new_session()
+    session = tripwire.smtp.new_session()
     assert isinstance(session, SessionHandle)
     result = session.expect("connect", returns=None, required=False)
     assert result is session  # expect() returns self for chaining
 
 
 # ESCAPE: test_smtp_mock_proxy_raises_outside_context
-#   CLAIM: Accessing tripwire.smtp_mock outside a test context raises NoActiveVerifierError.
+#   CLAIM: Accessing tripwire.smtp outside a test context raises NoActiveVerifierError.
 #   PATH:  _SmtpProxy.__getattr__ -> _get_test_verifier_or_raise -> NoActiveVerifierError.
 #   CHECK: NoActiveVerifierError raised.
 #   MUTATION: Silently returning None would not raise and hide context failures.
@@ -517,7 +517,7 @@ def test_smtp_mock_proxy_raises_outside_context() -> None:
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = tripwire.smtp_mock.new_session
+            _ = tripwire.smtp.new_session
     finally:
         _current_test_verifier.reset(token)
 
@@ -530,13 +530,13 @@ def test_smtp_mock_proxy_raises_outside_context() -> None:
 # ESCAPE: test_full_session_via_sandbox
 #   CLAIM: A complete SMTP session (connect -> ehlo -> sendmail -> quit) runs end-to-end
 #          through the module-level tripwire.sandbox() API, returning the scripted values.
-#   PATH:  tripwire.smtp_mock.new_session() -> sandbox -> _FakeSMTP.__init__ ->
+#   PATH:  tripwire.smtp.new_session() -> sandbox -> _FakeSMTP.__init__ ->
 #          ehlo -> sendmail -> quit.
 #   CHECK: sendmail_result == {}; quit_result == (221, b"Bye").
 #   MUTATION: Returning wrong sendmail result would fail the equality check.
 #   ESCAPE: Nothing reasonable -- exact equality on both returns.
 def test_full_session_via_sandbox(tripwire_verifier: StrictVerifier) -> None:
-    session = tripwire.smtp_mock.new_session()
+    session = tripwire.smtp.new_session()
     session.expect("connect", returns=None)
     session.expect("ehlo", returns=(250, b"OK"))
     session.expect("sendmail", returns={})
@@ -553,11 +553,11 @@ def test_full_session_via_sandbox(tripwire_verifier: StrictVerifier) -> None:
     assert sendmail_result == {}
     assert quit_result == (221, b"Bye")
 
-    tripwire.smtp_mock.assert_connect(host="mail.example.com", port=25)
-    tripwire.smtp_mock.assert_ehlo(name="")
-    tripwire.smtp_mock.assert_sendmail(
+    tripwire.smtp.assert_connect(host="mail.example.com", port=25)
+    tripwire.smtp.assert_ehlo(name="")
+    tripwire.smtp.assert_sendmail(
         from_addr="from@example.com",
         to_addrs=["to@example.com"],
         msg="Subject: test\r\n\r\ntest",
     )
-    tripwire.smtp_mock.assert_quit()
+    tripwire.smtp.assert_quit()

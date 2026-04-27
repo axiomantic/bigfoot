@@ -316,15 +316,15 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
 
     def format_mock_hint(self, interaction: Interaction) -> str:
         if interaction.source_id == _SOURCE_SPAWN:
-            return "    tripwire.async_subprocess_mock.new_session().expect('spawn', returns=None)"
+            return "    tripwire.async_subprocess.new_session().expect('spawn', returns=None)"
         if interaction.source_id == _SOURCE_COMMUNICATE:
             return (
-                "    tripwire.async_subprocess_mock.new_session()"
+                "    tripwire.async_subprocess.new_session()"
                 ".expect('communicate', returns=(b'', b'', 0))"
             )
         if interaction.source_id == _SOURCE_WAIT:
-            return "    tripwire.async_subprocess_mock.new_session().expect('wait', returns=0)"
-        return "    tripwire.async_subprocess_mock.new_session().expect('?', returns=...)"
+            return "    tripwire.async_subprocess.new_session().expect('wait', returns=0)"
+        return "    tripwire.async_subprocess.new_session().expect('?', returns=...)"
 
     def format_unmocked_hint(
         self,
@@ -336,11 +336,11 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
         return (
             f"asyncio.create_subprocess_{method}(...) was called but no session was queued.\n"
             f"Register a session with:\n"
-            f"    tripwire.async_subprocess_mock.new_session().expect({method!r}, returns=...)"
+            f"    tripwire.async_subprocess.new_session().expect({method!r}, returns=...)"
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:
-        pm = "tripwire.async_subprocess_mock"
+        pm = "tripwire.async_subprocess"
         sid = interaction.source_id
         if sid == _SOURCE_SPAWN:
             command = interaction.details.get("command", [])

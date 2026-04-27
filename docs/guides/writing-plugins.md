@@ -415,7 +415,7 @@ def _unmocked_source_id(self) -> str:
 Before the sandbox runs, register one session per expected connection:
 
 ```python
-handle = tripwire.socket_mock.new_session()
+handle = tripwire.socket.new_session()
 handle.expect("connect", returns=None)
 handle.expect("recv",    returns=b"pong")
 handle.expect("close",   returns=None)
@@ -424,7 +424,7 @@ handle.expect("close",   returns=None)
 `new_session()` returns a `SessionHandle`. `expect()` appends one `ScriptStep` to the handle's FIFO script and returns the handle, so calls chain naturally:
 
 ```python
-(tripwire.socket_mock
+(tripwire.socket
     .new_session()
     .expect("connect", returns=None)
     .expect("send",    returns=4)
@@ -507,14 +507,14 @@ class FtpPlugin(StateMachinePlugin):
 
     def format_mock_hint(self, interaction: Interaction) -> str:
         method = interaction.details.get("method", "?")
-        return f"    tripwire.ftp_mock.new_session().expect({method!r}, returns=...)"
+        return f"    tripwire.ftp.new_session().expect({method!r}, returns=...)"
 
     def format_unmocked_hint(self, source_id: str, args: tuple, kwargs: dict) -> str:
         method = source_id.split(":")[-1] if ":" in source_id else source_id
         return (
             f"ftp.{method}(...) was called but no session was queued.\n"
             f"Register a session with:\n"
-            f"    tripwire.ftp_mock.new_session().expect({method!r}, returns=...)"
+            f"    tripwire.ftp.new_session().expect({method!r}, returns=...)"
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:

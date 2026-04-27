@@ -408,7 +408,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    tripwire.crypto_mock.mock_encrypt(returns=...)"
+    assert result == "    tripwire.crypto.mock_encrypt(returns=...)"
 
 
 def test_format_unmocked_hint() -> None:
@@ -417,7 +417,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "crypto.fernet_encrypt(...) was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    tripwire.crypto_mock.mock_encrypt(returns=...)"
+        "    tripwire.crypto.mock_encrypt(returns=...)"
     )
 
 
@@ -432,7 +432,7 @@ def test_format_unused_mock_hint() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: tripwire.crypto_mock
+# Module-level proxy: tripwire.crypto
 # ---------------------------------------------------------------------------
 
 
@@ -441,14 +441,14 @@ def test_crypto_mock_proxy_mock_encrypt(tripwire_verifier: StrictVerifier) -> No
 
     import tripwire
 
-    tripwire.crypto_mock.mock_encrypt(returns=b"proxied_encrypted")
+    tripwire.crypto.mock_encrypt(returns=b"proxied_encrypted")
 
     with tripwire.sandbox():
         f = Fernet(Fernet.generate_key())
         result = f.encrypt(b"hello")
 
     assert result == b"proxied_encrypted"
-    tripwire.crypto_mock.assert_encrypt(plaintext_length=5)
+    tripwire.crypto.assert_encrypt(plaintext_length=5)
 
 
 def test_crypto_mock_proxy_raises_outside_context() -> None:
@@ -458,7 +458,7 @@ def test_crypto_mock_proxy_raises_outside_context() -> None:
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = tripwire.crypto_mock.mock_encrypt
+            _ = tripwire.crypto.mock_encrypt
     finally:
         _current_test_verifier.reset(token)
 
@@ -473,7 +473,7 @@ def test_crypto_plugin_in_all() -> None:
     from tripwire.plugins.crypto_plugin import CryptoPlugin as _CryptoPlugin
 
     assert tripwire.CryptoPlugin is _CryptoPlugin
-    assert type(tripwire.crypto_mock).__name__ == "_CryptoProxy"
+    assert type(tripwire.crypto).__name__ == "_CryptoProxy"
 
 
 # ---------------------------------------------------------------------------
@@ -486,7 +486,7 @@ def test_crypto_interactions_not_auto_asserted(tripwire_verifier: StrictVerifier
 
     import tripwire
 
-    tripwire.crypto_mock.mock_encrypt(returns=b"encrypted")
+    tripwire.crypto.mock_encrypt(returns=b"encrypted")
     with tripwire.sandbox():
         f = Fernet(Fernet.generate_key())
         f.encrypt(b"data")
@@ -495,7 +495,7 @@ def test_crypto_interactions_not_auto_asserted(tripwire_verifier: StrictVerifier
     interactions = timeline.all_unasserted()
     assert len(interactions) == 1
     assert interactions[0].source_id == "crypto:fernet_encrypt"
-    tripwire.crypto_mock.assert_encrypt(plaintext_length=4)
+    tripwire.crypto.assert_encrypt(plaintext_length=4)
 
 
 def test_assert_encrypt_typed_helper(tripwire_verifier: StrictVerifier) -> None:
@@ -503,11 +503,11 @@ def test_assert_encrypt_typed_helper(tripwire_verifier: StrictVerifier) -> None:
 
     import tripwire
 
-    tripwire.crypto_mock.mock_encrypt(returns=b"encrypted")
+    tripwire.crypto.mock_encrypt(returns=b"encrypted")
     with tripwire.sandbox():
         f = Fernet(Fernet.generate_key())
         f.encrypt(b"hello")
-    tripwire.crypto_mock.assert_encrypt(plaintext_length=5)
+    tripwire.crypto.assert_encrypt(plaintext_length=5)
 
 
 def test_assert_decrypt_typed_helper(tripwire_verifier: StrictVerifier) -> None:
@@ -515,23 +515,23 @@ def test_assert_decrypt_typed_helper(tripwire_verifier: StrictVerifier) -> None:
 
     import tripwire
 
-    tripwire.crypto_mock.mock_decrypt(returns=b"decrypted")
+    tripwire.crypto.mock_decrypt(returns=b"decrypted")
     with tripwire.sandbox():
         f = Fernet(Fernet.generate_key())
         f.decrypt(b"gAAAAABtoken")
-    tripwire.crypto_mock.assert_decrypt(token=b"gAAAAABtoken", ttl=None)
+    tripwire.crypto.assert_decrypt(token=b"gAAAAABtoken", ttl=None)
 
 
 def test_assert_generate_key_typed_helper(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
     mock_key = object()
-    tripwire.crypto_mock.mock_generate_key(returns=mock_key)
+    tripwire.crypto.mock_generate_key(returns=mock_key)
     with tripwire.sandbox():
         from cryptography.hazmat.primitives.asymmetric import rsa
 
         rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    tripwire.crypto_mock.assert_generate_key(algorithm="RSA", key_size=2048)
+    tripwire.crypto.assert_generate_key(algorithm="RSA", key_size=2048)
 
 
 def test_assert_encrypt_wrong_params_raises(tripwire_verifier: StrictVerifier) -> None:
@@ -539,20 +539,20 @@ def test_assert_encrypt_wrong_params_raises(tripwire_verifier: StrictVerifier) -
 
     import tripwire
 
-    tripwire.crypto_mock.mock_encrypt(returns=b"encrypted")
+    tripwire.crypto.mock_encrypt(returns=b"encrypted")
     with tripwire.sandbox():
         f = Fernet(Fernet.generate_key())
         f.encrypt(b"hello")
     with pytest.raises(InteractionMismatchError):
-        tripwire.crypto_mock.assert_encrypt(plaintext_length=999)
-    tripwire.crypto_mock.assert_encrypt(plaintext_length=5)
+        tripwire.crypto.assert_encrypt(plaintext_length=999)
+    tripwire.crypto.assert_encrypt(plaintext_length=5)
 
 
 def test_missing_assertion_fields_raises(tripwire_verifier: StrictVerifier) -> None:
     import tripwire
 
     mock_key = object()
-    tripwire.crypto_mock.mock_generate_key(returns=mock_key)
+    tripwire.crypto.mock_generate_key(returns=mock_key)
     with tripwire.sandbox():
         from cryptography.hazmat.primitives.asymmetric import rsa
 
@@ -563,4 +563,4 @@ def test_missing_assertion_fields_raises(tripwire_verifier: StrictVerifier) -> N
     sentinel = _CryptoSentinel("generate_key")
     with pytest.raises(MissingAssertionFieldsError):
         tripwire.assert_interaction(sentinel, algorithm="RSA")
-    tripwire.crypto_mock.assert_generate_key(algorithm="RSA", key_size=2048)
+    tripwire.crypto.assert_generate_key(algorithm="RSA", key_size=2048)

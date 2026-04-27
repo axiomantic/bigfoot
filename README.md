@@ -241,14 +241,14 @@ def test_deploy(mock_run):
 
 # AFTER: tripwire
 def test_deploy():
-    tripwire.subprocess_mock.mock_run(
+    tripwire.subprocess.mock_run(
         ["kubectl", "apply", "-f", "prod.yaml"],
         returncode=0, stdout="deployed",
     )
     with tripwire:
         result = deploy("prod")
 
-    tripwire.subprocess_mock.assert_run(
+    tripwire.subprocess.assert_run(
         ["kubectl", "apply", "-f", "prod.yaml"],
         returncode=0, stdout="deployed",
     )
@@ -306,12 +306,12 @@ tripwire ships with 27 plugins covering the most common external dependencies:
 
 **Subprocess**
 ```python
-tripwire.subprocess_mock.mock_run(["git", "pull"], returncode=0, stdout="Up to date.\n")
+tripwire.subprocess.mock_run(["git", "pull"], returncode=0, stdout="Up to date.\n")
 ```
 
 **Database (sqlite3)**
 ```python
-tripwire.db_mock.new_session() \
+tripwire.db.new_session() \
     .expect("connect", returns=None) \
     .expect("execute", returns=[]) \
     .expect("commit", returns=None) \
@@ -320,22 +320,22 @@ tripwire.db_mock.new_session() \
 
 **Redis**
 ```python
-tripwire.redis_mock.mock_command("GET", returns=b"cached_value")
+tripwire.redis.mock_command("GET", returns=b"cached_value")
 ```
 
 **MongoDB**
 ```python
-tripwire.mongo_mock.mock_operation("find_one", returns={"_id": "abc", "name": "Alice"})
+tripwire.mongo.mock_operation("find_one", returns={"_id": "abc", "name": "Alice"})
 ```
 
 **AWS (boto3)**
 ```python
-tripwire.boto3_mock.mock_api_call("s3", "GetObject", returns={"Body": b"file contents"})
+tripwire.boto3.mock_api_call("s3", "GetObject", returns={"Body": b"file contents"})
 ```
 
 **RabbitMQ (pika)**
 ```python
-tripwire.pika_mock.new_session() \
+tripwire.pika.new_session() \
     .expect("connect", returns=None) \
     .expect("channel", returns=None) \
     .expect("publish", returns=None) \
@@ -344,7 +344,7 @@ tripwire.pika_mock.new_session() \
 
 **SSH (paramiko)**
 ```python
-tripwire.ssh_mock.new_session() \
+tripwire.ssh.new_session() \
     .expect("connect", returns=None) \
     .expect("exec_command", returns=(b"", b"output\n", b"")) \
     .expect("close", returns=None)
@@ -352,7 +352,7 @@ tripwire.ssh_mock.new_session() \
 
 **SMTP**
 ```python
-tripwire.smtp_mock.new_session() \
+tripwire.smtp.new_session() \
     .expect("connect", returns=(220, b"OK")) \
     .expect("ehlo", returns=(250, b"OK")) \
     .expect("sendmail", returns={}) \
@@ -361,7 +361,7 @@ tripwire.smtp_mock.new_session() \
 
 **Logging**
 ```python
-tripwire.log_mock.assert_info("User logged in", "myapp")
+tripwire.log.assert_info("User logged in", "myapp")
 ```
 
 **Mock (general)**

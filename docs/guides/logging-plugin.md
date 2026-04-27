@@ -4,7 +4,7 @@
 
 ## Setup
 
-In pytest, access `LoggingPlugin` through the `tripwire.log_mock` proxy. It auto-creates the plugin for the current test on first use -- no explicit instantiation needed:
+In pytest, access `LoggingPlugin` through the `tripwire.log` proxy. It auto-creates the plugin for the current test on first use -- no explicit instantiation needed:
 
 ```python
 import tripwire
@@ -16,7 +16,7 @@ def test_audit_trail():
     with tripwire:
         logger.info("User logged in")
 
-    tripwire.log_mock.assert_info("User logged in", "myapp.auth")
+    tripwire.log.assert_info("User logged in", "myapp.auth")
 ```
 
 For manual use outside pytest, construct `LoggingPlugin` explicitly:
@@ -42,10 +42,10 @@ This is the same pattern used by `shutil.which` in `SubprocessPlugin`: unmocked 
 
 ## Registering log mocks
 
-Use `tripwire.log_mock.mock_log(level, message, logger_name=None)` to register expected log calls before entering the sandbox:
+Use `tripwire.log.mock_log(level, message, logger_name=None)` to register expected log calls before entering the sandbox:
 
 ```python
-tripwire.log_mock.mock_log("INFO", "User logged in", logger_name="myapp.auth")
+tripwire.log.mock_log("INFO", "User logged in", logger_name="myapp.auth")
 ```
 
 Parameters:
@@ -61,13 +61,13 @@ Mocks are consumed in FIFO order. If a log call matches the next mock in the que
 
 ## Asserting log interactions
 
-Use `tripwire.log_mock.log` as the source in `assert_interaction()`, or use the typed assertion helpers.
+Use `tripwire.log.log` as the source in `assert_interaction()`, or use the typed assertion helpers.
 
 ### Using assert_interaction directly
 
 ```python
 tripwire.assert_interaction(
-    tripwire.log_mock.log,
+    tripwire.log.log,
     level="INFO",
     message="User logged in",
     logger_name="myapp.auth",
@@ -79,9 +79,9 @@ All three fields (`level`, `message`, `logger_name`) are required.
 ### Using assertion helpers
 
 ```python
-tripwire.log_mock.assert_log("INFO", "User logged in", "myapp.auth")
-tripwire.log_mock.assert_info("User logged in", "myapp.auth")
-tripwire.log_mock.assert_warning("Rate limit approaching", "myapp.auth")
+tripwire.log.assert_log("INFO", "User logged in", "myapp.auth")
+tripwire.log.assert_info("User logged in", "myapp.auth")
+tripwire.log.assert_warning("Rate limit approaching", "myapp.auth")
 ```
 
 Available helpers:
@@ -122,8 +122,8 @@ def test_multi_service():
         auth_logger.info("authenticated")
         payment_logger.warning("rate limited")
 
-    tripwire.log_mock.assert_info("authenticated", "service.auth")
-    tripwire.log_mock.assert_warning("rate limited", "service.payment")
+    tripwire.log.assert_info("authenticated", "service.auth")
+    tripwire.log.assert_warning("rate limited", "service.payment")
 ```
 
 ## ConflictError

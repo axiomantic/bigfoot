@@ -389,7 +389,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    tripwire.jwt_mock.mock_encode(returns=...)"
+    assert result == "    tripwire.jwt.mock_encode(returns=...)"
 
 
 def test_format_unmocked_hint() -> None:
@@ -398,7 +398,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "jwt.encode(...) was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    tripwire.jwt_mock.mock_encode(returns=...)"
+        "    tripwire.jwt.mock_encode(returns=...)"
     )
 
 
@@ -413,7 +413,7 @@ def test_format_unused_mock_hint() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: tripwire.jwt_mock
+# Module-level proxy: tripwire.jwt
 # ---------------------------------------------------------------------------
 
 
@@ -422,13 +422,13 @@ def test_jwt_mock_proxy_mock_encode(tripwire_verifier: StrictVerifier) -> None:
 
     import tripwire
 
-    tripwire.jwt_mock.mock_encode(returns="proxied_token")
+    tripwire.jwt.mock_encode(returns="proxied_token")
 
     with tripwire.sandbox():
         result = jwt_mod.encode({"sub": "1"}, "secret", algorithm="HS256")
 
     assert result == "proxied_token"
-    tripwire.jwt_mock.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})
+    tripwire.jwt.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})
 
 
 def test_jwt_mock_proxy_raises_outside_context() -> None:
@@ -438,7 +438,7 @@ def test_jwt_mock_proxy_raises_outside_context() -> None:
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = tripwire.jwt_mock.mock_encode
+            _ = tripwire.jwt.mock_encode
     finally:
         _current_test_verifier.reset(token)
 
@@ -453,7 +453,7 @@ def test_jwt_plugin_in_all() -> None:
     from tripwire.plugins.jwt_plugin import JwtPlugin as _JwtPlugin
 
     assert tripwire.JwtPlugin is _JwtPlugin
-    assert type(tripwire.jwt_mock).__name__ == "_JwtProxy"
+    assert type(tripwire.jwt).__name__ == "_JwtProxy"
 
 
 # ---------------------------------------------------------------------------
@@ -466,7 +466,7 @@ def test_jwt_interactions_not_auto_asserted(tripwire_verifier: StrictVerifier) -
 
     import tripwire
 
-    tripwire.jwt_mock.mock_encode(returns="token")
+    tripwire.jwt.mock_encode(returns="token")
     with tripwire.sandbox():
         jwt_mod.encode({"sub": "1"}, "secret", algorithm="HS256")
 
@@ -474,7 +474,7 @@ def test_jwt_interactions_not_auto_asserted(tripwire_verifier: StrictVerifier) -
     interactions = timeline.all_unasserted()
     assert len(interactions) == 1
     assert interactions[0].source_id == "jwt:encode"
-    tripwire.jwt_mock.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})
+    tripwire.jwt.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})
 
 
 def test_assert_encode_typed_helper(tripwire_verifier: StrictVerifier) -> None:
@@ -482,10 +482,10 @@ def test_assert_encode_typed_helper(tripwire_verifier: StrictVerifier) -> None:
 
     import tripwire
 
-    tripwire.jwt_mock.mock_encode(returns="token")
+    tripwire.jwt.mock_encode(returns="token")
     with tripwire.sandbox():
         jwt_mod.encode({"sub": "1"}, "secret", algorithm="HS256")
-    tripwire.jwt_mock.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})
+    tripwire.jwt.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})
 
 
 def test_assert_decode_typed_helper(tripwire_verifier: StrictVerifier) -> None:
@@ -493,10 +493,10 @@ def test_assert_decode_typed_helper(tripwire_verifier: StrictVerifier) -> None:
 
     import tripwire
 
-    tripwire.jwt_mock.mock_decode(returns={"sub": "1"})
+    tripwire.jwt.mock_decode(returns={"sub": "1"})
     with tripwire.sandbox():
         jwt_mod.decode("tok", "secret", algorithms=["HS256"])
-    tripwire.jwt_mock.assert_decode(token="tok", algorithms=["HS256"], options=None)
+    tripwire.jwt.assert_decode(token="tok", algorithms=["HS256"], options=None)
 
 
 def test_assert_encode_wrong_params_raises(tripwire_verifier: StrictVerifier) -> None:
@@ -504,12 +504,12 @@ def test_assert_encode_wrong_params_raises(tripwire_verifier: StrictVerifier) ->
 
     import tripwire
 
-    tripwire.jwt_mock.mock_encode(returns="token")
+    tripwire.jwt.mock_encode(returns="token")
     with tripwire.sandbox():
         jwt_mod.encode({"sub": "1"}, "secret", algorithm="HS256")
     with pytest.raises(InteractionMismatchError):
-        tripwire.jwt_mock.assert_encode(payload={"sub": "wrong"}, algorithm="HS256", extra_kwargs={})
-    tripwire.jwt_mock.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})
+        tripwire.jwt.assert_encode(payload={"sub": "wrong"}, algorithm="HS256", extra_kwargs={})
+    tripwire.jwt.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})
 
 
 def test_missing_assertion_fields_raises(tripwire_verifier: StrictVerifier) -> None:
@@ -517,7 +517,7 @@ def test_missing_assertion_fields_raises(tripwire_verifier: StrictVerifier) -> N
 
     import tripwire
 
-    tripwire.jwt_mock.mock_encode(returns="token")
+    tripwire.jwt.mock_encode(returns="token")
     with tripwire.sandbox():
         jwt_mod.encode({"sub": "1"}, "secret", algorithm="HS256")
 
@@ -526,4 +526,4 @@ def test_missing_assertion_fields_raises(tripwire_verifier: StrictVerifier) -> N
     sentinel = _JwtSentinel("encode")
     with pytest.raises(MissingAssertionFieldsError):
         tripwire.assert_interaction(sentinel, payload={"sub": "1"})
-    tripwire.jwt_mock.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})
+    tripwire.jwt.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})

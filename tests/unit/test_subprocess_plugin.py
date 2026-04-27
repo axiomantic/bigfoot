@@ -266,7 +266,7 @@ def test_mock_run_raises_exception() -> None:
 #   MUTATION: Recording interaction with wrong command would cause assert_interaction to raise.
 #   ESCAPE: Nothing reasonable -- assert_interaction is the definitive check here.
 def test_mock_run_in_sandbox(tripwire_verifier: StrictVerifier) -> None:
-    tripwire.subprocess_mock.mock_run(["make", "build"], returncode=0, stdout="ok")
+    tripwire.subprocess.mock_run(["make", "build"], returncode=0, stdout="ok")
 
     with tripwire.sandbox():
         result = subprocess.run(["make", "build"])
@@ -276,7 +276,7 @@ def test_mock_run_in_sandbox(tripwire_verifier: StrictVerifier) -> None:
     assert result.stderr == ""
     assert result.args == ["make", "build"]
 
-    tripwire.assert_interaction(tripwire.subprocess_mock.run, command=["make", "build"], returncode=0, stdout="ok", stderr="")
+    tripwire.assert_interaction(tripwire.subprocess.run, command=["make", "build"], returncode=0, stdout="ok", stderr="")
 
 
 # ESCAPE: test_unregistered_run_in_sandbox_raises
@@ -286,8 +286,8 @@ def test_mock_run_in_sandbox(tripwire_verifier: StrictVerifier) -> None:
 #   MUTATION: Returning a default response silently lets unmocked calls through.
 #   ESCAPE: Nothing reasonable -- exact exception type and source_id.
 def test_unregistered_run_in_sandbox_raises(tripwire_verifier: StrictVerifier) -> None:
-    # Access subprocess_mock to ensure SubprocessPlugin is created and registered
-    tripwire.subprocess_mock.install()
+    # Access subprocess to ensure SubprocessPlugin is created and registered
+    tripwire.subprocess.install()
 
     with tripwire.sandbox():
         with pytest.raises(UnmockedInteractionError) as exc_info:
@@ -424,7 +424,7 @@ def test_unmocked_which_asserted_passes() -> None:
 
 
 # ESCAPE: test_assert_interaction_run
-#   CLAIM: After sandbox with mock_run, assert_interaction(subprocess_mock.run, command=...)
+#   CLAIM: After sandbox with mock_run, assert_interaction(subprocess.run, command=...)
 #          passes without raising.
 #   PATH:  assert_interaction -> verifier._timeline.peek_next_unasserted ->
 #          matches source_id + command -> mark asserted.
@@ -433,30 +433,30 @@ def test_unmocked_which_asserted_passes() -> None:
 #             InteractionMismatchError.
 #   ESCAPE: Recording with wrong command would cause field match to fail.
 def test_assert_interaction_run(tripwire_verifier: StrictVerifier) -> None:
-    tripwire.subprocess_mock.mock_run(["pytest", "--tb=short"], returncode=0, stdout="passed")
+    tripwire.subprocess.mock_run(["pytest", "--tb=short"], returncode=0, stdout="passed")
 
     with tripwire.sandbox():
         subprocess.run(["pytest", "--tb=short"])
 
     # Must not raise
-    tripwire.assert_interaction(tripwire.subprocess_mock.run, command=["pytest", "--tb=short"], returncode=0, stdout="passed", stderr="")
+    tripwire.assert_interaction(tripwire.subprocess.run, command=["pytest", "--tb=short"], returncode=0, stdout="passed", stderr="")
 
 
 # ESCAPE: test_assert_interaction_which
-#   CLAIM: After sandbox with mock_which, assert_interaction(subprocess_mock.which, name=...)
+#   CLAIM: After sandbox with mock_which, assert_interaction(subprocess.which, name=...)
 #          passes without raising.
 #   PATH:  assert_interaction -> matches source_id "subprocess:which" + name field.
 #   CHECK: No exception raised.
 #   MUTATION: Recording interaction with wrong name would cause field mismatch.
 #   ESCAPE: Recording source_id as "subprocess:run" instead would fail source_id match.
 def test_assert_interaction_which(tripwire_verifier: StrictVerifier) -> None:
-    tripwire.subprocess_mock.mock_which("python3", returns="/usr/bin/python3")
+    tripwire.subprocess.mock_which("python3", returns="/usr/bin/python3")
 
     with tripwire.sandbox():
         shutil.which("python3")
 
     # Must not raise
-    tripwire.assert_interaction(tripwire.subprocess_mock.which, name="python3", returns="/usr/bin/python3")
+    tripwire.assert_interaction(tripwire.subprocess.which, name="python3", returns="/usr/bin/python3")
 
 
 # ---------------------------------------------------------------------------
@@ -509,7 +509,7 @@ def test_conflict_error_shutil_which_already_patched() -> None:
 
 
 # ESCAPE: test_subprocess_mock_proxy_raises_outside_sandbox
-#   CLAIM: Accessing tripwire.subprocess_mock.mock_run outside a pytest test context
+#   CLAIM: Accessing tripwire.subprocess.mock_run outside a pytest test context
 #          raises NoActiveVerifierError (because _current_test_verifier is not set).
 #   PATH:  _SubprocessProxy.__getattr__ -> _get_test_verifier_or_raise -> NoActiveVerifierError.
 #   CHECK: NoActiveVerifierError (or subclass) raised when ContextVar is explicitly cleared.
@@ -523,7 +523,7 @@ def test_subprocess_mock_proxy_raises_outside_sandbox() -> None:
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = tripwire.subprocess_mock.mock_run
+            _ = tripwire.subprocess.mock_run
     finally:
         _current_test_verifier.reset(token)
 
@@ -796,7 +796,7 @@ def test_format_assert_hint_run() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert "tripwire.subprocess_mock.assert_run(" in result
+    assert "tripwire.subprocess.assert_run(" in result
     assert "command=['git', 'status']" in result
     assert "returncode=0" in result
     assert "stdout=''" in result
@@ -815,7 +815,7 @@ def test_format_assert_hint_which() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert "tripwire.subprocess_mock.assert_which(" in result
+    assert "tripwire.subprocess.assert_which(" in result
     assert "name='gcc'" in result
     assert "returns='/usr/bin/gcc'" in result
     # Must NOT contain old assert_interaction pattern

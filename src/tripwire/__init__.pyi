@@ -4,7 +4,7 @@ Enables Pyright/mypy to resolve:
 - ``with tripwire:`` context manager protocol
 - Module-level functions (current_verifier, sandbox, assert_interaction, etc.)
 - Module-level factories (mock, spy)
-- Plugin proxy attributes (http, subprocess_mock, etc.)
+- Plugin proxy attributes (http, subprocess, etc.)
 - All error classes
 """
 
@@ -168,29 +168,29 @@ spy: _SpyFactory
 # ---------------------------------------------------------------------------
 
 http: Any  # HttpPlugin proxy; typed as Any because httpx/requests are optional
-subprocess_mock: Any  # SubprocessPlugin proxy
-popen_mock: Any  # PopenPlugin proxy
-smtp_mock: Any  # SmtpPlugin proxy
-socket_mock: Any  # SocketPlugin proxy
-db_mock: Any  # DatabasePlugin proxy
-async_websocket_mock: Any  # AsyncWebSocketPlugin proxy
-sync_websocket_mock: Any  # SyncWebSocketPlugin proxy
-redis_mock: Any  # RedisPlugin proxy
-mongo_mock: Any  # MongoPlugin proxy
-dns_mock: Any  # DnsPlugin proxy
-memcache_mock: Any  # MemcachePlugin proxy
-celery_mock: Any  # CeleryPlugin proxy
-log_mock: Any  # LoggingPlugin proxy
-async_subprocess_mock: Any  # AsyncSubprocessPlugin proxy
-psycopg2_mock: Any  # Psycopg2Plugin proxy
-asyncpg_mock: Any  # AsyncpgPlugin proxy
-boto3_mock: Any  # Boto3Plugin proxy
-elasticsearch_mock: Any  # ElasticsearchPlugin proxy
-jwt_mock: Any  # JwtPlugin proxy
-crypto_mock: Any  # CryptoPlugin proxy
-file_io_mock: Any  # FileIoPlugin proxy
-pika_mock: Any  # PikaPlugin proxy
-ssh_mock: Any  # SshPlugin proxy
-grpc_mock: Any  # GrpcPlugin proxy
-mcp_mock: Any  # McpPlugin proxy
-native_mock: Any  # NativePlugin proxy
+subprocess: Any  # SubprocessPlugin proxy
+popen: Any  # PopenPlugin proxy
+smtp: Any  # SmtpPlugin proxy
+socket: Any  # SocketPlugin proxy
+db: Any  # DatabasePlugin proxy
+async_websocket: Any  # AsyncWebSocketPlugin proxy
+sync_websocket: Any  # SyncWebSocketPlugin proxy
+redis: Any  # RedisPlugin proxy
+mongo: Any  # MongoPlugin proxy
+dns: Any  # DnsPlugin proxy
+memcache: Any  # MemcachePlugin proxy
+celery: Any  # CeleryPlugin proxy
+log: Any  # LoggingPlugin proxy
+async_subprocess: Any  # AsyncSubprocessPlugin proxy
+psycopg2: Any  # Psycopg2Plugin proxy
+asyncpg: Any  # AsyncpgPlugin proxy
+boto3: Any  # Boto3Plugin proxy
+elasticsearch: Any  # ElasticsearchPlugin proxy
+jwt: Any  # JwtPlugin proxy
+crypto: Any  # CryptoPlugin proxy
+file_io: Any  # FileIoPlugin proxy
+pika: Any  # PikaPlugin proxy
+ssh: Any  # SshPlugin proxy
+grpc: Any  # GrpcPlugin proxy
+mcp: Any  # McpPlugin proxy
+native: Any  # NativePlugin proxy
