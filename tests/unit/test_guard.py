@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import warnings
+from collections.abc import Generator
+from contextlib import contextmanager
 
 import pytest
 
 from tripwire._config import GuardLevels, _resolve_guard_levels
 from tripwire._context import (
     GuardPassThrough,
+    _active_verifier,
     _guard_active,
     get_verifier_or_raise,
 )
@@ -20,6 +23,78 @@ from tripwire._firewall import (
     _firewall_stack,
 )
 from tripwire._match import M
+
+
+@contextmanager
+def _with_active_verifier() -> Generator[None, None, None]:
+    """Set `_active_verifier` to a sentinel for the duration of the block.
+
+    C9 added a check that `tripwire.allow/deny/restrict` raise outside any
+    active sandbox (i.e., when `_active_verifier` is None). Tests in this
+    file exercise the firewall stack mechanics or guard-mode pathways
+    without going through `with tripwire.sandbox():`; setting
+    `_active_verifier` directly satisfies the C9 gate without standing up
+    a full sandbox.
+    """
+    from tripwire._verifier import StrictVerifier
+
+    StrictVerifier._suppress_direct_warning = True
+    try:
+        sentinel = StrictVerifier()
+    finally:
+        StrictVerifier._suppress_direct_warning = False
+    token = _active_verifier.set(sentinel)
+    try:
+        yield
+    finally:
+        _active_verifier.reset(token)
+
+
+@contextmanager
+def _push_deny_direct(*protocols: str) -> Generator[None, None, None]:
+    """Push DENY frames onto the firewall stack directly, bypassing C9.
+
+    Tests of GUARD-mode behavior (no sandbox, no verifier) need to add a
+    DENY rule without going through `tripwire.deny(...)` (which now requires
+    an active verifier per C9). This helper duplicates the post-check body
+    of `tripwire.deny(...)` for tests that exercise guard-mode dispatch
+    while `_active_verifier` is intentionally None.
+    """
+    from tripwire._firewall import Disposition, FirewallRule
+
+    frames = tuple(
+        FirewallRule(pattern=M(protocol=p), disposition=Disposition.DENY)
+        for p in protocols
+    )
+    current = _firewall_stack.get()
+    new_stack = current.push(*frames)
+    token = _firewall_stack.set(new_stack)
+    try:
+        yield
+    finally:
+        _firewall_stack.reset(token)
+
+
+@contextmanager
+def _push_allow_direct(*protocols: str) -> Generator[None, None, None]:
+    """Push ALLOW frames onto the firewall stack directly, bypassing C9.
+
+    Companion to `_push_deny_direct`. Same rationale: guard-mode-only tests
+    need to add an ALLOW rule without an active verifier.
+    """
+    from tripwire._firewall import Disposition, FirewallRule
+
+    frames = tuple(
+        FirewallRule(pattern=M(protocol=p), disposition=Disposition.ALLOW)
+        for p in protocols
+    )
+    current = _firewall_stack.get()
+    new_stack = current.push(*frames)
+    token = _firewall_stack.set(new_stack)
+    try:
+        yield
+    finally:
+        _firewall_stack.reset(token)
 
 
 class TestGuardContextVars:
@@ -192,36 +267,38 @@ class TestAllow:
     def test_pushes_allow_rules_and_resets(self) -> None:
         from tripwire._firewall_request import NetworkFirewallRequest
 
-        stack_before = _firewall_stack.get()
-        with allow("dns", "socket"):
-            stack_inside = _firewall_stack.get()
-            # Two new ALLOW frames pushed
-            assert len(stack_inside.frames) == len(stack_before.frames) + 2
-            # DNS request should be ALLOW'd
-            dns_req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
-            assert stack_inside.evaluate(dns_req) == Disposition.ALLOW
-            # Socket request should be ALLOW'd
-            sock_req = NetworkFirewallRequest(protocol="socket", host="127.0.0.1", port=80)
-            assert stack_inside.evaluate(sock_req) == Disposition.ALLOW
-        # After exit, stack is restored
-        assert _firewall_stack.get() is stack_before
+        with _with_active_verifier():
+            stack_before = _firewall_stack.get()
+            with allow("dns", "socket"):
+                stack_inside = _firewall_stack.get()
+                # Two new ALLOW frames pushed
+                assert len(stack_inside.frames) == len(stack_before.frames) + 2
+                # DNS request should be ALLOW'd
+                dns_req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
+                assert stack_inside.evaluate(dns_req) == Disposition.ALLOW
+                # Socket request should be ALLOW'd
+                sock_req = NetworkFirewallRequest(protocol="socket", host="127.0.0.1", port=80)
+                assert stack_inside.evaluate(sock_req) == Disposition.ALLOW
+            # After exit, stack is restored
+            assert _firewall_stack.get() is stack_before
 
     def test_nestable_stacks_rules(self) -> None:
         from tripwire._firewall_request import NetworkFirewallRequest
 
-        stack_before = _firewall_stack.get()
-        with allow("dns"):
-            stack_dns = _firewall_stack.get()
-            dns_req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
-            assert stack_dns.evaluate(dns_req) == Disposition.ALLOW
-            with allow("socket"):
-                stack_both = _firewall_stack.get()
-                sock_req = NetworkFirewallRequest(protocol="socket", host="127.0.0.1", port=80)
-                assert stack_both.evaluate(dns_req) == Disposition.ALLOW
-                assert stack_both.evaluate(sock_req) == Disposition.ALLOW
-            # socket rule removed after inner exit
-            assert _firewall_stack.get() is stack_dns
-        assert _firewall_stack.get() is stack_before
+        with _with_active_verifier():
+            stack_before = _firewall_stack.get()
+            with allow("dns"):
+                stack_dns = _firewall_stack.get()
+                dns_req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
+                assert stack_dns.evaluate(dns_req) == Disposition.ALLOW
+                with allow("socket"):
+                    stack_both = _firewall_stack.get()
+                    sock_req = NetworkFirewallRequest(protocol="socket", host="127.0.0.1", port=80)
+                    assert stack_both.evaluate(dns_req) == Disposition.ALLOW
+                    assert stack_both.evaluate(sock_req) == Disposition.ALLOW
+                # socket rule removed after inner exit
+                assert _firewall_stack.get() is stack_dns
+            assert _firewall_stack.get() is stack_before
 
     def test_requires_at_least_one_rule(self) -> None:
         with pytest.raises(ValueError, match="allow\\(\\) requires at least one rule"):
@@ -231,17 +308,19 @@ class TestAllow:
     def test_single_protocol_name(self) -> None:
         from tripwire._firewall_request import NetworkFirewallRequest
 
-        with allow("http"):
-            stack = _firewall_stack.get()
-            http_req = NetworkFirewallRequest(protocol="http", host="example.com", port=80)
-            assert stack.evaluate(http_req) == Disposition.ALLOW
+        with _with_active_verifier():
+            with allow("http"):
+                stack = _firewall_stack.get()
+                http_req = NetworkFirewallRequest(protocol="http", host="example.com", port=80)
+                assert stack.evaluate(http_req) == Disposition.ALLOW
 
     def test_resets_on_exception(self) -> None:
-        stack_before = _firewall_stack.get()
-        with pytest.raises(ValueError, match="boom"):
-            with allow("dns"):
-                raise ValueError("boom")
-        assert _firewall_stack.get() is stack_before
+        with _with_active_verifier():
+            stack_before = _firewall_stack.get()
+            with pytest.raises(ValueError, match="boom"):
+                with allow("dns"):
+                    raise ValueError("boom")
+            assert _firewall_stack.get() is stack_before
 
 
 class TestDeny:
@@ -254,15 +333,16 @@ class TestDeny:
         dns_req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
         sock_req = NetworkFirewallRequest(protocol="socket", host="127.0.0.1", port=80)
 
-        with allow("dns", "socket"):
-            assert _firewall_stack.get().evaluate(dns_req) == Disposition.ALLOW
-            assert _firewall_stack.get().evaluate(sock_req) == Disposition.ALLOW
-            with deny("socket"):
-                # socket should now be DENY'd, dns still ALLOW'd
+        with _with_active_verifier():
+            with allow("dns", "socket"):
                 assert _firewall_stack.get().evaluate(dns_req) == Disposition.ALLOW
-                assert _firewall_stack.get().evaluate(sock_req) == Disposition.DENY
-            # After exiting deny, socket allowed again
-            assert _firewall_stack.get().evaluate(sock_req) == Disposition.ALLOW
+                assert _firewall_stack.get().evaluate(sock_req) == Disposition.ALLOW
+                with deny("socket"):
+                    # socket should now be DENY'd, dns still ALLOW'd
+                    assert _firewall_stack.get().evaluate(dns_req) == Disposition.ALLOW
+                    assert _firewall_stack.get().evaluate(sock_req) == Disposition.DENY
+                # After exiting deny, socket allowed again
+                assert _firewall_stack.get().evaluate(sock_req) == Disposition.ALLOW
 
     def test_deny_without_allow_keeps_deny(self) -> None:
         from tripwire._firewall_request import NetworkFirewallRequest
@@ -270,18 +350,20 @@ class TestDeny:
 
         dns_req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
         # Default disposition is DENY, so deny on top of empty stack still denies
-        with deny("dns"):
-            assert _firewall_stack.get().evaluate(dns_req) == Disposition.DENY
+        with _with_active_verifier():
+            with deny("dns"):
+                assert _firewall_stack.get().evaluate(dns_req) == Disposition.DENY
 
     def test_deny_resets_on_exception(self) -> None:
         from tripwire._guard import deny
 
-        stack_before = _firewall_stack.get()
-        with pytest.raises(ValueError, match="boom"):
-            with allow("dns", "socket"):
-                with deny("socket"):
-                    raise ValueError("boom")
-        assert _firewall_stack.get() is stack_before
+        with _with_active_verifier():
+            stack_before = _firewall_stack.get()
+            with pytest.raises(ValueError, match="boom"):
+                with allow("dns", "socket"):
+                    with deny("socket"):
+                        raise ValueError("boom")
+            assert _firewall_stack.get() is stack_before
 
     def test_deny_requires_at_least_one_rule(self) -> None:
         from tripwire._guard import deny
@@ -298,17 +380,18 @@ class TestDeny:
         sock_req = NetworkFirewallRequest(protocol="socket", host="127.0.0.1", port=80)
         http_req = NetworkFirewallRequest(protocol="http", host="example.com", port=80)
 
-        with allow("dns", "socket", "http"):
-            with deny("socket"):
-                assert _firewall_stack.get().evaluate(dns_req) == Disposition.ALLOW
-                assert _firewall_stack.get().evaluate(http_req) == Disposition.ALLOW
-                assert _firewall_stack.get().evaluate(sock_req) == Disposition.DENY
-                with deny("dns"):
+        with _with_active_verifier():
+            with allow("dns", "socket", "http"):
+                with deny("socket"):
+                    assert _firewall_stack.get().evaluate(dns_req) == Disposition.ALLOW
                     assert _firewall_stack.get().evaluate(http_req) == Disposition.ALLOW
-                    assert _firewall_stack.get().evaluate(dns_req) == Disposition.DENY
                     assert _firewall_stack.get().evaluate(sock_req) == Disposition.DENY
-                assert _firewall_stack.get().evaluate(dns_req) == Disposition.ALLOW
-            assert _firewall_stack.get().evaluate(sock_req) == Disposition.ALLOW
+                    with deny("dns"):
+                        assert _firewall_stack.get().evaluate(http_req) == Disposition.ALLOW
+                        assert _firewall_stack.get().evaluate(dns_req) == Disposition.DENY
+                        assert _firewall_stack.get().evaluate(sock_req) == Disposition.DENY
+                    assert _firewall_stack.get().evaluate(dns_req) == Disposition.ALLOW
+                assert _firewall_stack.get().evaluate(sock_req) == Disposition.ALLOW
 
 
 class TestRestrict:
@@ -321,23 +404,25 @@ class TestRestrict:
         http_req = NetworkFirewallRequest(protocol="http", host="example.com", port=80)
         redis_req = NetworkFirewallRequest(protocol="redis", host="localhost", port=6379)
 
-        with allow("http", "redis"):
-            # Both allowed before restrict
-            assert _firewall_stack.get().evaluate(http_req) == Disposition.ALLOW
-            assert _firewall_stack.get().evaluate(redis_req) == Disposition.ALLOW
-            with restrict("http"):
-                # Only HTTP passes the restrict ceiling
-                with allow("http"):
-                    assert _firewall_stack.get().evaluate(http_req) == Disposition.ALLOW
-                assert _firewall_stack.get().evaluate(redis_req) == Disposition.DENY
+        with _with_active_verifier():
+            with allow("http", "redis"):
+                # Both allowed before restrict
+                assert _firewall_stack.get().evaluate(http_req) == Disposition.ALLOW
+                assert _firewall_stack.get().evaluate(redis_req) == Disposition.ALLOW
+                with restrict("http"):
+                    # Only HTTP passes the restrict ceiling
+                    with allow("http"):
+                        assert _firewall_stack.get().evaluate(http_req) == Disposition.ALLOW
+                    assert _firewall_stack.get().evaluate(redis_req) == Disposition.DENY
 
     def test_restrict_resets_on_exit(self) -> None:
         from tripwire._guard import restrict
 
-        stack_before = _firewall_stack.get()
-        with restrict("http"):
-            pass
-        assert _firewall_stack.get() is stack_before
+        with _with_active_verifier():
+            stack_before = _firewall_stack.get()
+            with restrict("http"):
+                pass
+            assert _firewall_stack.get() is stack_before
 
     def test_restrict_requires_at_least_one_rule(self) -> None:
         from tripwire._guard import restrict
@@ -354,12 +439,13 @@ class TestRestrict:
         dns_req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
         redis_req = NetworkFirewallRequest(protocol="redis", host="localhost", port=6379)
 
-        with restrict("http", "dns"):
-            with allow("http", "dns", "redis"):
-                assert _firewall_stack.get().evaluate(http_req) == Disposition.ALLOW
-                assert _firewall_stack.get().evaluate(dns_req) == Disposition.ALLOW
-                # Redis is not in the restrict set, so blocked by ceiling
-                assert _firewall_stack.get().evaluate(redis_req) == Disposition.DENY
+        with _with_active_verifier():
+            with restrict("http", "dns"):
+                with allow("http", "dns", "redis"):
+                    assert _firewall_stack.get().evaluate(http_req) == Disposition.ALLOW
+                    assert _firewall_stack.get().evaluate(dns_req) == Disposition.ALLOW
+                    # Redis is not in the restrict set, so blocked by ceiling
+                    assert _firewall_stack.get().evaluate(redis_req) == Disposition.DENY
 
     def test_restrict_inner_allow_cannot_widen_ceiling(self) -> None:
         from tripwire._firewall_request import NetworkFirewallRequest
@@ -367,10 +453,11 @@ class TestRestrict:
 
         redis_req = NetworkFirewallRequest(protocol="redis", host="localhost", port=6379)
 
-        with restrict("http"):
-            # Inner allow("redis") should NOT widen past the HTTP ceiling
-            with allow("redis"):
-                assert _firewall_stack.get().evaluate(redis_req) == Disposition.DENY
+        with _with_active_verifier():
+            with restrict("http"):
+                # Inner allow("redis") should NOT widen past the HTTP ceiling
+                with allow("redis"):
+                    assert _firewall_stack.get().evaluate(redis_req) == Disposition.DENY
 
 
 class TestPublicExports:
@@ -625,8 +712,10 @@ class TestWarnModeBehavior:
 
         level_token = _guard_levels.set(GuardLevels(default="warn", overrides={}))
         guard_token = _guard_active.set(True)
-        # Push an ALLOW rule for dns onto the firewall stack
-        with allow("dns"):
+        # Push an ALLOW rule for dns onto the firewall stack (direct push:
+        # tripwire.allow(...) requires an active verifier per C9, but this
+        # test exercises guard-mode dispatch without a sandbox).
+        with _push_allow_direct("dns"):
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
                 req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
@@ -720,7 +809,10 @@ class TestGetVerifierOrRaiseGuardBranching:
 
         guard_token = _guard_active.set(True)
         try:
-            with allow("dns"):
+            # Direct push: this test exercises guard-mode dispatch without
+            # a sandbox, and tripwire.allow(...) now requires an active
+            # verifier per C9.
+            with _push_allow_direct("dns"):
                 req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
                 with pytest.raises(GuardPassThrough):
                     get_verifier_or_raise("dns:getaddrinfo:example.com", firewall_request=req)
@@ -774,7 +866,6 @@ class TestGuardPassThroughInDirectPlugins:
 
         from tripwire._config import GuardLevels
         from tripwire._context import _guard_levels
-        from tripwire._guard import deny
         from tripwire._verifier import StrictVerifier
         from tripwire.plugins.dns_plugin import DnsPlugin
 
@@ -786,7 +877,7 @@ class TestGuardPassThroughInDirectPlugins:
             guard_token = _guard_active.set(True)
             try:
                 # Explicitly deny dns to override project-level allow = ["dns:*"]
-                with deny("dns"):
+                with _push_deny_direct("dns"):
                     with pytest.raises(GuardedCallError) as exc_info:
                         socket.getaddrinfo("example.com", 80)
                     assert exc_info.value.plugin_name == "dns"
@@ -830,7 +921,6 @@ class TestGuardPassThroughInDirectPlugins:
 
         from tripwire._config import GuardLevels
         from tripwire._context import _guard_levels
-        from tripwire._guard import deny
         from tripwire._verifier import StrictVerifier
         from tripwire.plugins.dns_plugin import DnsPlugin
 
@@ -842,7 +932,7 @@ class TestGuardPassThroughInDirectPlugins:
             guard_token = _guard_active.set(True)
             try:
                 # Explicitly deny dns to override project-level allow = ["dns:*"]
-                with deny("dns"):
+                with _push_deny_direct("dns"):
                     with pytest.raises(GuardedCallError) as exc_info:
                         socket.gethostbyname("example.com")
                     assert exc_info.value.plugin_name == "dns"
@@ -887,7 +977,6 @@ class TestGuardPassThroughInStateMachinePlugins:
 
         from tripwire._config import GuardLevels
         from tripwire._context import _guard_levels
-        from tripwire._guard import deny
         from tripwire._verifier import StrictVerifier
         from tripwire.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
 
@@ -899,7 +988,7 @@ class TestGuardPassThroughInStateMachinePlugins:
             guard_token = _guard_active.set(True)
             try:
                 # Explicitly deny socket to override project-level allow = ["socket:*"]
-                with deny("socket"):
+                with _push_deny_direct("socket"):
                     sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
                     try:
                         with pytest.raises(GuardedCallError) as exc_info:
@@ -1347,7 +1436,6 @@ class TestGuardModeIntegration:
 
         from tripwire._config import GuardLevels
         from tripwire._context import _guard_levels
-        from tripwire._guard import deny
         from tripwire._verifier import StrictVerifier
         from tripwire.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
 
@@ -1357,7 +1445,7 @@ class TestGuardModeIntegration:
         level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
         try:
             # Explicitly deny socket to override project-level allow = ["socket:*"]
-            with deny("socket"):
+            with _push_deny_direct("socket"):
                 sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
                 try:
                     with pytest.raises(GuardedCallError) as exc_info:
@@ -1448,7 +1536,7 @@ class TestGuardModeIntegration:
         assert stack_mark.evaluate(dns_req) == Disposition.ALLOW
         assert stack_mark.evaluate(redis_req) == Disposition.DENY
 
-        with allow("redis"):
+        with _with_active_verifier(), allow("redis"):
             stack_both = _firewall_stack.get()
             assert stack_both.evaluate(dns_req) == Disposition.ALLOW
             assert stack_both.evaluate(redis_req) == Disposition.ALLOW
@@ -1503,7 +1591,6 @@ class TestGuardModeIntegration:
 
         from tripwire._config import GuardLevels
         from tripwire._context import _guard_levels
-        from tripwire._guard import deny
         from tripwire._verifier import StrictVerifier
         from tripwire.plugins.dns_plugin import DnsPlugin
 
@@ -1513,7 +1600,7 @@ class TestGuardModeIntegration:
         level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
         try:
             # Explicitly deny dns to override project-level allow = ["dns:*"]
-            with deny("dns"):
+            with _push_deny_direct("dns"):
                 with pytest.raises(GuardedCallError) as exc_info:
                     socket_mod.getaddrinfo("example.com", 80)
                 assert exc_info.value.plugin_name == "dns"
@@ -1622,11 +1709,12 @@ class TestGuardModeIntegration:
             "localhost", returns=[(2, 1, 6, "", ("127.0.0.1", 80))],
         )
 
-        with allow("dns"):
-            with v.sandbox():
-                # Even with allow("dns"), sandbox intercepts the call
-                result = socket.getaddrinfo("localhost", 80)
-                assert result == [(2, 1, 6, "", ("127.0.0.1", 80))]
+        with _with_active_verifier():
+            with allow("dns"):
+                with v.sandbox():
+                    # Even with allow("dns"), sandbox intercepts the call
+                    result = socket.getaddrinfo("localhost", 80)
+                    assert result == [(2, 1, 6, "", ("127.0.0.1", 80))]
 
         # The interaction IS recorded because sandbox takes precedence
         v.assert_interaction(
@@ -1648,7 +1736,6 @@ class TestGuardModeIntegration:
 
         from tripwire._config import GuardLevels
         from tripwire._context import _guard_levels
-        from tripwire._guard import deny
         from tripwire._verifier import StrictVerifier
         from tripwire.plugins.dns_plugin import DnsPlugin
 
@@ -1658,7 +1745,7 @@ class TestGuardModeIntegration:
         level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
         try:
             # Explicitly deny dns to override project-level allow = ["dns:*"]
-            with deny("dns"):
+            with _push_deny_direct("dns"):
                 with pytest.raises(GuardedCallError) as exc_info:
                     socket_mod.getaddrinfo("example.com", 80)
             msg = str(exc_info.value)
@@ -1973,7 +2060,6 @@ class TestSocketNonConnectGuardPassThrough:
 
         from tripwire._config import GuardLevels
         from tripwire._context import _guard_levels
-        from tripwire._guard import deny
         from tripwire._verifier import StrictVerifier
         from tripwire.plugins.socket_plugin import SocketPlugin
 
@@ -1984,7 +2070,7 @@ class TestSocketNonConnectGuardPassThrough:
             level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
             guard_token = _guard_active.set(True)
             try:
-                with deny("socket"):
+                with _push_deny_direct("socket"):
                     sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
                     # close passes through even with deny("socket") active
                     sock.close()
@@ -2005,7 +2091,6 @@ class TestSocketNonConnectGuardPassThrough:
 
         from tripwire._config import GuardLevels
         from tripwire._context import _guard_levels
-        from tripwire._guard import deny
         from tripwire._verifier import StrictVerifier
         from tripwire.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
 
@@ -2016,7 +2101,7 @@ class TestSocketNonConnectGuardPassThrough:
             level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
             guard_token = _guard_active.set(True)
             try:
-                with deny("socket"):
+                with _push_deny_direct("socket"):
                     sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
                     try:
                         # Real send raises OSError, not GuardedCallError

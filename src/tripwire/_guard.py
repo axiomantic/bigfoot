@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Generator
 from contextlib import contextmanager
 
+from tripwire._errors import TripwireError
 from tripwire._firewall import (
     Disposition,
     FirewallRule,
@@ -41,6 +42,13 @@ def allow(*rules: str | M) -> Generator[None, None, None]:
     if not rules:
         raise ValueError("allow() requires at least one rule")
 
+    from tripwire._context import _active_verifier  # noqa: PLC0415
+    if _active_verifier.get() is None:
+        raise TripwireError(
+            "tripwire.allow(...) was called outside any active sandbox. "
+            "For module-scoped firewall rules, use [tool.tripwire.firewall] in pyproject.toml."
+        )
+
     frames = tuple(
         FirewallRule(pattern=_coerce_to_m(r), disposition=Disposition.ALLOW)
         for r in rules
@@ -67,6 +75,13 @@ def deny(*rules: str | M) -> Generator[None, None, None]:
     """
     if not rules:
         raise ValueError("deny() requires at least one rule")
+
+    from tripwire._context import _active_verifier  # noqa: PLC0415
+    if _active_verifier.get() is None:
+        raise TripwireError(
+            "tripwire.deny(...) was called outside any active sandbox. "
+            "For module-scoped firewall rules, use [tool.tripwire.firewall] in pyproject.toml."
+        )
 
     frames = tuple(
         FirewallRule(pattern=_coerce_to_m(r), disposition=Disposition.DENY)
@@ -103,6 +118,13 @@ def restrict(*rules: str | M) -> Generator[None, None, None]:
     """
     if not rules:
         raise ValueError("restrict() requires at least one rule")
+
+    from tripwire._context import _active_verifier  # noqa: PLC0415
+    if _active_verifier.get() is None:
+        raise TripwireError(
+            "tripwire.restrict(...) was called outside any active sandbox. "
+            "For module-scoped firewall rules, use [tool.tripwire.firewall] in pyproject.toml."
+        )
 
     if len(rules) == 1:
         pattern = _coerce_to_m(rules[0])

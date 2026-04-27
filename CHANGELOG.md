@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Removed `BasePlugin.supports_guard` and the `is_guard_eligible()` registry helper. Replaced by `passthrough_safe`. The 6 plugins that had `supports_guard=False` (celery, crypto, file_io, jwt, logging, native) become `passthrough_safe=True` because their interceptors raise `SandboxNotActiveError` outside sandbox (which is safe). MockPlugin and StateMachinePlugin (passive recorders) also become `passthrough_safe=True`. The remaining real-IO plugins become `passthrough_safe=False`.
 - `GuardedCallError` message reframed for clarity: states "OUTSIDE any `with tripwire:` block", names the plugin and method, includes the user call site (`file:lineno`), and lists the two fixes inline. Existing fix sections (`@pytest.mark.allow`, pyproject, sandbox-with-mock) retained.
 - README: added a "Picking the right guard default" section covering new projects, legacy-migration suites, and mixed-CI per-protocol overrides.
+- `tripwire.allow(...)` and `tripwire.restrict(...)` now raise `TripwireError` when called outside any active sandbox, with a message pointing the user at `[tool.tripwire.firewall]` for module-scoped rules.
 
 ### Added
 - `ConfigMigrationError` (subclass of `TripwireError`) raised when `[tool.bigfoot]` is present in pyproject.toml during config load.
