@@ -67,6 +67,7 @@ def test_all_contains_expected_names() -> None:
         "NoActiveVerifierError",
         "UnmockedInteractionError",
         "UnsafePassthroughError",
+        "PostSandboxInteractionError",
         "UnassertedInteractionsError",
         "UnusedMocksError",
         "VerificationError",
