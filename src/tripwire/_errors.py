@@ -438,6 +438,39 @@ class GuardedCallError(TripwireError):
         )
 
 
+class UnsafePassthroughError(TripwireError):
+    """Raised when guard='warn' lets an unmocked call through to a plugin
+    whose passthrough is NOT safe (i.e., would cause real I/O).
+
+    The plugin declares this via ``passthrough_safe = False`` on its class.
+    When guard='warn' would normally let an unmocked call pass through to
+    the original implementation, plugins that perform real I/O on
+    passthrough raise this error instead, so the test fails loud rather
+    than silently performing a side effect.
+    """
+
+    def __init__(self, source_id: str, plugin_name: str) -> None:
+        self.source_id = source_id
+        self.plugin_name = plugin_name
+        super().__init__(self._build_message())
+
+    def _build_message(self) -> str:
+        return (
+            f"UnsafePassthroughError: {self.source_id!r} would have caused "
+            f"real I/O outside any 'with tripwire:' block.\n"
+            f"\n"
+            f"Plugin {self.plugin_name!r} doesn't support outside-sandbox "
+            f"passthrough (passthrough_safe=False), meaning its passthrough "
+            f"path is NOT a no-op.\n"
+            f"\n"
+            f"Fix one of:\n"
+            f"  - Wrap the call in 'with tripwire:' and add an allow/mock for it.\n"
+            f"  - set guard='error' in [tool.tripwire] to make this fail explicitly.\n"
+            f"  - If you have audited that this plugin's passthrough is safe, "
+            f"set passthrough_safe=True on the plugin class.\n"
+        )
+
+
 class GuardedCallWarning(UserWarning):
     """Emitted when guard mode is set to 'warn' and an I/O call fires
     outside a sandbox without allow() permission.

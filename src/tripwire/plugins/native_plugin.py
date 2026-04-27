@@ -259,7 +259,7 @@ class NativePlugin(BasePlugin):
     Each library:function pair has its own FIFO deque of NativeMockConfig objects.
     """
 
-    supports_guard: ClassVar[bool] = False
+    passthrough_safe: ClassVar[bool] = True
 
     # Saved originals, restored when count reaches 0
     _original_cdll_init: ClassVar[Callable[..., Any] | None] = None

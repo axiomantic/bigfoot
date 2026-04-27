@@ -21,7 +21,6 @@ def test_all_contains_expected_names() -> None:
         "Timeline",
         "GuardPassThrough",
         "get_verifier_or_raise",
-        "is_guard_eligible",
         "PluginEntry",
         # Classes
         "StrictVerifier",
@@ -67,6 +66,7 @@ def test_all_contains_expected_names() -> None:
         "InvalidStateError",
         "NoActiveVerifierError",
         "UnmockedInteractionError",
+        "UnsafePassthroughError",
         "UnassertedInteractionsError",
         "UnusedMocksError",
         "VerificationError",

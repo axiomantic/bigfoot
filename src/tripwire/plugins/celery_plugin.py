@@ -205,7 +205,7 @@ class CeleryPlugin(BasePlugin):
     Uses reference counting so nested sandboxes work correctly.
     """
 
-    supports_guard: ClassVar[bool] = False
+    passthrough_safe: ClassVar[bool] = True
 
     _original_delay: ClassVar[Callable[..., Any] | None] = None
     _original_apply_async: ClassVar[Callable[..., Any] | None] = None

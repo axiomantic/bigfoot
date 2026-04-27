@@ -56,6 +56,7 @@ from tripwire._errors import (
     TripwireError,
     UnassertedInteractionsError,
     UnmockedInteractionError,
+    UnsafePassthroughError,
     UnusedMocksError,
     VerificationError,
 )
@@ -64,7 +65,7 @@ from tripwire._firewall_request import FirewallRequest
 from tripwire._guard import allow, deny, restrict
 from tripwire._match import M
 from tripwire._mock_plugin import MockPlugin
-from tripwire._registry import PluginEntry, is_guard_eligible
+from tripwire._registry import PluginEntry
 from tripwire._timeline import Interaction, Timeline
 from tripwire._verifier import InAnyOrderContext, SandboxContext, StrictVerifier
 
@@ -241,7 +242,6 @@ __all__ = [
     "Timeline",
     "GuardPassThrough",
     "get_verifier_or_raise",
-    "is_guard_eligible",
     "PluginEntry",
     # Classes
     "StrictVerifier",
@@ -285,6 +285,7 @@ __all__ = [
     "InvalidStateError",
     "NoActiveVerifierError",
     "UnmockedInteractionError",
+    "UnsafePassthroughError",
     "UnassertedInteractionsError",
     "UnusedMocksError",
     "VerificationError",

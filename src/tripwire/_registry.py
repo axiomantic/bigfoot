@@ -130,35 +130,27 @@ def get_plugin_class(entry: PluginEntry) -> type[BasePlugin]:
     return cls
 
 
-def is_guard_eligible(plugin_name: str) -> bool:
-    """Check if a plugin name corresponds to a guard-eligible plugin.
+def lookup_plugin_class_by_name(plugin_name: str) -> type[BasePlugin] | None:
+    """Return the plugin class registered under ``plugin_name``, or None.
 
-    Derives eligibility from the plugin's supports_guard ClassVar.
-    Replaces the old GUARD_ELIGIBLE_PREFIXES set.
+    Looks up by canonical registry name first, then by any ``guard_prefixes``
+    declared on a registered plugin class. Returns None when no plugin
+    matches or when its optional dependency is missing. Callers use this
+    from outside any active sandbox to ask "what plugin would receive a
+    call from this source_id?".
     """
-    # Build a cache on first call
-    if not hasattr(is_guard_eligible, "_cache"):
-        eligible: set[str] = set()
-        for entry in PLUGIN_REGISTRY:
-            if not entry.default_enabled:
-                continue
-            try:
-                cls = get_plugin_class(entry)
-                if getattr(cls, "supports_guard", True):
-                    eligible.add(entry.name)
-                    # Also add source_id prefixes that differ from registry name
-                    for prefix in getattr(cls, "guard_prefixes", ()):
-                        eligible.add(prefix)
-            except Exception:
-                pass
-        is_guard_eligible._cache = frozenset(eligible)  # type: ignore[attr-defined]
-    return plugin_name in is_guard_eligible._cache  # type: ignore[attr-defined]
-
-
-def _clear_guard_eligible_cache() -> None:
-    """Clear the is_guard_eligible cache. For testing only."""
-    if hasattr(is_guard_eligible, "_cache"):
-        del is_guard_eligible._cache
+    for entry in PLUGIN_REGISTRY:
+        if not _is_available(entry):
+            continue
+        try:
+            cls = get_plugin_class(entry)
+        except Exception:
+            continue
+        if entry.name == plugin_name:
+            return cls
+        if plugin_name in getattr(cls, "guard_prefixes", ()):
+            return cls
+    return None
 
 
 def resolve_enabled_plugins(

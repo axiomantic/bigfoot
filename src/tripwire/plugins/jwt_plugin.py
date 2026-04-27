@@ -176,7 +176,7 @@ class JwtPlugin(BasePlugin):
     assertion output.
     """
 
-    supports_guard: ClassVar[bool] = False
+    passthrough_safe: ClassVar[bool] = True
 
     _original_encode: ClassVar[Callable[..., Any] | None] = None
     _original_decode: ClassVar[Callable[..., Any] | None] = None

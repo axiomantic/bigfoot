@@ -63,6 +63,9 @@ class SocketPlugin(StateMachinePlugin):
     States: disconnected -> connected -> closed
     """
 
+    # Real socket I/O on passthrough; not safe outside sandbox.
+    passthrough_safe: ClassVar[bool] = False
+
     # Saved originals, restored when count reaches 0.
     _original_connect: ClassVar[Callable[..., Any] | None] = None
     _original_send: ClassVar[Callable[..., Any] | None] = None

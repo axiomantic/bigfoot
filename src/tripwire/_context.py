@@ -69,85 +69,107 @@ def get_verifier_or_raise(
 
     Decision tree:
 
-    1. Guard-eligible plugin + guard active + firewall ALLOW:
-       raise GuardPassThrough (bypasses sandbox -- allowed calls are invisible).
-    2. Sandbox active: return verifier.
-    3. Guard-eligible plugin (determined by supports_guard ClassVar):
-       a. Guard active + firewall_request provided:
-          - DENY + level "warn": warn and raise GuardPassThrough.
-          - DENY + level "error": raise GuardedCallError.
-       b. Guard active + no firewall_request (should not happen post-migration,
-          but safe fallback): raise GuardedCallError.
-       c. Guard not active but patches installed: raise GuardPassThrough.
-    4. Non-guard-eligible plugin: raise SandboxNotActiveError.
+    1. Sandbox active: return verifier.
+    2. Guard active + firewall_request:
+       a. ALLOW: raise GuardPassThrough.
+       b. DENY + level "warn":
+          - plugin.passthrough_safe is False: raise UnsafePassthroughError
+            (real I/O would otherwise leak past 'warn').
+          - otherwise: emit GuardedCallWarning and raise GuardPassThrough.
+       c. DENY + level "error": raise GuardedCallError.
+    3. Guard active + no firewall_request: raise GuardedCallError (fail-closed).
+    4. Guard not active but patches installed: raise GuardPassThrough.
+    5. Otherwise: raise SandboxNotActiveError.
     """
-    # Check for active sandbox FIRST: when a sandbox is active, all calls
-    # should go through the sandbox's mock/intercept pipeline.  The firewall
-    # is only relevant in guard mode (outside a sandbox).
+    plugin_name = source_id.split(":")[0]
+
+    # === Branch 1: sandbox active ===
     verifier = _active_verifier.get()
     if verifier is not None:
         return verifier
 
-    # No sandbox active -- check firewall for guard mode.
-    if firewall_request is not None and _guard_active.get():
-        plugin_name = source_id.split(":")[0]
-        from tripwire._registry import is_guard_eligible  # noqa: PLC0415
+    # Resolve the plugin class once. ``plugin_cls is None`` means the
+    # source_id does not belong to a registered plugin (e.g., a test
+    # exercising get_verifier_or_raise with an arbitrary name). Unknown
+    # plugins skip every guard branch and fall through to
+    # SandboxNotActiveError so they preserve the pre-C2 contract.
+    from tripwire._registry import (  # noqa: PLC0415
+        lookup_plugin_class_by_name,
+    )
+    plugin_cls = lookup_plugin_class_by_name(plugin_name)
+    plugin_is_unsafe_passthrough = (
+        plugin_cls is not None and plugin_cls.passthrough_safe is False
+    )
 
-        if is_guard_eligible(plugin_name):
+    # === Branch 3: guard active ===
+    if plugin_cls is not None and _guard_active.get():
+        if firewall_request is not None:
             from tripwire._firewall import Disposition, get_firewall_stack  # noqa: PLC0415
 
             disposition = get_firewall_stack().evaluate(firewall_request)
-            if disposition == Disposition.ALLOW:
+
+            # === Branch 3a: ALLOW ===
+            if disposition is Disposition.ALLOW:
                 raise GuardPassThrough()
 
-    # Determine guard eligibility from plugin ClassVar, not GUARD_ELIGIBLE_PREFIXES
-    plugin_name = source_id.split(":")[0]
+            # === Branch 3b: DENY ===
+            level = _guard_level.get()
 
-    # Use the new unified eligibility check
-    from tripwire._registry import is_guard_eligible  # noqa: PLC0415
+            if level == "warn":
+                # === Branch 3b-warn-unsafe ===
+                # If the plugin's passthrough is NOT safe, raise rather
+                # than warn-and-pass-through, so real I/O does not leak.
+                if plugin_is_unsafe_passthrough:
+                    from tripwire._errors import UnsafePassthroughError  # noqa: PLC0415
 
-    if is_guard_eligible(plugin_name):
-        if _guard_active.get():
-            if firewall_request is not None:
-                from tripwire._firewall import Disposition, get_firewall_stack  # noqa: PLC0415
-
-                disposition = get_firewall_stack().evaluate(firewall_request)
-                # ALLOW was already handled above, so this is DENY
-                level = _guard_level.get()
-                if level == "warn":
-                    import warnings  # noqa: PLC0415
-
-                    from tripwire._errors import GuardedCallWarning  # noqa: PLC0415
-
-                    warnings.warn(
-                        f"{source_id!r} blocked by firewall. "
-                        f"See GuardedCallError docs for fix options.",
-                        GuardedCallWarning,
-                        stacklevel=4,
+                    raise UnsafePassthroughError(
+                        source_id=source_id,
+                        plugin_name=plugin_name,
                     )
-                    raise GuardPassThrough()
 
-                # level == "error"
-                from tripwire._errors import GuardedCallError  # noqa: PLC0415
+                # === Branch 3b-warn-safe ===
+                import warnings  # noqa: PLC0415
 
-                raise GuardedCallError(
-                    source_id=source_id,
-                    plugin_name=plugin_name,
-                    firewall_request=firewall_request,
+                from tripwire._errors import GuardedCallWarning  # noqa: PLC0415
+
+                warnings.warn(
+                    f"{source_id!r} blocked by firewall. "
+                    f"See GuardedCallError docs for fix options.",
+                    GuardedCallWarning,
+                    stacklevel=4,
                 )
-            else:
-                # No firewall_request: fail closed
-                from tripwire._errors import GuardedCallError  # noqa: PLC0415
+                raise GuardPassThrough()
 
-                raise GuardedCallError(
-                    source_id=source_id,
-                    plugin_name=plugin_name,
-                    firewall_request=None,
-                )
+            # === Branch 3b-error ===
+            from tripwire._errors import GuardedCallError  # noqa: PLC0415
 
-        if _guard_patches_installed.get():
-            raise GuardPassThrough()
+            raise GuardedCallError(
+                source_id=source_id,
+                plugin_name=plugin_name,
+                firewall_request=firewall_request,
+            )
 
+        # === Branch 3c: guard active, no firewall_request ===
+        # Fail-closed only for plugins whose passthrough is unsafe (real
+        # I/O). Unknown plugins and passthrough_safe=True plugins fall
+        # through to SandboxNotActiveError so their interceptor-level
+        # error paths can run as before.
+        if plugin_is_unsafe_passthrough:
+            from tripwire._errors import GuardedCallError  # noqa: PLC0415
+
+            raise GuardedCallError(
+                source_id=source_id,
+                plugin_name=plugin_name,
+                firewall_request=None,
+            )
+
+    # === Branch 4: guard not active but patches installed ===
+    # Only fires for known plugins; unknown source_ids fall through to
+    # SandboxNotActiveError below.
+    if plugin_cls is not None and _guard_patches_installed.get():
+        raise GuardPassThrough()
+
+    # === Branch 5: nothing active ===
     from tripwire._errors import SandboxNotActiveError  # noqa: PLC0415
     raise SandboxNotActiveError(source_id=source_id)
 

@@ -526,7 +526,7 @@ class MockProxy:
 class MockPlugin(BasePlugin):
     """Core mock plugin: intercepts method calls on named proxy objects."""
 
-    supports_guard: ClassVar[bool] = False
+    passthrough_safe: ClassVar[bool] = True
 
     def __init__(self, verifier: "StrictVerifier") -> None:
         super().__init__(verifier)

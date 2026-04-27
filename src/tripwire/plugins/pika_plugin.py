@@ -214,6 +214,9 @@ class PikaPlugin(StateMachinePlugin):
     close is also valid from connected (skipping channel_open).
     """
 
+    # Real RabbitMQ connection on passthrough; not safe outside sandbox.
+    passthrough_safe: ClassVar[bool] = False
+
     # Saved original, restored when count reaches 0.
     _original_blocking_connection: ClassVar[type[Any] | None] = None
 

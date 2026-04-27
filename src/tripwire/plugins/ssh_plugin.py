@@ -267,6 +267,9 @@ class SshPlugin(StateMachinePlugin):
     exec_command, open_sftp, and sftp_* are self-transitions on connected.
     """
 
+    # Real SSH connection on passthrough; not safe outside sandbox.
+    passthrough_safe: ClassVar[bool] = False
+
     # Saved original, restored when count reaches 0.
     _original_ssh_client: ClassVar[type[Any] | None] = None
 

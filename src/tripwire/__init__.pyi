@@ -31,6 +31,7 @@ from tripwire._errors import TripwireConfigError as TripwireConfigError
 from tripwire._errors import TripwireError as TripwireError
 from tripwire._errors import UnassertedInteractionsError as UnassertedInteractionsError
 from tripwire._errors import UnmockedInteractionError as UnmockedInteractionError
+from tripwire._errors import UnsafePassthroughError as UnsafePassthroughError
 from tripwire._errors import UnusedMocksError as UnusedMocksError
 from tripwire._errors import VerificationError as VerificationError
 from tripwire._guard import allow as allow
@@ -38,7 +39,6 @@ from tripwire._guard import deny as deny
 from tripwire._mock_plugin import ImportSiteMock, ObjectMock
 from tripwire._mock_plugin import MockPlugin as MockPlugin
 from tripwire._registry import PluginEntry as PluginEntry
-from tripwire._registry import is_guard_eligible as is_guard_eligible
 from tripwire._timeline import Interaction as Interaction
 from tripwire._timeline import Timeline as Timeline
 from tripwire._verifier import InAnyOrderContext as InAnyOrderContext

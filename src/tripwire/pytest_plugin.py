@@ -116,7 +116,9 @@ def _tripwire_guard_patches() -> Generator[None, None, None]:
 
     Only installs patches for plugins that:
     - Have their dependencies available
-    - Have supports_guard = True
+    - Have passthrough_safe = False (i.e., real-IO plugins that need guard
+      mode to intercept calls outside a sandbox; passthrough_safe=True
+      plugins self-fail with SandboxNotActiveError and need no guard hook)
     - Are default_enabled (not opt-in plugins like file_io, native)
 
     Uses the existing reference-counting activate/deactivate mechanism.
@@ -144,7 +146,9 @@ def _tripwire_guard_patches() -> Generator[None, None, None]:
             continue
         try:
             plugin_cls = get_plugin_class(entry)
-            if not getattr(plugin_cls, "supports_guard", True):
+            # Skip plugins whose passthrough is safe (no real I/O outside
+            # sandbox); they self-fail and need no guard-mode patching.
+            if getattr(plugin_cls, "passthrough_safe", False):
                 continue
             # Create minimal plugin instance just for activate/deactivate.
             # __new__ skips __init__; activate() uses ClassVars for patch

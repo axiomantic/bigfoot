@@ -122,63 +122,65 @@ class TestGuardedCallError:
         assert 'with tripwire.allow("dns")' in msg
 
 
-class TestSupportsGuard:
-    """Test supports_guard ClassVar on plugins."""
+class TestPassthroughSafe:
+    """Test passthrough_safe ClassVar on plugins (replaces the prior
+    supports_guard ClassVar; covered more exhaustively in
+    tests/unit/test_passthrough_safe.py)."""
 
-    def test_base_plugin_default_is_true(self) -> None:
+    def test_base_plugin_default_is_false(self) -> None:
         from tripwire._base_plugin import BasePlugin
 
-        assert BasePlugin.supports_guard is True
+        assert BasePlugin.passthrough_safe is False
 
-    def test_mock_plugin_is_false(self) -> None:
+    def test_mock_plugin_is_true(self) -> None:
         from tripwire._mock_plugin import MockPlugin
 
-        assert MockPlugin.supports_guard is False
+        assert MockPlugin.passthrough_safe is True
 
-    def test_logging_plugin_is_false(self) -> None:
+    def test_logging_plugin_is_true(self) -> None:
         from tripwire.plugins.logging_plugin import LoggingPlugin
 
-        assert LoggingPlugin.supports_guard is False
+        assert LoggingPlugin.passthrough_safe is True
 
-    def test_jwt_plugin_is_false(self) -> None:
+    def test_jwt_plugin_is_true(self) -> None:
         from tripwire.plugins.jwt_plugin import JwtPlugin
 
-        assert JwtPlugin.supports_guard is False
+        assert JwtPlugin.passthrough_safe is True
 
-    def test_crypto_plugin_is_false(self) -> None:
+    def test_crypto_plugin_is_true(self) -> None:
         from tripwire.plugins.crypto_plugin import CryptoPlugin
 
-        assert CryptoPlugin.supports_guard is False
+        assert CryptoPlugin.passthrough_safe is True
 
-    def test_native_plugin_is_false(self) -> None:
+    def test_native_plugin_is_true(self) -> None:
         from tripwire.plugins.native_plugin import NativePlugin
 
-        assert NativePlugin.supports_guard is False
+        assert NativePlugin.passthrough_safe is True
 
-    def test_celery_plugin_is_false(self) -> None:
+    def test_celery_plugin_is_true(self) -> None:
         from tripwire.plugins.celery_plugin import CeleryPlugin
 
-        assert CeleryPlugin.supports_guard is False
+        assert CeleryPlugin.passthrough_safe is True
 
-    def test_file_io_plugin_is_false(self) -> None:
+    def test_file_io_plugin_is_true(self) -> None:
         from tripwire.plugins.file_io_plugin import FileIoPlugin
 
-        assert FileIoPlugin.supports_guard is False
+        assert FileIoPlugin.passthrough_safe is True
 
-    def test_dns_plugin_inherits_true(self) -> None:
+    def test_dns_plugin_is_false(self) -> None:
         from tripwire.plugins.dns_plugin import DnsPlugin
 
-        assert DnsPlugin.supports_guard is True
+        assert DnsPlugin.passthrough_safe is False
 
-    def test_http_plugin_inherits_true(self) -> None:
+    def test_http_plugin_is_false(self) -> None:
         from tripwire.plugins.http import HttpPlugin
 
-        assert HttpPlugin.supports_guard is True
+        assert HttpPlugin.passthrough_safe is False
 
-    def test_socket_plugin_inherits_true(self) -> None:
+    def test_socket_plugin_is_false(self) -> None:
         from tripwire.plugins.socket_plugin import SocketPlugin
 
-        assert SocketPlugin.supports_guard is True
+        assert SocketPlugin.passthrough_safe is False
 
 
 from tripwire._guard import allow
@@ -495,11 +497,12 @@ class TestWarnModeBehavior:
         try:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
-                # Use http (not dns/socket) so the project-level firewall
-                # allow = ["dns:*", "socket:*"] does not suppress the warning.
-                req = NetworkFirewallRequest(protocol="http", host="example.com", port=80)
+                # Use crypto (passthrough_safe=True) so the warn-unsafe
+                # gate does not fire; project-level firewall allow rules
+                # only cover dns/socket so this DENY hits the warn path.
+                req = NetworkFirewallRequest(protocol="crypto", host="local", port=0)
                 with pytest.raises(GuardPassThrough):
-                    get_verifier_or_raise("http:request", firewall_request=req)
+                    get_verifier_or_raise("crypto:sign", firewall_request=req)
                 assert len(w) == 1
                 assert issubclass(w[0].category, GuardedCallWarning)
         finally:
@@ -516,9 +519,9 @@ class TestWarnModeBehavior:
         try:
             with warnings.catch_warnings(record=True):
                 warnings.simplefilter("always")
-                req = NetworkFirewallRequest(protocol="http", host="example.com", port=80)
+                req = NetworkFirewallRequest(protocol="crypto", host="local", port=0)
                 with pytest.raises(GuardPassThrough):
-                    get_verifier_or_raise("http:request", firewall_request=req)
+                    get_verifier_or_raise("crypto:sign", firewall_request=req)
         finally:
             _guard_active.reset(guard_token)
             _guard_level.reset(level_token)
@@ -534,9 +537,9 @@ class TestWarnModeBehavior:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
                 warnings.filterwarnings("ignore", category=GuardedCallWarning)
-                req = NetworkFirewallRequest(protocol="http", host="example.com", port=80)
+                req = NetworkFirewallRequest(protocol="crypto", host="local", port=0)
                 with pytest.raises(GuardPassThrough):
-                    get_verifier_or_raise("http:request", firewall_request=req)
+                    get_verifier_or_raise("crypto:sign", firewall_request=req)
                 assert len(w) == 0
         finally:
             _guard_active.reset(guard_token)
@@ -552,10 +555,10 @@ class TestWarnModeBehavior:
         try:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
-                req = NetworkFirewallRequest(protocol="http", host="example.com", port=80)
+                req = NetworkFirewallRequest(protocol="crypto", host="local", port=0)
                 with pytest.raises(GuardPassThrough):
-                    get_verifier_or_raise("http:request", firewall_request=req)
-                assert "'http:request'" in str(w[0].message)
+                    get_verifier_or_raise("crypto:sign", firewall_request=req)
+                assert "'crypto:sign'" in str(w[0].message)
         finally:
             _guard_active.reset(guard_token)
             _guard_level.reset(level_token)
@@ -570,9 +573,9 @@ class TestWarnModeBehavior:
         try:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
-                req = NetworkFirewallRequest(protocol="http", host="example.com", port=80)
+                req = NetworkFirewallRequest(protocol="crypto", host="local", port=0)
                 with pytest.raises(GuardPassThrough):
-                    get_verifier_or_raise("http:request", firewall_request=req)
+                    get_verifier_or_raise("crypto:sign", firewall_request=req)
                 msg = str(w[0].message)
                 assert "blocked by firewall" in msg
         finally:
@@ -1215,18 +1218,18 @@ class TestGuardPytestFixtures:
         assert hasattr(pytest_plugin, "pytest_runtest_call")
 
     def test_guard_hook_skips_non_guard_plugins(self) -> None:
-        """Guard hook should not activate plugins with supports_guard=False."""
+        """Guard hook should not activate plugins with passthrough_safe=True."""
         from tripwire._registry import PLUGIN_REGISTRY, _is_available, get_plugin_class
 
         for entry in PLUGIN_REGISTRY:
             if not _is_available(entry):
                 continue
             plugin_cls = get_plugin_class(entry)
-            if not getattr(plugin_cls, "supports_guard", True):
+            if getattr(plugin_cls, "passthrough_safe", False):
                 # These plugins should NOT be activated by guard patches
                 assert entry.name in {
                     "logging", "jwt", "crypto", "celery", "native", "file_io",
-                }, f"Plugin {entry.name} has supports_guard=False but is not in expected set"
+                }, f"Plugin {entry.name} has passthrough_safe=True but is not in expected set"
 
     def test_guard_hook_skips_opt_in_plugins(self) -> None:
         """Guard hook should not activate opt-in plugins (default_enabled=False)."""
@@ -1635,7 +1638,7 @@ class TestGuardModeIntegration:
             assert "with tripwire:" in msg
             assert "https://tripwire.readthedocs.io/guides/guard-mode/" in msg
             # Old sections removed
-            assert "supports_guard" not in msg
+            assert "passthrough_safe" not in msg
             assert "Valid plugin names for allow():" not in msg
         finally:
             _guard_level.reset(level_token)

@@ -212,7 +212,7 @@ class CryptoPlugin(BasePlugin):
     is recorded.
     """
 
-    supports_guard: ClassVar[bool] = False
+    passthrough_safe: ClassVar[bool] = True
 
     _original_encrypt: ClassVar[Callable[..., Any] | None] = None
     _original_decrypt: ClassVar[Callable[..., Any] | None] = None

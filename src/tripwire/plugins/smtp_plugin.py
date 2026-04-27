@@ -180,6 +180,9 @@ class SmtpPlugin(StateMachinePlugin):
     login transitions greeted -> authenticated.
     """
 
+    # Real SMTP connection on passthrough; not safe outside sandbox.
+    passthrough_safe: ClassVar[bool] = False
+
     # Saved original, restored when count reaches 0.
     _original_smtp: ClassVar[type[smtplib.SMTP] | None] = None
 

@@ -9,7 +9,7 @@ restores the original functions correctly when deactivated.
 import asyncio
 import asyncio.subprocess
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, ClassVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from tripwire._context import GuardPassThrough, get_verifier_or_raise
 from tripwire._errors import ConflictError
@@ -122,6 +122,15 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
     States: created -> running -> terminated
     """
 
+    # Real subprocess fork on passthrough; not safe outside sandbox.
+    passthrough_safe: ClassVar[bool] = False
+
+    # source_id namespace differs from registry name ("async_subprocess").
+    # The interceptor records sources under "asyncio:..." (e.g.
+    # "asyncio:subprocess:spawn"); register that prefix so dispatch can
+    # look the plugin up by source_id.
+    guard_prefixes: ClassVar[tuple[str, ...]] = ("asyncio",)
+
     # Saved originals, restored when count reaches 0.
     _original_exec: ClassVar[Callable[..., Any] | None] = None
     _original_shell: ClassVar[Callable[..., Any] | None] = None
@@ -176,7 +185,7 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
             program: str,
             *args: Any,  # noqa: ANN401
             **kwargs: Any,  # noqa: ANN401
-        ) -> _AsyncFakeProcess:
+        ) -> _AsyncFakeProcess | asyncio.subprocess.Process:
             try:
                 command = [program, *[str(a) for a in args]]
                 binary = program
@@ -184,10 +193,16 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
                 fw_request = SubprocessFirewallRequest(command=command_str, binary=binary)
                 plugin = _find_async_subprocess_plugin(firewall_request=fw_request)
             except GuardPassThrough:
-                return cast(
-                    _AsyncFakeProcess,
-                    await _ORIGINAL_CREATE_SUBPROCESS_EXEC(program, *args, **kwargs),
+                # GuardPassThrough means the firewall ALLOWed the call: defer
+                # to the original asyncio.create_subprocess_exec, which spawns
+                # a real child process and returns a real
+                # asyncio.subprocess.Process. Returning that real Process here
+                # is intentional; the prior cast(_AsyncFakeProcess, ...) lied
+                # about the runtime type.
+                proc_real: asyncio.subprocess.Process = await _ORIGINAL_CREATE_SUBPROCESS_EXEC(
+                    program, *args, **kwargs,
                 )
+                return proc_real
             proc = _AsyncFakeProcess()
             proc._plugin = plugin
             plugin._bind_connection(proc)
@@ -206,16 +221,20 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
         async def _fake_create_subprocess_shell(
             cmd: str,
             **kwargs: Any,  # noqa: ANN401
-        ) -> _AsyncFakeProcess:
+        ) -> _AsyncFakeProcess | asyncio.subprocess.Process:
             try:
                 binary = cmd.split()[0] if cmd else ""
                 fw_request = SubprocessFirewallRequest(command=cmd, binary=binary)
                 plugin = _find_async_subprocess_plugin(firewall_request=fw_request)
             except GuardPassThrough:
-                return cast(
-                    _AsyncFakeProcess,
-                    await _ORIGINAL_CREATE_SUBPROCESS_SHELL(cmd, **kwargs),
+                # GuardPassThrough means the firewall ALLOWed the call: defer
+                # to the original asyncio.create_subprocess_shell, which spawns
+                # a real child process and returns a real
+                # asyncio.subprocess.Process.
+                proc_real: asyncio.subprocess.Process = await _ORIGINAL_CREATE_SUBPROCESS_SHELL(
+                    cmd, **kwargs,
                 )
+                return proc_real
             proc = _AsyncFakeProcess()
             proc._plugin = plugin
             plugin._bind_connection(proc)

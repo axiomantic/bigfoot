@@ -206,6 +206,9 @@ class Psycopg2Plugin(StateMachinePlugin):
     States: disconnected -> connected -> in_transaction -> connected/closed
     """
 
+    # Real psycopg2.connect on passthrough; not safe outside sandbox.
+    passthrough_safe: ClassVar[bool] = False
+
     # Saved original, restored when count reaches 0.
     _original_connect: ClassVar[Callable[..., Any] | None] = None
 

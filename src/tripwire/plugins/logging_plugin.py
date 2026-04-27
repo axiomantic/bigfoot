@@ -113,7 +113,7 @@ class LoggingPlugin(BasePlugin):
     so nested sandboxes work correctly, following the SubprocessPlugin pattern.
     """
 
-    supports_guard: ClassVar[bool] = False
+    passthrough_safe: ClassVar[bool] = True
 
     # Saved original, restored when count reaches 0.
     _original_logger_log: ClassVar[Callable[..., Any] | None] = None

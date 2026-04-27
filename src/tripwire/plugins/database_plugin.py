@@ -179,6 +179,9 @@ class DatabasePlugin(StateMachinePlugin):
     States: connected -> in_transaction -> connected/closed
     """
 
+    # Real sqlite3.connect on passthrough; not safe outside sandbox.
+    passthrough_safe: ClassVar[bool] = False
+
     # source_id prefixes that differ from the registry name ("database")
     guard_prefixes: ClassVar[tuple[str, ...]] = ("db",)
 

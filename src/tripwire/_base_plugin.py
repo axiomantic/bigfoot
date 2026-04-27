@@ -35,7 +35,15 @@ class BasePlugin(ABC):
     ref-counting behavior.
     """
 
-    supports_guard: ClassVar[bool] = True
+    # passthrough_safe declares whether this plugin's outside-sandbox
+    # passthrough path is genuinely a no-op or an explicit failure (e.g.,
+    # raises SandboxNotActiveError) rather than performing real I/O.
+    # Default is False (safer-by-default): plugins must opt in by setting
+    # passthrough_safe = True. When guard='warn' lets an unmocked call
+    # through, plugins with passthrough_safe=False raise
+    # UnsafePassthroughError instead of warning + passing through to real
+    # I/O. Replaces the prior ``supports_guard`` attribute.
+    passthrough_safe: ClassVar[bool] = False
     guard_prefixes: ClassVar[tuple[str, ...]] = ()
 
     # Shared patching infrastructure -- each subclass gets its own via __init_subclass__

@@ -5,7 +5,7 @@ import traceback
 from abc import abstractmethod
 from collections import deque
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from tripwire._base_plugin import BasePlugin
 from tripwire._errors import InvalidStateError, UnmockedInteractionError
@@ -132,6 +132,12 @@ class StateMachinePlugin(BasePlugin):
     3. Each method call on the connection delegates to _execute_step().
     4. When the connection closes, the concrete plugin calls _release_session(conn).
     """
+
+    # Abstract base; the base class itself never installs interceptors and
+    # performs no real I/O. Concrete subclasses (e.g., RedisPlugin,
+    # AsyncSubprocessPlugin) override this to False because they patch real
+    # libraries.
+    passthrough_safe: ClassVar[bool] = True
 
     def __init__(self, verifier: "StrictVerifier") -> None:
         super().__init__(verifier)

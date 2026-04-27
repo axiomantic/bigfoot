@@ -166,6 +166,9 @@ class AsyncWebSocketPlugin(StateMachinePlugin):
 
     guard_prefixes: ClassVar[tuple[str, ...]] = ("async_websocket", "websocket")
 
+    # Real WebSocket connection on passthrough; not safe outside sandbox.
+    passthrough_safe: ClassVar[bool] = False
+
     # Saved original, restored when count reaches 0.
     _original_connect: ClassVar[Callable[..., Any] | None] = None
 
@@ -413,6 +416,9 @@ class SyncWebSocketPlugin(StateMachinePlugin):
     """
 
     guard_prefixes: ClassVar[tuple[str, ...]] = ("sync_websocket", "websocket")
+
+    # Real WebSocket connection on passthrough; not safe outside sandbox.
+    passthrough_safe: ClassVar[bool] = False
 
     # Saved original, restored when count reaches 0.
     _original_create_connection: ClassVar[Callable[..., Any] | None] = None

@@ -11,9 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Renamed package `bigfoot` to `tripwire`. PyPI distribution, Python import name, public API symbols, exception class names, internal sentinels, pytest fixtures, pytest entry-point, and the `[tool.bigfoot]` config table all rename to `tripwire` / `[tool.tripwire]`. No deprecation alias. A `[tool.bigfoot]` section in pyproject.toml raises `ConfigMigrationError` with a clear rename hint.
 - **Breaking:** Internal source-id sentinels restructured from underscore-flat (`bigfoot_subprocess_run`) to colon-namespaced `<library>:<method>` (e.g., `subprocess:run`, `httpx:get`, `socket:connect`). User-facing only via `GuardedCallError` messages and the `source_id` argument of plugin APIs. The `tripwire:` prefix is intentionally omitted because the namespace is implicit inside the tripwire package.
 - **Breaking:** Default `[tool.tripwire] guard` flipped from `"warn"` to `"error"`. New projects fail loud on unmocked I/O outside a sandbox. To preserve prior behavior during legacy migration, set `guard = "warn"` explicitly.
+- **Breaking:** Removed `BasePlugin.supports_guard` and the `is_guard_eligible()` registry helper. Replaced by `passthrough_safe`. The 6 plugins that had `supports_guard=False` (celery, crypto, file_io, jwt, logging, native) become `passthrough_safe=True` because their interceptors raise `SandboxNotActiveError` outside sandbox (which is safe). MockPlugin and StateMachinePlugin (passive recorders) also become `passthrough_safe=True`. The remaining real-IO plugins become `passthrough_safe=False`.
 
 ### Added
 - `ConfigMigrationError` (subclass of `TripwireError`) raised when `[tool.bigfoot]` is present in pyproject.toml during config load.
+- `BasePlugin.passthrough_safe: ClassVar[bool] = False` declares whether a plugin's outside-sandbox passthrough path is genuinely a no-op or raises a clear error. Plugins with `passthrough_safe=False` cause `UnsafePassthroughError` when `guard="warn"` lets a call through.
+- `UnsafePassthroughError` exception (subclass of `TripwireError`).
+
+### Fixed
+- `async_subprocess_plugin` type annotations corrected: the `cast(_AsyncFakeProcess, await _ORIGINAL_CREATE_SUBPROCESS_EXEC(...))` claim was a lie (the runtime returned a real `asyncio.subprocess.Process`). The cast is removed and the return-type annotation widened to `_AsyncFakeProcess | asyncio.subprocess.Process` for both `_fake_create_subprocess_exec` and `_fake_create_subprocess_shell`. Runtime behavior unchanged; static types now match reality.
 
 ## [0.19.2] - 2026-04-08
 

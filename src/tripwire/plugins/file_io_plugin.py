@@ -481,7 +481,7 @@ class FileIoPlugin(BasePlugin):
     NOT default enabled: requires explicit enabled_plugins = ["file_io"].
     """
 
-    supports_guard: ClassVar[bool] = False
+    passthrough_safe: ClassVar[bool] = True
 
     # Saved originals, restored when count reaches 0
     _original_open: ClassVar[Callable[..., Any] | None] = None
