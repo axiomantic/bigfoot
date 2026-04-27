@@ -46,6 +46,7 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import multiprocessing
 import pickle
 from typing import Any
 
@@ -232,8 +233,17 @@ def test_processpool_does_NOT_propagate() -> None:  # noqa: N802
     worker_error: BaseException | None = None
     worker_result: Any = None
 
+    # Force the "spawn" start method. On Linux the multiprocessing default
+    # is "forkserver" (and on Python 3.14 the forkserver setup creates a
+    # Unix-domain socket *in the parent* via socket.socket(AF_UNIX), which
+    # tripwire's socket plugin intercepts on close()). Spawning bypasses
+    # that parent-side socket dance and makes the boundary explicit: every
+    # worker is a fresh interpreter that inherits no tripwire state.
+    spawn_ctx = multiprocessing.get_context("spawn")
     with v.sandbox():
-        with concurrent.futures.ProcessPoolExecutor(max_workers=1) as pool:
+        with concurrent.futures.ProcessPoolExecutor(
+            max_workers=1, mp_context=spawn_ctx
+        ) as pool:
             try:
                 future = pool.submit(_processpool_worker, "payload")
             except (pickle.PickleError, TypeError, AttributeError) as exc:
