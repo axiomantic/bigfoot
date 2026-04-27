@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import pytest
 
+from tripwire._compat import tomllib
+
 
 def test_scalar_form_parses() -> None:
     """C3-T1: scalar `guard = "warn"` parses to GuardLevels(default="warn", overrides={}).
@@ -111,8 +113,6 @@ def test_mixed_scalar_and_table_rejected_by_tomllib() -> None:
       ESCAPE: None: this test pins the platform contract that the design
               relies on. If tomllib changes behavior, we know immediately.
     """
-    import tomllib
-
     source = (
         '[tool.tripwire]\n'
         'guard = "warn"\n'
