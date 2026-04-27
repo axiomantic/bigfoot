@@ -1,11 +1,13 @@
 # src/tripwire/_verifier.py
 """StrictVerifier, SandboxContext, and InAnyOrderContext."""
 
+import contextvars
 import difflib
+import itertools
 import warnings
 from importlib.metadata import entry_points
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol
 
 from tripwire._compat import BaseExceptionGroup
 from tripwire._config import load_tripwire_config
@@ -24,10 +26,20 @@ from tripwire._timeline import Interaction, Timeline
 _MISSING = object()
 
 if TYPE_CHECKING:
-    import contextvars
-
     from tripwire._base_plugin import BasePlugin
     from tripwire._mock_plugin import ImportSiteMock, MockPlugin
+
+
+# Module-level sandbox_id allocator (C4). itertools.count() is thread-safe
+# per CPython (single C-level increment); never reuses values.
+_sandbox_id_counter: "itertools.count[int]" = itertools.count(start=1)
+
+# Tracks the active sandbox_id for the current execution context. Tasks
+# created via asyncio.create_task capture this value at creation time,
+# enabling post-sandbox detection (C4).
+_current_sandbox_id: contextvars.ContextVar[int | None] = contextvars.ContextVar(
+    "tripwire_current_sandbox_id", default=None,
+)
 
 
 class _HasSourceId(Protocol):
@@ -438,12 +450,27 @@ class StrictVerifier:
 class SandboxContext:
     """Activates all plugins and mocks. Supports both sync (with) and async (async with)."""
 
+    # Process-wide set of currently active sandbox_ids. add() / discard()
+    # of distinct keys are independent under the GIL; no lock required.
+    _active_sandbox_ids: ClassVar[set[int]] = set()
+
     def __init__(self, verifier: StrictVerifier) -> None:
         self._verifier = verifier
         self._token: contextvars.Token[Any] | None = None
         self._activated_mocks: list[Any] = []  # list[_BaseMock]
+        # C4: sandbox_id allocated at _enter(); ContextVar token stashed so
+        # _exit() (and the _enter() error path) can reset cleanly.
+        self.sandbox_id: int | None = None
+        self._sandbox_id_token: contextvars.Token[int | None] | None = None
 
     def _enter(self) -> StrictVerifier:
+        # Allocate the sandbox_id BEFORE existing activation so the stamp
+        # site in BasePlugin.record() sees a consistent ContextVar value
+        # for any interaction recorded during plugin/mock activation.
+        self.sandbox_id = next(_sandbox_id_counter)
+        SandboxContext._active_sandbox_ids.add(self.sandbox_id)
+        self._sandbox_id_token = _current_sandbox_id.set(self.sandbox_id)
+
         self._token = _active_verifier.set(self._verifier)
         activated_so_far: list[BasePlugin] = []
         errors: list[BaseException] = []
@@ -488,6 +515,14 @@ class SandboxContext:
                     errors.append(cleanup_e)
             if self._token is not None:
                 _active_verifier.reset(self._token)
+            # C4: reset sandbox_id ContextVar and discard the id BEFORE
+            # raising the error group so a failed _enter() leaves no trace
+            # in `_active_sandbox_ids`.
+            if self._sandbox_id_token is not None:
+                _current_sandbox_id.reset(self._sandbox_id_token)
+                self._sandbox_id_token = None
+            if self.sandbox_id is not None:
+                SandboxContext._active_sandbox_ids.discard(self.sandbox_id)
             raise BaseExceptionGroup("tripwire sandbox activation failed", errors)
 
         return self._verifier
@@ -495,24 +530,36 @@ class SandboxContext:
     def _exit(self) -> None:
         errors: list[BaseException] = []
 
-        # Deactivate mocks in reverse order FIRST (before plugins)
-        for mock_obj in reversed(self._activated_mocks):
-            try:
-                mock_obj._deactivate()
-            except Exception as e:
-                errors.append(e)
-        self._activated_mocks.clear()
+        try:
+            # Deactivate mocks in reverse order FIRST (before plugins)
+            for mock_obj in reversed(self._activated_mocks):
+                try:
+                    mock_obj._deactivate()
+                except Exception as e:
+                    errors.append(e)
+            self._activated_mocks.clear()
 
-        # Then deactivate plugins (existing behavior)
-        for plugin in reversed(self._verifier._plugins):
-            try:
-                plugin.deactivate()
-            except Exception as e:
-                errors.append(e)
-        if self._token is not None:
-            _active_verifier.reset(self._token)
-        if errors:
-            raise BaseExceptionGroup("tripwire sandbox deactivation failed", errors)
+            # Then deactivate plugins (existing behavior)
+            for plugin in reversed(self._verifier._plugins):
+                try:
+                    plugin.deactivate()
+                except Exception as e:
+                    errors.append(e)
+            if self._token is not None:
+                _active_verifier.reset(self._token)
+            if errors:
+                raise BaseExceptionGroup("tripwire sandbox deactivation failed", errors)
+        finally:
+            # C4: ContextVar reset and id discard ALWAYS run, even if
+            # deactivation raised. This guarantees the post-sandbox
+            # detection works correctly: `_current_sandbox_id` returns to
+            # its parent value (or None) and `_active_sandbox_ids` no
+            # longer contains this sandbox.
+            if self._sandbox_id_token is not None:
+                _current_sandbox_id.reset(self._sandbox_id_token)
+                self._sandbox_id_token = None
+            if self.sandbox_id is not None:
+                SandboxContext._active_sandbox_ids.discard(self.sandbox_id)
 
     def __enter__(self) -> StrictVerifier:
         return self._enter()

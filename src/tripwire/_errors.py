@@ -471,6 +471,35 @@ class UnsafePassthroughError(TripwireError):
         )
 
 
+class PostSandboxInteractionError(TripwireError):
+    """Raised when an intercepted call fires from a thread / task / future
+    that survived the `with tripwire:` exit. Distinct from the leaked-
+    interaction case (call without ever having entered any sandbox)."""
+
+    def __init__(self, source_id: str, plugin_name: str, sandbox_id: int) -> None:
+        self.source_id = source_id
+        self.plugin_name = plugin_name
+        self.sandbox_id = sandbox_id
+        super().__init__(self._build_message())
+
+    def _build_message(self) -> str:
+        return (
+            f"PostSandboxInteractionError: {self.source_id!r} fired from a "
+            f"context that survived the exit of sandbox #{self.sandbox_id}.\n"
+            f"\n"
+            f"This usually means an asyncio Task, thread, or future was "
+            f"scheduled inside `with tripwire:` and is still running after "
+            f"the block exited.\n"
+            f"\n"
+            f"Fix one of:\n"
+            f"  - Await or cancel all pending tasks before exiting the sandbox.\n"
+            f"  - Use `asyncio.gather(...)` inside the sandbox to ensure "
+            f"completion.\n"
+            f"  - If the late call is intentional, wrap it in its own "
+            f"`with tripwire:` block.\n"
+        )
+
+
 class GuardedCallWarning(UserWarning):
     """Emitted when guard mode is set to 'warn' and an I/O call fires
     outside a sandbox without allow() permission.

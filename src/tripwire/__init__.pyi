@@ -26,6 +26,7 @@ from tripwire._errors import InteractionMismatchError as InteractionMismatchErro
 from tripwire._errors import InvalidStateError as InvalidStateError
 from tripwire._errors import MissingAssertionFieldsError as MissingAssertionFieldsError
 from tripwire._errors import NoActiveVerifierError as NoActiveVerifierError
+from tripwire._errors import PostSandboxInteractionError as PostSandboxInteractionError
 from tripwire._errors import SandboxNotActiveError as SandboxNotActiveError
 from tripwire._errors import TripwireConfigError as TripwireConfigError
 from tripwire._errors import TripwireError as TripwireError

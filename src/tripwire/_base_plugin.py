@@ -228,6 +228,14 @@ class BasePlugin(ABC):
         Timeline.mark_asserted() can detect the auto-assert anti-pattern and
         raise AutoAssertError immediately.
         """
+        # C4: stamp the sandbox_id from the current execution context
+        # BEFORE the append. This is a private attribute on the
+        # Interaction dataclass (NOT in interaction.details), so the
+        # certainty contract is preserved.
+        from tripwire._verifier import _current_sandbox_id  # noqa: PLC0415
+
+        interaction._sandbox_id = _current_sandbox_id.get()
+
         token = _recording_in_progress.set(True)
         try:
             self.verifier._timeline.append(interaction)

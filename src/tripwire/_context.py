@@ -63,6 +63,32 @@ def get_active_verifier() -> StrictVerifier | None:
     return _active_verifier.get()
 
 
+def _detect_post_sandbox() -> int | None:
+    """Return the sandbox_id of a since-exited sandbox if the current
+    execution context still carries it; otherwise None.
+
+    In normal control flow, Branch 1 of `get_verifier_or_raise` returns
+    the verifier when a sandbox is active in the current context. This
+    helper triggers only when Branch 1 fell through (no active verifier)
+    but the ContextVar still carries a sandbox_id from a since-exited
+    sandbox. This is the case Proposal 4 catches: an asyncio task /
+    thread / future survived the `with tripwire:` exit.
+    """
+    from tripwire._verifier import (  # noqa: PLC0415
+        SandboxContext,
+        _current_sandbox_id,
+    )
+
+    sid = _current_sandbox_id.get()
+    if sid is None:
+        return None
+    if sid in SandboxContext._active_sandbox_ids:
+        # Sandbox is still active in the process; Branch 1 should have
+        # caught this. Defensive: do not fire post-sandbox here.
+        return None
+    return sid
+
+
 def get_verifier_or_raise(
     source_id: str,
     firewall_request: FirewallRequest | None = None,
@@ -84,6 +110,26 @@ def get_verifier_or_raise(
     5. Otherwise: raise SandboxNotActiveError.
     """
     plugin_name = source_id.split(":")[0]
+
+    # === Branch 2: post-sandbox detection (C4) ===
+    # MUST run BEFORE Branch 1: an asyncio task / thread captures the
+    # parent's ContextVars at creation time, including `_active_verifier`.
+    # After the parent's `with tripwire:` exits, `_active_verifier.reset()`
+    # in the parent does NOT propagate into the task's snapshot, so the
+    # task would otherwise hit Branch 1 with a stale verifier reference.
+    # `_active_sandbox_ids` is a process-wide ClassVar set, which the
+    # parent's `_exit()` discards in real time. Detecting a captured
+    # sandbox_id that is NOT in the active set is the authoritative test
+    # for "the sandbox this task came from has exited."
+    closed_sandbox_id = _detect_post_sandbox()
+    if closed_sandbox_id is not None:
+        from tripwire._errors import PostSandboxInteractionError  # noqa: PLC0415
+
+        raise PostSandboxInteractionError(
+            source_id=source_id,
+            plugin_name=plugin_name,
+            sandbox_id=closed_sandbox_id,
+        )
 
     # === Branch 1: sandbox active ===
     verifier = _active_verifier.get()
