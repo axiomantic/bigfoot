@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `GuardedCallError` message reframed for clarity: states "OUTSIDE any `with tripwire:` block", names the plugin and method, includes the user call site (`file:lineno`), and lists the two fixes inline. Existing fix sections (`@pytest.mark.allow`, pyproject, sandbox-with-mock) retained.
 - README: added a "Picking the right guard default" section covering new projects, legacy-migration suites, and mixed-CI per-protocol overrides.
 - `tripwire.allow(...)` and `tripwire.restrict(...)` now raise `TripwireError` when called outside any active sandbox, with a message pointing the user at `[tool.tripwire.firewall]` for module-scoped rules.
+- README: documented that `ProcessPoolExecutor` does not propagate `with tripwire:` state (separate-process boundary).
 
 ### Added
 - `ConfigMigrationError` (subclass of `TripwireError`) raised when `[tool.bigfoot]` is present in pyproject.toml during config load.
@@ -26,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `@pytest.mark.guard("error" | "warn" | "off" | {default: ..., overrides: {...}})` per-test override of the project guard levels. Set token / yield / reset token pattern, scoped to the test's lifetime.
 - Strict TOML validation: unknown keys under `[tool.tripwire]` and unknown plugin sub-tables raise `TripwireConfigError` with typo suggestions (via `difflib.get_close_matches`).
 - Strict validation extended to `[tool.tripwire.guard]` per-protocol keys: every override key must match a registered plugin name; unknown keys produce typo suggestions.
+- Tests covering contextvar propagation of `with tripwire:` state across `asyncio.to_thread`, `asyncio.create_task`, `loop.run_in_executor`, `asyncio.gather`, and `concurrent.futures.ThreadPoolExecutor.submit`.
 
 ### Fixed
 - `async_subprocess_plugin` type annotations corrected: the `cast(_AsyncFakeProcess, await _ORIGINAL_CREATE_SUBPROCESS_EXEC(...))` claim was a lie (the runtime returned a real `asyncio.subprocess.Process`). The cast is removed and the return-type annotation widened to `_AsyncFakeProcess | asyncio.subprocess.Process` for both `_fake_create_subprocess_exec` and `_fake_create_subprocess_shell`. Runtime behavior unchanged; static types now match reality.
