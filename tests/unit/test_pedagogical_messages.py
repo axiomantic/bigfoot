@@ -63,3 +63,86 @@ def test_message_renders_unknown_call_site_when_frame_is_none() -> None:
     """When user_frame is None, message renders ``at <unknown call site>``."""
     err = _build_err_with_frame(None)
     assert "at <unknown call site>" in str(err)
+
+
+# ---------------------------------------------------------------------------
+# Pedagogical user_frame coverage for UnsafePassthroughError and
+# PostSandboxInteractionError. The two newer errors mirror GuardedCallError's
+# "at <file>:<lineno>" rendering so async-leak / outside-sandbox failures
+# point at the user's actual call site.
+# ---------------------------------------------------------------------------
+
+
+def test_unsafe_passthrough_message_includes_user_call_site() -> None:
+    """UnsafePassthroughError renders ``at <file>:<lineno>`` for a real frame."""
+    from tripwire._errors import UnsafePassthroughError
+
+    err = UnsafePassthroughError(
+        source_id="subprocess:run",
+        plugin_name="subprocess",
+        user_frame=("/abs/path/test_caller.py", 42, "test_caller"),
+    )
+    assert "at /abs/path/test_caller.py:42" in str(err)
+
+
+def test_unsafe_passthrough_message_renders_unknown_call_site_when_frame_is_none() -> None:
+    """UnsafePassthroughError with user_frame=None renders ``<unknown call site>``."""
+    from tripwire._errors import UnsafePassthroughError
+
+    err = UnsafePassthroughError(
+        source_id="subprocess:run",
+        plugin_name="subprocess",
+        user_frame=None,
+    )
+    assert "at <unknown call site>" in str(err)
+
+
+def test_unsafe_passthrough_message_contains_outside_framing() -> None:
+    """UnsafePassthroughError names ``OUTSIDE any "with tripwire:" block``."""
+    from tripwire._errors import UnsafePassthroughError
+
+    err = UnsafePassthroughError(
+        source_id="subprocess:run",
+        plugin_name="subprocess",
+        user_frame=("/abs/path/test_caller.py", 42, "test_caller"),
+    )
+    assert 'OUTSIDE any "with tripwire:" block' in str(err)
+
+
+def test_post_sandbox_message_includes_user_call_site() -> None:
+    """PostSandboxInteractionError renders ``at <file>:<lineno>`` for a real frame."""
+    from tripwire._errors import PostSandboxInteractionError
+
+    err = PostSandboxInteractionError(
+        source_id="test:late",
+        plugin_name="test",
+        sandbox_id=7,
+        user_frame=("/abs/path/test_caller.py", 137, "test_caller"),
+    )
+    assert "at /abs/path/test_caller.py:137" in str(err)
+
+
+def test_post_sandbox_message_renders_unknown_call_site_when_frame_is_none() -> None:
+    """PostSandboxInteractionError with user_frame=None renders ``<unknown call site>``."""
+    from tripwire._errors import PostSandboxInteractionError
+
+    err = PostSandboxInteractionError(
+        source_id="test:late",
+        plugin_name="test",
+        sandbox_id=7,
+        user_frame=None,
+    )
+    assert "at <unknown call site>" in str(err)
+
+
+def test_post_sandbox_message_contains_after_sandbox_framing() -> None:
+    """PostSandboxInteractionError names ``AFTER the sandbox exited``."""
+    from tripwire._errors import PostSandboxInteractionError
+
+    err = PostSandboxInteractionError(
+        source_id="test:late",
+        plugin_name="test",
+        sandbox_id=7,
+        user_frame=("/abs/path/test_caller.py", 137, "test_caller"),
+    )
+    assert "AFTER the sandbox exited" in str(err)

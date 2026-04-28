@@ -478,15 +478,37 @@ class UnsafePassthroughError(TripwireError):
     than silently performing a side effect.
     """
 
-    def __init__(self, source_id: str, plugin_name: str) -> None:
+    def __init__(
+        self,
+        source_id: str,
+        plugin_name: str,
+        user_frame: tuple[str, int, str] | None = None,
+    ) -> None:
         self.source_id = source_id
         self.plugin_name = plugin_name
+        self.user_frame = user_frame
         super().__init__(self._build_message())
 
     def _build_message(self) -> str:
+        # Method-being-called: text after the LAST ":" in the source_id.
+        # Mirrors ``GuardedCallError._build_message`` so the framing prose
+        # is uniform across the three pedagogical errors.
+        if ":" in self.source_id:
+            method = self.source_id.rsplit(":", 1)[1]
+        else:
+            method = "<unknown method>"
+        # User call site: rendered as "file:lineno", or "<unknown call site>"
+        # when the frame walker found no user frame (e.g., spawned thread).
+        if self.user_frame is None:
+            site = "<unknown call site>"
+        else:
+            site = f"{self.user_frame[0]}:{self.user_frame[1]}"
         return (
             f"UnsafePassthroughError: {self.source_id!r} would have caused "
             f"real I/O outside any 'with tripwire:' block.\n"
+            f"\n"
+            f"  Called {self.plugin_name}.{method} at {site} "
+            f'OUTSIDE any "with tripwire:" block.\n'
             f"\n"
             f"Plugin {self.plugin_name!r} doesn't support outside-sandbox "
             f"passthrough (passthrough_safe=False), meaning its passthrough "
@@ -505,16 +527,39 @@ class PostSandboxInteractionError(TripwireError):
     that survived the `with tripwire:` exit. Distinct from the leaked-
     interaction case (call without ever having entered any sandbox)."""
 
-    def __init__(self, source_id: str, plugin_name: str, sandbox_id: int) -> None:
+    def __init__(
+        self,
+        source_id: str,
+        plugin_name: str,
+        sandbox_id: int,
+        user_frame: tuple[str, int, str] | None = None,
+    ) -> None:
         self.source_id = source_id
         self.plugin_name = plugin_name
         self.sandbox_id = sandbox_id
+        self.user_frame = user_frame
         super().__init__(self._build_message())
 
     def _build_message(self) -> str:
+        # Method-being-called: text after the LAST ":" in the source_id.
+        # Mirrors ``GuardedCallError._build_message`` so the framing prose
+        # is uniform across the three pedagogical errors.
+        if ":" in self.source_id:
+            method = self.source_id.rsplit(":", 1)[1]
+        else:
+            method = "<unknown method>"
+        # User call site: rendered as "file:lineno", or "<unknown call site>"
+        # when the frame walker found no user frame (e.g., spawned thread).
+        if self.user_frame is None:
+            site = "<unknown call site>"
+        else:
+            site = f"{self.user_frame[0]}:{self.user_frame[1]}"
         return (
             f"PostSandboxInteractionError: {self.source_id!r} fired from a "
             f"context that survived the exit of sandbox #{self.sandbox_id}.\n"
+            f"\n"
+            f"  Called {self.plugin_name}.{method} at {site} "
+            f"AFTER the sandbox exited.\n"
             f"\n"
             f"This usually means an asyncio Task, thread, or future was "
             f"scheduled inside `with tripwire:` and is still running after "

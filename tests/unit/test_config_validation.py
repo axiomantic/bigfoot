@@ -107,3 +107,59 @@ def test_unknown_per_protocol_guard_key_rejected() -> None:
     message = str(exc_info.value)
     assert "subprocesss" in message
     assert "did you mean: subprocess" in message
+
+
+# ---------------------------------------------------------------------------
+# Punctuation: unknown-key error messages must not produce a stray
+# trailing dot before the typo suggestion. With a suggestion, the
+# suggestion replaces the period; without a suggestion, the period
+# closes the sentence.
+# ---------------------------------------------------------------------------
+
+
+def test_unknown_top_level_key_punctuation_without_suggestion() -> None:
+    """No close match -> message ends with a single period, no stray dot."""
+    # ``zzqqxx`` has no close match in the allowed set, so difflib returns
+    # an empty suggestion. The message must end with a single period.
+    config = {"zzqqxx": 1}
+    with pytest.raises(TripwireConfigError) as exc_info:
+        validate_top_level_schema(config)
+    message = str(exc_info.value)
+    assert message.endswith("[tool.tripwire].")
+    # And specifically NOT the double-dot shape that the old code produced.
+    assert "[tool.tripwire].." not in message
+
+
+def test_unknown_top_level_key_punctuation_with_suggestion() -> None:
+    """Close match -> suggestion replaces the period; no double dot."""
+    config = {"gaurd": "warn"}
+    with pytest.raises(TripwireConfigError) as exc_info:
+        validate_top_level_schema(config)
+    message = str(exc_info.value)
+    # The suggestion supplies its own leading space; no period precedes it.
+    assert "[tool.tripwire] (did you mean: guard?)" in message
+    assert "[tool.tripwire]." not in message
+
+
+def test_unknown_per_protocol_guard_key_punctuation_without_suggestion() -> None:
+    """No close match in [tool.tripwire.guard] -> ends with a single period."""
+    config = {"guard": {"default": "error", "zzqqxx": "error"}}
+    with pytest.raises(TripwireConfigError) as exc_info:
+        _resolve_guard_levels(config)
+    message = str(exc_info.value)
+    assert message.endswith("[tool.tripwire.guard].")
+    assert "[tool.tripwire.guard].." not in message
+
+
+def test_unknown_per_protocol_guard_key_punctuation_with_suggestion() -> None:
+    """Close match in [tool.tripwire.guard] -> suggestion replaces the period."""
+    config = {"guard": {"default": "error", "subprocesss": "error"}}
+    with pytest.raises(TripwireConfigError) as exc_info:
+        _resolve_guard_levels(config)
+    message = str(exc_info.value)
+    # The suggestion supplies its own leading space; no period precedes
+    # it. ``difflib.get_close_matches`` may return multiple candidates
+    # (e.g., ``subprocess`` and ``async_subprocess``) so the assertion
+    # only pins the prefix shape, not the full candidate list.
+    assert "[tool.tripwire.guard] (did you mean: subprocess" in message
+    assert "[tool.tripwire.guard]." not in message

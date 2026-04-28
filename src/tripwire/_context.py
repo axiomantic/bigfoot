@@ -151,11 +151,13 @@ def get_verifier_or_raise(
     closed_sandbox_id = _detect_post_sandbox()
     if closed_sandbox_id is not None:
         from tripwire._errors import PostSandboxInteractionError  # noqa: PLC0415
+        from tripwire._frames import walk_to_user_frame  # noqa: PLC0415
 
         raise PostSandboxInteractionError(
             source_id=source_id,
             plugin_name=canonical_name,
             sandbox_id=closed_sandbox_id,
+            user_frame=walk_to_user_frame(),
         )
 
     # === Branch 1: sandbox active ===
@@ -196,10 +198,12 @@ def get_verifier_or_raise(
                 # than warn-and-pass-through, so real I/O does not leak.
                 if plugin_is_unsafe_passthrough:
                     from tripwire._errors import UnsafePassthroughError  # noqa: PLC0415
+                    from tripwire._frames import walk_to_user_frame  # noqa: PLC0415
 
                     raise UnsafePassthroughError(
                         source_id=source_id,
                         plugin_name=canonical_name,
+                        user_frame=walk_to_user_frame(),
                     )
 
                 # === Branch 3b-warn-safe ===

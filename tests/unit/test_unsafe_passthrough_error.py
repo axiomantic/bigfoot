@@ -33,3 +33,7 @@ def test_message_contains_pedagogical_text() -> None:
     assert "doesn't support outside-sandbox passthrough" in msg, msg
     assert "set guard='error'" in msg, msg
     assert "subprocess" in msg, msg
+    # C5: When user_frame is omitted the message renders the canonical
+    # "<unknown call site>" placeholder, mirroring GuardedCallError.
+    assert "at <unknown call site>" in msg, msg
+    assert 'OUTSIDE any "with tripwire:" block' in msg, msg

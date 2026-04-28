@@ -116,7 +116,7 @@ def validate_top_level_schema(config: Mapping[str, Any]) -> None:
             continue
         suggestion = _format_suggestion(key, allowed)
         raise TripwireConfigError(
-            f"Unknown key {key!r} in [tool.tripwire].{suggestion}"
+            f"Unknown key {key!r} in [tool.tripwire]{suggestion or '.'}"
         )
 
 
@@ -203,8 +203,8 @@ def _resolve_guard_levels(config: Mapping[str, Any]) -> GuardLevels:
             if key not in VALID_PLUGIN_NAMES:
                 suggestion = _format_suggestion(key, VALID_PLUGIN_NAMES)
                 raise TripwireConfigError(
-                    f"Unknown protocol {key!r} in [tool.tripwire.guard]."
-                    f"{suggestion}"
+                    f"Unknown protocol {key!r} in [tool.tripwire.guard]"
+                    f"{suggestion or '.'}"
                 )
             normalized_value: Any
             if isinstance(value, bool):
