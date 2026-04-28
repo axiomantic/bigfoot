@@ -450,6 +450,115 @@ class TestLookupPluginClassByNameCache:
             assert lookup_plugin_class_by_name("nonexistent_xyz_unique") is None
             assert counter.acquire_count == 1
 
+    def test_entrypoint_plugin_discovered_on_cache_miss(self) -> None:
+        """A third-party plugin registered via the ``tripwire.plugins``
+        entry-point group must be discovered on first lookup of its
+        canonical name when not already in the cache.
+
+        Regression: a previous round of the eager-populate optimization
+        seeded ``_lookup_cache`` exclusively from ``PLUGIN_REGISTRY``,
+        which caused ``get_verifier_or_raise`` to silently treat all
+        third-party plugins as unknown when called outside a sandbox.
+        That broke guard mode and per-protocol overrides for every
+        entry-point-registered plugin.
+        """
+        from tripwire import _registry
+
+        class _FakeThirdPartyPlugin:
+            guard_prefixes = ("fake_thirdparty_xyz_alias",)
+            passthrough_safe = False
+
+        class _FakeEntryPoint:
+            def __init__(self, name: str, cls: type) -> None:
+                self.name = name
+                self._cls = cls
+
+            def load(self) -> type:
+                return self._cls
+
+        fake_eps = [_FakeEntryPoint("fake_thirdparty_xyz", _FakeThirdPartyPlugin)]
+
+        def _fake_entry_points(*, group: str) -> list[_FakeEntryPoint]:
+            assert group == "tripwire.plugins"
+            return fake_eps
+
+        _registry._clear_lookup_cache()
+        with patch("importlib.metadata.entry_points", _fake_entry_points):
+            # Lookup by canonical entry-point name resolves to the class.
+            result = lookup_plugin_class_by_name("fake_thirdparty_xyz")
+            assert result is not None
+            cls, canonical = result
+            assert cls is _FakeThirdPartyPlugin
+            assert canonical == "fake_thirdparty_xyz"
+
+            # Lookup by guard_prefix also resolves.
+            alias_result = lookup_plugin_class_by_name(
+                "fake_thirdparty_xyz_alias"
+            )
+            assert alias_result is not None
+            alias_cls, alias_canonical = alias_result
+            assert alias_cls is _FakeThirdPartyPlugin
+            # Canonical name is the entry-point name, not the prefix.
+            assert alias_canonical == "fake_thirdparty_xyz"
+
+    def test_entrypoint_lookup_cached_after_first_discovery(self) -> None:
+        """After the first entry-point discovery, repeated lookups MUST
+        be lock-free hits on the cache, not re-walks of entry points.
+        """
+        from tripwire import _registry
+
+        class _FakeThirdPartyPlugin:
+            guard_prefixes = ()
+            passthrough_safe = False
+
+        class _FakeEntryPoint:
+            def __init__(self, name: str, cls: type) -> None:
+                self.name = name
+                self._cls = cls
+
+            def load(self) -> type:
+                return self._cls
+
+        call_count = 0
+
+        def _counting_entry_points(*, group: str) -> list[_FakeEntryPoint]:
+            nonlocal call_count
+            call_count += 1
+            return [_FakeEntryPoint("fake_cached_xyz", _FakeThirdPartyPlugin)]
+
+        _registry._clear_lookup_cache()
+        with patch("importlib.metadata.entry_points", _counting_entry_points):
+            first = lookup_plugin_class_by_name("fake_cached_xyz")
+            assert first is not None
+            assert call_count == 1
+
+            # Second lookup must hit the lock-free cache, not re-walk
+            # entry points.
+            second = lookup_plugin_class_by_name("fake_cached_xyz")
+            assert second is first
+            assert call_count == 1
+
+    def test_unknown_name_negatively_cached_after_entrypoint_walk(self) -> None:
+        """An unknown name walks entry points once, then is negatively
+        cached so subsequent lookups don't re-walk.
+        """
+        from tripwire import _registry
+
+        call_count = 0
+
+        def _counting_entry_points(*, group: str) -> list[object]:
+            nonlocal call_count
+            call_count += 1
+            return []
+
+        _registry._clear_lookup_cache()
+        with patch("importlib.metadata.entry_points", _counting_entry_points):
+            assert lookup_plugin_class_by_name("absolutely_nothing_xyz") is None
+            assert call_count == 1
+            # Second lookup is negatively cached: must NOT re-walk.
+            assert lookup_plugin_class_by_name("absolutely_nothing_xyz") is None
+            assert call_count == 1
+
     def test_eager_population_seeds_all_available_canonical_names(self) -> None:
         """Every available registry entry's canonical name must be in the
         cache immediately after import (and after _clear_lookup_cache).

@@ -140,23 +140,28 @@ def get_plugin_class(entry: PluginEntry) -> type[BasePlugin]:
 # registry, runs availability checks (which import modules), and imports
 # the plugin class on every call: O(N) work over ~27 plugins per dispatch.
 #
-# The registry is effectively immutable for the life of the process
-# (entries are added at module import; availability can flip only by
-# installing a new package, which requires a process restart). We
-# therefore eagerly populate the cache exactly once at module import time
-# (see ``_populate_lookup_cache()`` below), seeding both canonical names
-# and every declared ``guard_prefix``.
+# Built-in plugins from ``PLUGIN_REGISTRY`` are eagerly seeded at module
+# import time (see ``_populate_lookup_cache()`` below) so canonical names
+# and every declared ``guard_prefix`` resolve via a lock-free
+# ``dict.get`` on the read path. Third-party plugins registered via the
+# ``tripwire.plugins`` entry-point group are NOT eagerly seeded — doing
+# so would cost an ``importlib.metadata.entry_points`` call on every
+# import, and the entry-point list cannot be enumerated to extract
+# canonical names without loading every plugin class. They are
+# discovered lazily on the first cache miss for an unknown name.
 #
-# Thread-safety contract: after import-time population, the read path is
-# LOCK-FREE. Only the never-before-seen-name slow path takes
-# ``_lookup_cache_lock`` to memoize a None result. Hot-path callers
-# (canonical names + registered guard_prefixes) hit a plain
-# ``dict.get`` and return immediately. Stock CPython's GIL serializes
-# dict reads; the free-threaded build (PEP 703) makes ``dict.get`` of a
-# stable key atomic, and the cache is effectively immutable for known
-# names after import.
+# Thread-safety contract: after import-time population, the built-in
+# read path is LOCK-FREE. Only never-before-seen names take
+# ``_lookup_cache_lock``, which serves two purposes: (a) probing
+# entry-point plugins and seeding their canonical name + guard_prefixes
+# on first observation, and (b) negatively caching a None result so
+# concurrent callers don't all repeat the discovery walk. Stock
+# CPython's GIL serializes dict reads; the free-threaded build (PEP
+# 703) makes ``dict.get`` of a stable key atomic, and the cache is
+# effectively immutable for known names after first observation.
 #
-# Tests that monkeypatch ``PLUGIN_REGISTRY`` MUST clear the cache via
+# Tests that monkeypatch ``PLUGIN_REGISTRY`` or stub
+# ``importlib.metadata.entry_points`` MUST clear the cache via
 # ``_clear_lookup_cache()`` for their patch to take effect.
 # ---------------------------------------------------------------------------
 
@@ -217,6 +222,60 @@ def _clear_lookup_cache() -> None:
         _populate_lookup_cache()
 
 
+def _discover_entrypoint_plugin(
+    plugin_name: str,
+) -> tuple[type[BasePlugin], str] | None:
+    """Probe ``tripwire.plugins`` entry points for ``plugin_name``.
+
+    Iterates ``importlib.metadata.entry_points(group="tripwire.plugins")``
+    and, for each entry point, loads the plugin class and checks whether
+    its canonical name (``entry_point.name``) or any ``guard_prefixes``
+    on the class match ``plugin_name``. Returns the first match's
+    ``(plugin_class, canonical_name)`` tuple, or None if no entry point
+    matches.
+
+    On match, the caller is responsible for seeding ``_lookup_cache``
+    under both the canonical name and every declared ``guard_prefix`` so
+    subsequent lookups hit the cache without re-walking entry points.
+
+    Failures to load an individual entry point (ImportError, broken
+    plugin) are swallowed: the entry point is simply skipped. This
+    matches the behavior of ``StrictVerifier._load_entrypoint_plugins``
+    so a broken third-party plugin does not poison built-in lookups.
+    """
+    from importlib.metadata import entry_points  # noqa: PLC0415
+
+    for ep in entry_points(group="tripwire.plugins"):
+        try:
+            plugin_cls = ep.load()
+        except Exception:
+            continue
+        canonical = ep.name
+        if plugin_name == canonical:
+            return (plugin_cls, canonical)
+        if plugin_name in getattr(plugin_cls, "guard_prefixes", ()):
+            return (plugin_cls, canonical)
+    return None
+
+
+def _seed_entrypoint_match(
+    payload: tuple[type[BasePlugin], str],
+) -> None:
+    """Insert ``payload`` under its canonical name and every declared
+    ``guard_prefix`` in ``_lookup_cache``.
+
+    MUST be called with ``_lookup_cache_lock`` held. Canonical name
+    takes precedence: a ``guard_prefix`` that collides with another
+    plugin's canonical name does NOT overwrite the existing entry, to
+    preserve the same precedence rule used for built-in plugins in
+    ``_populate_lookup_cache``.
+    """
+    cls, canonical = payload
+    _lookup_cache[canonical] = payload
+    for prefix in getattr(cls, "guard_prefixes", ()):
+        _lookup_cache.setdefault(prefix, payload)
+
+
 def lookup_plugin_class_by_name(
     plugin_name: str,
 ) -> tuple[type[BasePlugin], str] | None:
@@ -236,14 +295,24 @@ def lookup_plugin_class_by_name(
     name when looking up per-protocol guard overrides and when populating
     ``plugin_name`` on errors so the user sees the registry name.
 
-    Read path is lock-free: ``_lookup_cache`` is eagerly populated at
-    module import time, so all known plugin names and guard prefixes
-    resolve via a plain dict ``get``. Only never-before-seen names take
-    ``_lookup_cache_lock`` to negatively cache the None result. Tests
-    that mutate ``PLUGIN_REGISTRY`` must call ``_clear_lookup_cache()``
-    for changes to be observed.
+    Resolution order:
+
+    1. Built-in plugins seeded from ``PLUGIN_REGISTRY`` at import time.
+       Hit on a lock-free ``dict.get``.
+    2. Third-party plugins registered via the ``tripwire.plugins`` entry
+       point group. Discovered lazily on the first cache miss for a
+       given name; once observed, the canonical name and every declared
+       ``guard_prefix`` are seeded into ``_lookup_cache`` so subsequent
+       lookups also hit the lock-free fast path.
+    3. Negative cache: if neither built-in nor entry-point discovery
+       finds a match, the name is seeded with ``None`` to avoid
+       re-walking entry points on every miss.
+
+    Tests that mutate ``PLUGIN_REGISTRY`` or stub
+    ``importlib.metadata.entry_points`` must call
+    ``_clear_lookup_cache()`` for changes to be observed.
     """
-    # Lock-free fast path. After import-time population, every known
+    # Lock-free fast path. After import-time population, every built-in
     # canonical name and guard_prefix is a hit; only unseen names miss.
     cached = _lookup_cache.get(plugin_name, _UNSET)
     if cached is not _UNSET:
@@ -251,17 +320,27 @@ def lookup_plugin_class_by_name(
         # cached value is the tuple-or-None payload, not the sentinel.
         return cached  # type: ignore[return-value]
 
-    # Slow path: name not in cache. Take the lock for negative caching
-    # so concurrent callers don't all repeat the (None) computation. The
-    # eager populator already covered all canonical names and declared
-    # prefixes, so reaching here for an available plugin is impossible
-    # in practice; this branch exists to memoize unknown-name lookups.
+    # Slow path: name not in cache. Take the lock so concurrent callers
+    # don't all repeat the entry-point walk for the same name.
     with _lookup_cache_lock:
         # Re-check: another thread may have raced us through the lock
         # and populated the entry already.
         cached = _lookup_cache.get(plugin_name, _UNSET)
         if cached is not _UNSET:
             return cached  # type: ignore[return-value]
+
+        # Discover third-party plugins via entry points. This is the
+        # path that fixes "third-party plugins are invisible to
+        # ``get_verifier_or_raise`` outside a sandbox" — without it,
+        # guard mode and per-protocol overrides for entry-point plugins
+        # would silently break.
+        match = _discover_entrypoint_plugin(plugin_name)
+        if match is not None:
+            _seed_entrypoint_match(match)
+            return match
+
+        # No built-in, no entry-point match: negatively cache so
+        # subsequent unknown-name lookups stay lock-free.
         _lookup_cache[plugin_name] = None
         return None
 

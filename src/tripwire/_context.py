@@ -10,6 +10,21 @@ import contextvars
 from typing import TYPE_CHECKING
 
 from tripwire._config import GuardLevels
+from tripwire._errors import (
+    GuardedCallError,
+    GuardedCallWarning,
+    NoActiveVerifierError,
+    PostSandboxInteractionError,
+    SandboxNotActiveError,
+    UnsafePassthroughError,
+)
+from tripwire._firewall import Disposition, get_firewall_stack
+from tripwire._frames import walk_to_user_frame
+
+# Deferred to break circular import: _registry's import-time
+# _populate_lookup_cache() imports plugin modules, which import
+# tripwire._context. Pulling lookup_plugin_class_by_name to module
+# level here would re-enter _context mid-initialization.
 
 if TYPE_CHECKING:
     from tripwire._firewall_request import FirewallRequest
@@ -129,6 +144,11 @@ def get_verifier_or_raise(
     # ``guard_prefix`` like ``"db"``. This is what per-protocol guard
     # overrides under ``[tool.tripwire.guard]`` key on, and what error
     # messages report.
+    #
+    # Deferred to break circular import: _registry's import-time
+    # _populate_lookup_cache() imports plugin modules, which import
+    # tripwire._context. Pulling lookup_plugin_class_by_name to module
+    # level here would re-enter _context mid-initialization.
     from tripwire._registry import (  # noqa: PLC0415
         lookup_plugin_class_by_name,
     )
@@ -150,9 +170,6 @@ def get_verifier_or_raise(
     # for "the sandbox this task came from has exited."
     closed_sandbox_id = _detect_post_sandbox()
     if closed_sandbox_id is not None:
-        from tripwire._errors import PostSandboxInteractionError  # noqa: PLC0415
-        from tripwire._frames import walk_to_user_frame  # noqa: PLC0415
-
         raise PostSandboxInteractionError(
             source_id=source_id,
             plugin_name=canonical_name,
@@ -168,8 +185,6 @@ def get_verifier_or_raise(
     # === Branch 3: guard active ===
     if plugin_cls is not None and _guard_active.get():
         if firewall_request is not None:
-            from tripwire._firewall import Disposition, get_firewall_stack  # noqa: PLC0415
-
             disposition = get_firewall_stack().evaluate(firewall_request)
 
             # === Branch 3a: ALLOW ===
@@ -197,9 +212,6 @@ def get_verifier_or_raise(
                 # If the plugin's passthrough is NOT safe, raise rather
                 # than warn-and-pass-through, so real I/O does not leak.
                 if plugin_is_unsafe_passthrough:
-                    from tripwire._errors import UnsafePassthroughError  # noqa: PLC0415
-                    from tripwire._frames import walk_to_user_frame  # noqa: PLC0415
-
                     raise UnsafePassthroughError(
                         source_id=source_id,
                         plugin_name=canonical_name,
@@ -208,8 +220,6 @@ def get_verifier_or_raise(
 
                 # === Branch 3b-warn-safe ===
                 import warnings  # noqa: PLC0415
-
-                from tripwire._errors import GuardedCallWarning  # noqa: PLC0415
 
                 warnings.warn(
                     f"{source_id!r} blocked by firewall. "
@@ -220,9 +230,6 @@ def get_verifier_or_raise(
                 raise GuardPassThrough()
 
             # === Branch 3b-error (C5: enrich with user call site) ===
-            from tripwire._errors import GuardedCallError  # noqa: PLC0415
-            from tripwire._frames import walk_to_user_frame  # noqa: PLC0415
-
             user_frame = walk_to_user_frame()
             raise GuardedCallError(
                 source_id=source_id,
@@ -237,9 +244,6 @@ def get_verifier_or_raise(
         # through to SandboxNotActiveError so their interceptor-level
         # error paths can run as before.
         if plugin_is_unsafe_passthrough:
-            from tripwire._errors import GuardedCallError  # noqa: PLC0415
-            from tripwire._frames import walk_to_user_frame  # noqa: PLC0415
-
             user_frame = walk_to_user_frame()
             raise GuardedCallError(
                 source_id=source_id,
@@ -255,7 +259,6 @@ def get_verifier_or_raise(
         raise GuardPassThrough()
 
     # === Branch 5: nothing active ===
-    from tripwire._errors import SandboxNotActiveError  # noqa: PLC0415
     raise SandboxNotActiveError(source_id=source_id)
 
 
@@ -266,8 +269,6 @@ def _get_test_verifier_or_raise() -> StrictVerifier:
     Called by module-level API functions (mock, sandbox, assert_interaction, etc.)
     when no test verifier is active.
     """
-    from tripwire._errors import NoActiveVerifierError
-
     verifier = _current_test_verifier.get()
     if verifier is None:
         raise NoActiveVerifierError()

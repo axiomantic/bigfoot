@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import difflib
+import functools
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -11,20 +12,27 @@ from typing import Any, Final
 from tripwire._compat import tomllib
 
 
-def load_tripwire_config(start: Path | None = None) -> dict[str, Any]:
-    """Walk up from start (default: Path.cwd()) to find pyproject.toml.
+@functools.lru_cache(maxsize=8)
+def _load_tripwire_config_cached(search: Path) -> dict[str, Any]:
+    """Cached implementation of ``load_tripwire_config``.
 
-    Returns the [tool.tripwire] table as a dict, or {} if:
-    - no pyproject.toml found in start or any ancestor directory
-    - pyproject.toml found but has no [tool.tripwire] section
+    Cached because this function is called multiple times per test (once
+    by the session-scoped guard fixture, once per ``StrictVerifier``
+    instantiation). ``pyproject.toml`` is expected to be stable during a
+    test run, so re-reading and re-parsing it on every call is wasted
+    work.
 
-    Raises tomllib.TOMLDecodeError if pyproject.toml is malformed.
-    This is intentional: a malformed pyproject.toml is a user error that
-    must not silently produce empty config.
+    ``maxsize=8`` rather than ``1`` because different search roots must
+    each cache independently — tests may invoke from different cwds or
+    pass explicit start paths, and we do not want a path with a
+    different ancestor chain to evict another entry.
+
+    NOTE: ``search`` is the already-resolved root (never ``None``), so
+    the cache key reflects the actual filesystem location rather than a
+    sentinel that captures only the FIRST cwd a process called from.
     """
     from tripwire._errors import ConfigMigrationError  # noqa: PLC0415
 
-    search = start or Path.cwd()
     for directory in (search, *search.parents):
         candidate = directory / "pyproject.toml"
         if candidate.is_file():
@@ -38,6 +46,36 @@ def load_tripwire_config(start: Path | None = None) -> dict[str, Any]:
             result: dict[str, Any] = data.get("tool", {}).get("tripwire", {})
             return result
     return {}
+
+
+def load_tripwire_config(start: Path | None = None) -> dict[str, Any]:
+    """Walk up from start (default: Path.cwd()) to find pyproject.toml.
+
+    Returns the [tool.tripwire] table as a dict, or {} if:
+    - no pyproject.toml found in start or any ancestor directory
+    - pyproject.toml found but has no [tool.tripwire] section
+
+    Raises tomllib.TOMLDecodeError if pyproject.toml is malformed.
+    This is intentional: a malformed pyproject.toml is a user error that
+    must not silently produce empty config.
+
+    Results are cached per-resolved-search-path (``start`` if provided,
+    else ``Path.cwd()`` at call time). The cache survives across calls
+    in the same process; tests that REWRITE an already-observed
+    ``pyproject.toml`` mid-session must call
+    ``load_tripwire_config.cache_clear()`` in their teardown to bust the
+    cache. Tests that simply ``chdir`` between cases get fresh entries
+    because the resolved cwd is the cache key.
+    """
+    search = start if start is not None else Path.cwd()
+    return _load_tripwire_config_cached(search)
+
+
+# Expose the cache controls on the public function so callers can write
+# ``load_tripwire_config.cache_clear()`` without poking at the private
+# helper. ``cache_info`` is included for symmetry / debug.
+load_tripwire_config.cache_clear = _load_tripwire_config_cached.cache_clear  # type: ignore[attr-defined]
+load_tripwire_config.cache_info = _load_tripwire_config_cached.cache_info  # type: ignore[attr-defined]
 
 
 # ---------------------------------------------------------------------------
