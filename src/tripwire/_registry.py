@@ -142,8 +142,19 @@ def get_plugin_class(entry: PluginEntry) -> type[BasePlugin]:
 #
 # The registry is effectively immutable for the life of the process
 # (entries are added at module import; availability can flip only by
-# installing a new package, which requires a process restart). This
-# makes a lazy populate-once cache correct.
+# installing a new package, which requires a process restart). We
+# therefore eagerly populate the cache exactly once at module import time
+# (see ``_populate_lookup_cache()`` below), seeding both canonical names
+# and every declared ``guard_prefix``.
+#
+# Thread-safety contract: after import-time population, the read path is
+# LOCK-FREE. Only the never-before-seen-name slow path takes
+# ``_lookup_cache_lock`` to memoize a None result. Hot-path callers
+# (canonical names + registered guard_prefixes) hit a plain
+# ``dict.get`` and return immediately. Stock CPython's GIL serializes
+# dict reads; the free-threaded build (PEP 703) makes ``dict.get`` of a
+# stable key atomic, and the cache is effectively immutable for known
+# names after import.
 #
 # Tests that monkeypatch ``PLUGIN_REGISTRY`` MUST clear the cache via
 # ``_clear_lookup_cache()`` for their patch to take effect.
@@ -154,14 +165,56 @@ _lookup_cache: dict[str, tuple[type[BasePlugin], str] | None] = {}
 _lookup_cache_lock: Final[threading.Lock] = threading.Lock()
 
 
+def _populate_lookup_cache() -> None:
+    """Eagerly seed ``_lookup_cache`` from ``PLUGIN_REGISTRY``.
+
+    For every available entry, this imports the plugin class and inserts
+    cache entries keyed by both the canonical registry name and every
+    declared ``guard_prefixes`` value. After this runs, all known plugin
+    names and prefixes resolve via a lock-free ``dict.get`` on the read
+    path. Unknown names still fall through to the locked negative-cache
+    slow path in ``lookup_plugin_class_by_name``.
+
+    Called exactly once at module import time. Also called by
+    ``_clear_lookup_cache`` to restore the eager state after a test
+    invalidates the cache.
+
+    Failures to import a single plugin class are swallowed: the entry is
+    simply not seeded, and a subsequent lookup will go through the slow
+    path (and likely return None for that name). This preserves the
+    original lazy behavior for broken/partially-installed plugins.
+    """
+    for entry in PLUGIN_REGISTRY:
+        if not _is_available(entry):
+            continue
+        try:
+            cls = get_plugin_class(entry)
+        except Exception:
+            continue
+        payload: tuple[type[BasePlugin], str] = (cls, entry.name)
+        _lookup_cache[entry.name] = payload
+        for prefix in getattr(cls, "guard_prefixes", ()):
+            # Canonical name takes precedence if a prefix collides with
+            # another plugin's canonical name; do not overwrite.
+            _lookup_cache.setdefault(prefix, payload)
+
+
 def _clear_lookup_cache() -> None:
-    """Drop all cached ``lookup_plugin_class_by_name`` results.
+    """Drop all cached ``lookup_plugin_class_by_name`` results, then
+    re-seed the eager entries.
 
     Call this from tests that monkeypatch ``PLUGIN_REGISTRY`` so their
     substitute registry is consulted instead of stale cache entries.
+    The re-population step ensures that the lock-free read path remains
+    valid for normal (unpatched) registry entries after the test
+    teardown clears the cache. Tests that monkeypatch ``PLUGIN_REGISTRY``
+    will pick up the patched registry on the next ``_populate_lookup_cache``
+    invocation, since this function reads ``PLUGIN_REGISTRY`` at call
+    time rather than at import time.
     """
     with _lookup_cache_lock:
         _lookup_cache.clear()
+        _populate_lookup_cache()
 
 
 def lookup_plugin_class_by_name(
@@ -183,35 +236,34 @@ def lookup_plugin_class_by_name(
     name when looking up per-protocol guard overrides and when populating
     ``plugin_name`` on errors so the user sees the registry name.
 
-    Results are cached at module level: this function is on the hot path
-    for every intercepted call, and the registry is effectively immutable
-    after import. Tests that mutate ``PLUGIN_REGISTRY`` must call
-    ``_clear_lookup_cache()`` for changes to be observed.
+    Read path is lock-free: ``_lookup_cache`` is eagerly populated at
+    module import time, so all known plugin names and guard prefixes
+    resolve via a plain dict ``get``. Only never-before-seen names take
+    ``_lookup_cache_lock`` to negatively cache the None result. Tests
+    that mutate ``PLUGIN_REGISTRY`` must call ``_clear_lookup_cache()``
+    for changes to be observed.
     """
+    # Lock-free fast path. After import-time population, every known
+    # canonical name and guard_prefix is a hit; only unseen names miss.
+    cached = _lookup_cache.get(plugin_name, _UNSET)
+    if cached is not _UNSET:
+        # mypy cannot narrow through the sentinel object; we know the
+        # cached value is the tuple-or-None payload, not the sentinel.
+        return cached  # type: ignore[return-value]
+
+    # Slow path: name not in cache. Take the lock for negative caching
+    # so concurrent callers don't all repeat the (None) computation. The
+    # eager populator already covered all canonical names and declared
+    # prefixes, so reaching here for an available plugin is impossible
+    # in practice; this branch exists to memoize unknown-name lookups.
     with _lookup_cache_lock:
+        # Re-check: another thread may have raced us through the lock
+        # and populated the entry already.
         cached = _lookup_cache.get(plugin_name, _UNSET)
         if cached is not _UNSET:
-            # mypy cannot narrow through the sentinel object; we know the
-            # cached value is the tuple-or-None payload, not the sentinel.
             return cached  # type: ignore[return-value]
-
-    result: tuple[type[BasePlugin], str] | None = None
-    for entry in PLUGIN_REGISTRY:
-        if not _is_available(entry):
-            continue
-        try:
-            cls = get_plugin_class(entry)
-        except Exception:
-            continue
-        if entry.name == plugin_name or plugin_name in getattr(
-            cls, "guard_prefixes", ()
-        ):
-            result = (cls, entry.name)
-            break
-
-    with _lookup_cache_lock:
-        _lookup_cache[plugin_name] = result
-    return result
+        _lookup_cache[plugin_name] = None
+        return None
 
 
 def resolve_enabled_plugins(
@@ -283,3 +335,10 @@ def resolve_enabled_plugins(
 
     # Default: all available plugins that are default-enabled
     return [e for e in PLUGIN_REGISTRY if e.default_enabled and _is_available(e)]
+
+
+# Eagerly seed ``_lookup_cache`` exactly once at module import time. After
+# this runs, every known canonical name and registered ``guard_prefix``
+# is a lock-free dict hit on the hot path. See the module-level cache
+# comment block above for the full thread-safety contract.
+_populate_lookup_cache()

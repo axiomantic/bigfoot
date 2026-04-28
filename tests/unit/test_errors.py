@@ -652,3 +652,51 @@ def test_tripwire_config_error_exported_from_tripwire() -> None:
     from tripwire import TripwireConfigError
 
     assert TripwireConfigError is not None
+
+
+# ---------------------------------------------------------------------------
+# GuardedCallError source_id parsing — regression tests
+# ---------------------------------------------------------------------------
+
+
+def test_guarded_call_error_method_uses_last_segment_for_multi_colon_source_id() -> None:
+    """A source_id with multiple colons must render the LAST segment as the
+    method name.
+
+    Regression: the prior implementation used ``split(":", 1)[1]`` which
+    treated everything after the FIRST colon as the method, producing
+    ``"subprocess:spawn"`` for ``"asyncio:subprocess:spawn"`` instead of
+    the intended trailing token ``"spawn"``. ``rsplit(":", 1)[1]`` makes
+    the trailing segment authoritative regardless of how many leading
+    plugin/namespace segments precede it.
+    """
+    from tripwire._errors import GuardedCallError
+
+    err = GuardedCallError(
+        source_id="asyncio:subprocess:spawn",
+        plugin_name="asyncio",
+    )
+    msg = str(err)
+    # The last segment ("spawn") must be the rendered method.
+    assert "asyncio.spawn" in msg
+    # The middle segment must NOT leak into the method position.
+    assert "asyncio.subprocess:spawn" not in msg
+    assert "asyncio.subprocess" not in msg
+
+
+def test_guarded_call_error_method_for_single_colon_source_id() -> None:
+    """The classic 'plugin:method' form still resolves to the method tail."""
+    from tripwire._errors import GuardedCallError
+
+    err = GuardedCallError(source_id="subprocess:run", plugin_name="subprocess")
+    msg = str(err)
+    assert "subprocess.run" in msg
+
+
+def test_guarded_call_error_method_falls_back_when_no_colon() -> None:
+    """A malformed source_id with no colon falls back to '<unknown method>'."""
+    from tripwire._errors import GuardedCallError
+
+    err = GuardedCallError(source_id="malformed_no_colon", plugin_name="x")
+    msg = str(err)
+    assert "<unknown method>" in msg

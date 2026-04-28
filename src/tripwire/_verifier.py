@@ -454,10 +454,21 @@ class SandboxContext:
     # Process-wide set of currently active sandbox_ids. ALL reads and
     # mutations MUST be performed while holding _active_sandbox_ids_lock.
     # Stock CPython's GIL implicitly serializes set operations, but the
-    # free-threaded build (PEP 703) does not — concurrent set.add /
+    # free-threaded build (PEP 703) does not: concurrent set.add /
     # set.discard / `in` checks against a shared `set` can corrupt its
     # internal hash table and hang in `__contains__`. The lock is
     # uncontended on the GIL build, so this is effectively a no-op there.
+    #
+    # Process-wide set: post-sandbox detection (Branch 2 of
+    # get_verifier_or_raise) must see across thread boundaries; worker
+    # threads can outlive their parent sandbox. A per-thread tracker
+    # would silently misclassify late interactions from those workers
+    # as "no active sandbox" instead of "post-sandbox", losing the
+    # diagnostic precision that PostSandboxInteractionError exists to
+    # provide. Sandbox enter/exit happens at `with verifier.sandbox():`
+    # boundaries (per-test, not per-call), so the lock is acquired
+    # rarely on the write path; the hot-path read in Branch 2 is a
+    # microsecond-scale `set.__contains__` under a brief lock.
     _active_sandbox_ids: ClassVar[set[int]] = set()
     _active_sandbox_ids_lock: ClassVar[threading.Lock] = threading.Lock()
 

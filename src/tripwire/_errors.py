@@ -272,12 +272,20 @@ class GuardedCallError(TripwireError):
 
     def _build_message(self) -> str:
         req = self.firewall_request
-        # Method-being-called: text after the first ":" in the source_id
+        # Method-being-called: text after the LAST ":" in the source_id
         # (e.g., "subprocess:run" -> "run", "asyncio:subprocess:spawn" ->
-        # "subprocess:spawn"). Falls back to "<unknown method>" if the
-        # source_id is malformed (no colon).
+        # "spawn"). Using rsplit means the trailing segment is always
+        # treated as the method name regardless of how many leading
+        # plugin/namespace segments precede it. Falls back to
+        # "<unknown method>" if the source_id is malformed (no colon).
+        #
+        # Performance note: rsplit on a short source_id is one C-level
+        # string scan per intercepted call, on the order of tens of
+        # nanoseconds. Combined with the lock-free plugin lookup cache
+        # in `_registry.py`, the per-call dispatch overhead is negligible
+        # compared to the C-call interception itself.
         if ":" in self.source_id:
-            method = self.source_id.split(":", 1)[1]
+            method = self.source_id.rsplit(":", 1)[1]
         else:
             method = "<unknown method>"
         # User call site: rendered as "file:lineno", or "<unknown call site>"

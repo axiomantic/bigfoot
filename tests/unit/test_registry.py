@@ -363,3 +363,112 @@ class TestLookupPluginClassByNameCache:
         # successful populate wins and every subsequent lookup serves the
         # cached identity.
         assert all(r is first for r in results)
+
+    def test_known_name_lookup_is_lock_free(self) -> None:
+        """Looking up a known plugin name MUST NOT acquire the cache lock.
+
+        After import-time eager population, all canonical names and
+        guard prefixes are cached. The hot-path read is a plain
+        ``dict.get`` and must not touch ``_lookup_cache_lock``. We
+        enforce this by patching the lock with a sentinel that fails
+        loudly if anyone attempts to acquire it.
+        """
+        # Sanity: the eager populator should have already seeded
+        # "subprocess". Do NOT call _clear_lookup_cache here — that would
+        # re-populate but also exercise the lock during teardown setup.
+        # The class-level setup_method already cleared+repopulated.
+
+        class _LockMustNotBeAcquired:
+            def __enter__(self) -> "_LockMustNotBeAcquired":
+                raise AssertionError(
+                    "lookup_plugin_class_by_name acquired the cache lock "
+                    "for a known plugin name; the read path must be "
+                    "lock-free after eager population."
+                )
+
+            def __exit__(self, *exc: object) -> None:  # pragma: no cover
+                pass
+
+            def acquire(self, *args: object, **kwargs: object) -> bool:
+                raise AssertionError(
+                    "lookup_plugin_class_by_name acquired the cache lock "
+                    "for a known plugin name; the read path must be "
+                    "lock-free after eager population."
+                )
+
+            def release(self) -> None:  # pragma: no cover
+                pass
+
+        from tripwire.plugins.subprocess import SubprocessPlugin
+
+        with patch("tripwire._registry._lookup_cache_lock", _LockMustNotBeAcquired()):
+            # Canonical name: must NOT acquire the lock.
+            result = lookup_plugin_class_by_name("subprocess")
+            assert result is not None
+            cls, canonical = result
+            assert cls is SubprocessPlugin
+            assert canonical == "subprocess"
+
+            # Guard prefix: must also be eagerly cached and lock-free.
+            result_prefix = lookup_plugin_class_by_name("db")
+            assert result_prefix is not None
+            _cls, canonical_prefix = result_prefix
+            assert canonical_prefix == "database"
+
+    def test_unknown_name_takes_lock_once_for_negative_cache(self) -> None:
+        """An unregistered name takes the lock exactly once, then is
+        memoized so subsequent lookups are lock-free.
+
+        Regression: confirms the slow path (unknown name) still
+        negatively caches under the lock so concurrent callers don't
+        repeatedly walk the registry for the same missing name.
+        """
+        from tripwire import _registry
+
+        real_lock = _registry._lookup_cache_lock
+
+        class _CountingLock:
+            def __init__(self) -> None:
+                self.acquire_count = 0
+
+            def __enter__(self) -> "_CountingLock":
+                self.acquire_count += 1
+                real_lock.acquire()
+                return self
+
+            def __exit__(self, *exc: object) -> None:
+                real_lock.release()
+
+        counter = _CountingLock()
+        with patch("tripwire._registry._lookup_cache_lock", counter):
+            # First lookup: unknown name, must acquire the lock to seed
+            # the negative cache entry.
+            assert lookup_plugin_class_by_name("nonexistent_xyz_unique") is None
+            assert counter.acquire_count == 1
+
+            # Second lookup: now negatively cached, must be lock-free.
+            assert lookup_plugin_class_by_name("nonexistent_xyz_unique") is None
+            assert counter.acquire_count == 1
+
+    def test_eager_population_seeds_all_available_canonical_names(self) -> None:
+        """Every available registry entry's canonical name must be in the
+        cache immediately after import (and after _clear_lookup_cache).
+
+        This is the structural invariant that makes the lock-free read
+        path correct: if any canonical name were missing from the eager
+        seed, that name would fall through to the locked slow path on
+        every call.
+        """
+        from tripwire._registry import PLUGIN_REGISTRY, _is_available, _lookup_cache
+
+        for entry in PLUGIN_REGISTRY:
+            if not _is_available(entry):
+                continue
+            assert entry.name in _lookup_cache, (
+                f"canonical name {entry.name!r} missing from eager-populated "
+                f"cache; lookup would take the slow path"
+            )
+            cached = _lookup_cache[entry.name]
+            assert cached is not None
+            _cls, canonical = cached
+            assert canonical == entry.name
