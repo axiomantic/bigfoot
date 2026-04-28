@@ -205,7 +205,9 @@ class CeleryPlugin(BasePlugin):
     Uses reference counting so nested sandboxes work correctly.
     """
 
-    passthrough_safe: ClassVar[bool] = True
+    # Passthrough calls the original Task.delay / Task.apply_async, which
+    # enqueue real broker messages, so un-mocked calls would dispatch tasks.
+    passthrough_safe: ClassVar[bool] = False
 
     _original_delay: ClassVar[Callable[..., Any] | None] = None
     _original_apply_async: ClassVar[Callable[..., Any] | None] = None

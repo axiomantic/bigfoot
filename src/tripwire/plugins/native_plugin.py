@@ -259,7 +259,9 @@ class NativePlugin(BasePlugin):
     Each library:function pair has its own FIFO deque of NativeMockConfig objects.
     """
 
-    passthrough_safe: ClassVar[bool] = True
+    # Passthrough calls the original ctypes.CDLL / cffi.FFI.dlopen, which
+    # actually load native libraries (and trigger their side effects).
+    passthrough_safe: ClassVar[bool] = False
 
     # Saved originals, restored when count reaches 0
     _original_cdll_init: ClassVar[Callable[..., Any] | None] = None

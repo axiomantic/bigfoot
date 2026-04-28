@@ -227,20 +227,24 @@ class TestPassthroughSafe:
 
         assert CryptoPlugin.passthrough_safe is True
 
-    def test_native_plugin_is_true(self) -> None:
+    def test_native_plugin_is_false(self) -> None:
+        # Passthrough loads real native libraries (ctypes.CDLL / cffi.FFI.dlopen).
         from tripwire.plugins.native_plugin import NativePlugin
 
-        assert NativePlugin.passthrough_safe is True
+        assert NativePlugin.passthrough_safe is False
 
-    def test_celery_plugin_is_true(self) -> None:
+    def test_celery_plugin_is_false(self) -> None:
+        # Passthrough enqueues real broker messages via Task.delay /
+        # Task.apply_async.
         from tripwire.plugins.celery_plugin import CeleryPlugin
 
-        assert CeleryPlugin.passthrough_safe is True
+        assert CeleryPlugin.passthrough_safe is False
 
-    def test_file_io_plugin_is_true(self) -> None:
+    def test_file_io_plugin_is_false(self) -> None:
+        # Passthrough performs real disk I/O via builtins.open / Path methods.
         from tripwire.plugins.file_io_plugin import FileIoPlugin
 
-        assert FileIoPlugin.passthrough_safe is True
+        assert FileIoPlugin.passthrough_safe is False
 
     def test_dns_plugin_is_false(self) -> None:
         from tripwire.plugins.dns_plugin import DnsPlugin

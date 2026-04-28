@@ -481,7 +481,9 @@ class FileIoPlugin(BasePlugin):
     NOT default enabled: requires explicit enabled_plugins = ["file_io"].
     """
 
-    passthrough_safe: ClassVar[bool] = True
+    # Passthrough calls the original (real-disk) file operations, so an
+    # un-mocked call outside a sandbox WOULD perform real I/O.
+    passthrough_safe: ClassVar[bool] = False
 
     # Saved originals, restored when count reaches 0
     _original_open: ClassVar[Callable[..., Any] | None] = None

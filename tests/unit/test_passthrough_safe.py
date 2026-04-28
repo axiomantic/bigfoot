@@ -73,13 +73,15 @@ EXPECTED_PASSTHROUGH_SAFE: dict[str, bool] = {
     "SubprocessPlugin": False,
     "AsyncWebSocketPlugin": False,
     "SyncWebSocketPlugin": False,
+    # Passthrough calls the original (broker-dispatch / disk / native loader),
+    # so an un-mocked call performs real I/O.
+    "CeleryPlugin": False,
+    "FileIoPlugin": False,
+    "NativePlugin": False,
     # Safe-passthrough plugins (passthrough_safe=True)
-    "CeleryPlugin": True,
     "CryptoPlugin": True,
-    "FileIoPlugin": True,
     "JwtPlugin": True,
     "LoggingPlugin": True,
-    "NativePlugin": True,
     # Outside plugins/ directory
     "MockPlugin": True,
     "StateMachinePlugin": True,
