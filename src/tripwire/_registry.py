@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 if TYPE_CHECKING:
     from tripwire._base_plugin import BasePlugin
@@ -130,6 +131,39 @@ def get_plugin_class(entry: PluginEntry) -> type[BasePlugin]:
     return cls
 
 
+# ---------------------------------------------------------------------------
+# Hot-path lookup cache
+#
+# ``lookup_plugin_class_by_name`` runs on EVERY intercepted call from a
+# sandbox (every subprocess.run, socket.send, logging.debug, etc.) via
+# ``get_verifier_or_raise``. The uncached implementation iterates the
+# registry, runs availability checks (which import modules), and imports
+# the plugin class on every call: O(N) work over ~27 plugins per dispatch.
+#
+# The registry is effectively immutable for the life of the process
+# (entries are added at module import; availability can flip only by
+# installing a new package, which requires a process restart). This
+# makes a lazy populate-once cache correct.
+#
+# Tests that monkeypatch ``PLUGIN_REGISTRY`` MUST clear the cache via
+# ``_clear_lookup_cache()`` for their patch to take effect.
+# ---------------------------------------------------------------------------
+
+_UNSET: Final[object] = object()
+_lookup_cache: dict[str, tuple[type[BasePlugin], str] | None] = {}
+_lookup_cache_lock: Final[threading.Lock] = threading.Lock()
+
+
+def _clear_lookup_cache() -> None:
+    """Drop all cached ``lookup_plugin_class_by_name`` results.
+
+    Call this from tests that monkeypatch ``PLUGIN_REGISTRY`` so their
+    substitute registry is consulted instead of stale cache entries.
+    """
+    with _lookup_cache_lock:
+        _lookup_cache.clear()
+
+
 def lookup_plugin_class_by_name(
     plugin_name: str,
 ) -> tuple[type[BasePlugin], str] | None:
@@ -148,7 +182,20 @@ def lookup_plugin_class_by_name(
     to ``("DatabasePlugin", "database")``). Callers MUST use the canonical
     name when looking up per-protocol guard overrides and when populating
     ``plugin_name`` on errors so the user sees the registry name.
+
+    Results are cached at module level: this function is on the hot path
+    for every intercepted call, and the registry is effectively immutable
+    after import. Tests that mutate ``PLUGIN_REGISTRY`` must call
+    ``_clear_lookup_cache()`` for changes to be observed.
     """
+    with _lookup_cache_lock:
+        cached = _lookup_cache.get(plugin_name, _UNSET)
+        if cached is not _UNSET:
+            # mypy cannot narrow through the sentinel object; we know the
+            # cached value is the tuple-or-None payload, not the sentinel.
+            return cached  # type: ignore[return-value]
+
+    result: tuple[type[BasePlugin], str] | None = None
     for entry in PLUGIN_REGISTRY:
         if not _is_available(entry):
             continue
@@ -159,8 +206,12 @@ def lookup_plugin_class_by_name(
         if entry.name == plugin_name or plugin_name in getattr(
             cls, "guard_prefixes", ()
         ):
-            return cls, entry.name
-    return None
+            result = (cls, entry.name)
+            break
+
+    with _lookup_cache_lock:
+        _lookup_cache[plugin_name] = result
+    return result
 
 
 def resolve_enabled_plugins(

@@ -1,5 +1,6 @@
 """Unit tests for tripwire._registry: plugin registry and config resolution."""
 
+import threading
 from unittest.mock import patch
 
 import pytest
@@ -9,8 +10,10 @@ from tripwire._registry import (
     PLUGIN_REGISTRY,
     VALID_PLUGIN_NAMES,
     PluginEntry,
+    _clear_lookup_cache,
     _is_available,
     get_plugin_class,
+    lookup_plugin_class_by_name,
     resolve_enabled_plugins,
 )
 
@@ -269,3 +272,94 @@ def test_resolve_enabled_plugins_error_lists_valid_names() -> None:
     error_msg = str(exc_info.value)
     assert "subprocess" in error_msg
     assert "http" in error_msg
+
+
+# ---------------------------------------------------------------------------
+# lookup_plugin_class_by_name + cache
+# ---------------------------------------------------------------------------
+
+
+class TestLookupPluginClassByNameCache:
+    """The hot-path lookup is cached; verify shape and invalidation."""
+
+    def setup_method(self) -> None:
+        # Each test starts with a clean cache so prior cached entries do
+        # not influence identity assertions.
+        _clear_lookup_cache()
+
+    def teardown_method(self) -> None:
+        # Leave no cached entries from monkeypatched registries.
+        _clear_lookup_cache()
+
+    def test_known_name_returns_tuple(self) -> None:
+        """A known canonical name resolves to (cls, canonical_name)."""
+        from tripwire.plugins.subprocess import SubprocessPlugin
+
+        result = lookup_plugin_class_by_name("subprocess")
+        assert result is not None
+        cls, canonical = result
+        assert cls is SubprocessPlugin
+        assert canonical == "subprocess"
+
+    def test_repeated_lookup_returns_identical_tuple(self) -> None:
+        """Cached results return the same tuple object (identity, not just equality)."""
+        first = lookup_plugin_class_by_name("subprocess")
+        second = lookup_plugin_class_by_name("subprocess")
+        assert first is not None
+        assert first is second
+
+    def test_unknown_name_returns_none(self) -> None:
+        """An unregistered name resolves to None."""
+        assert lookup_plugin_class_by_name("nonexistent_xyz") is None
+
+    def test_unknown_name_negative_cache(self) -> None:
+        """Unknown names are negatively cached: second lookup is also None."""
+        assert lookup_plugin_class_by_name("nonexistent_xyz") is None
+        assert lookup_plugin_class_by_name("nonexistent_xyz") is None
+
+    def test_clear_cache_invalidates(self) -> None:
+        """_clear_lookup_cache forces the next lookup to recompute."""
+        first = lookup_plugin_class_by_name("subprocess")
+        _clear_lookup_cache()
+        second = lookup_plugin_class_by_name("subprocess")
+        # The plugin class itself is module-level and stable, so the inner
+        # type identity persists. The tuple object is freshly constructed,
+        # so it should NOT be the same tuple instance after invalidation.
+        assert first is not None
+        assert second is not None
+        assert first is not second
+        assert first == second
+
+    def test_guard_prefix_resolves_to_canonical_name(self) -> None:
+        """A guard_prefix lookup returns the canonical registry name, not the prefix."""
+        # DatabasePlugin registers a guard_prefix of "db".
+        result = lookup_plugin_class_by_name("db")
+        assert result is not None
+        _cls, canonical = result
+        assert canonical == "database"
+
+    def test_concurrent_lookup_safe(self) -> None:
+        """Concurrent lookups return the same cached tuple under a lock."""
+        results: list[tuple[type, str] | None] = []
+        results_lock = threading.Lock()
+
+        def worker() -> None:
+            local: list[tuple[type, str] | None] = []
+            for _ in range(100):
+                local.append(lookup_plugin_class_by_name("subprocess"))
+            with results_lock:
+                results.extend(local)
+
+        threads = [threading.Thread(target=worker) for _ in range(20)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(results) == 20 * 100
+        first = results[0]
+        assert first is not None
+        # All 2000 results must be the same tuple instance: the first
+        # successful populate wins and every subsequent lookup serves the
+        # cached identity.
+        assert all(r is first for r in results)
