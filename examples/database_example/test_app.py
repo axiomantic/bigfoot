@@ -1,25 +1,25 @@
-"""Test save_user using bigfoot db."""
+"""Test save_user using tripwire db_mock."""
 
-import bigfoot
+import tripwire
 
 from .app import save_user
 
 
 def test_save_user():
-    (bigfoot.db
+    (tripwire.db
         .new_session()
         .expect("connect",  returns=None)
         .expect("execute",  returns=[])
         .expect("commit",   returns=None)
         .expect("close",    returns=None))
 
-    with bigfoot:
+    with tripwire:
         save_user("Alice", "alice@example.com")
 
-    bigfoot.db.assert_connect(database="app.db")
-    bigfoot.db.assert_execute(
+    tripwire.db.assert_connect(database="app.db")
+    tripwire.db.assert_execute(
         sql="INSERT INTO users (name, email) VALUES (?, ?)",
         parameters=("Alice", "alice@example.com"),
     )
-    bigfoot.db.assert_commit()
-    bigfoot.db.assert_close()
+    tripwire.db.assert_commit()
+    tripwire.db.assert_close()

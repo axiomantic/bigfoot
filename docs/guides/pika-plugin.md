@@ -5,27 +5,27 @@
 ## Installation
 
 ```bash
-pip install bigfoot[pika]
+pip install python-tripwire[pika]
 ```
 
 This installs `pika`.
 
 ## Setup
 
-In pytest, access `PikaPlugin` through the `bigfoot.pika` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `PikaPlugin` through the `tripwire.pika` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
-import bigfoot
+import tripwire
 
 def test_publish_message():
-    (bigfoot.pika
+    (tripwire.pika
         .new_session()
         .expect("connect",  returns=None)
         .expect("channel",  returns=None)
         .expect("publish",  returns=None)
         .expect("close",    returns=None))
 
-    with bigfoot:
+    with tripwire:
         import pika
         connection = pika.BlockingConnection(
             pika.ConnectionParameters(host="rabbitmq.example.com")
@@ -34,19 +34,19 @@ def test_publish_message():
         channel.basic_publish(exchange="", routing_key="tasks", body=b"hello")
         connection.close()
 
-    bigfoot.pika.assert_connect(host="rabbitmq.example.com", port=5672, virtual_host="/")
-    bigfoot.pika.assert_channel()
-    bigfoot.pika.assert_publish(
+    tripwire.pika.assert_connect(host="rabbitmq.example.com", port=5672, virtual_host="/")
+    tripwire.pika.assert_channel()
+    tripwire.pika.assert_publish(
         exchange="", routing_key="tasks", body=b"hello", properties=None,
     )
-    bigfoot.pika.assert_close()
+    tripwire.pika.assert_close()
 ```
 
 For manual use outside pytest, construct `PikaPlugin` explicitly:
 
 ```python
-from bigfoot import StrictVerifier
-from bigfoot.plugins.pika_plugin import PikaPlugin
+from tripwire import StrictVerifier
+from tripwire.plugins.pika_plugin import PikaPlugin
 
 verifier = StrictVerifier()
 pika = PikaPlugin(verifier)
@@ -74,7 +74,7 @@ The `connect` step fires automatically during `pika.BlockingConnection(...)` con
 Use `new_session()` to create a `SessionHandle` and chain `.expect()` calls:
 
 ```python
-(bigfoot.pika
+(tripwire.pika
     .new_session()
     .expect("connect",  returns=None)
     .expect("channel",  returns=None)
@@ -106,12 +106,12 @@ Use `new_session()` to create a `SessionHandle` and chain `.expect()` calls:
 
 ## Asserting interactions
 
-Each step records an interaction on the timeline. Use the typed assertion helpers on `bigfoot.pika`:
+Each step records an interaction on the timeline. Use the typed assertion helpers on `tripwire.pika`:
 
 ### `assert_connect(*, host, port, virtual_host)`
 
 ```python
-bigfoot.pika.assert_connect(host="rabbitmq.example.com", port=5672, virtual_host="/")
+tripwire.pika.assert_connect(host="rabbitmq.example.com", port=5672, virtual_host="/")
 ```
 
 ### `assert_channel()`
@@ -119,13 +119,13 @@ bigfoot.pika.assert_connect(host="rabbitmq.example.com", port=5672, virtual_host
 No fields are required.
 
 ```python
-bigfoot.pika.assert_channel()
+tripwire.pika.assert_channel()
 ```
 
 ### `assert_publish(*, exchange, routing_key, body, properties)`
 
 ```python
-bigfoot.pika.assert_publish(
+tripwire.pika.assert_publish(
     exchange="", routing_key="tasks", body=b"process this", properties=None,
 )
 ```
@@ -133,19 +133,19 @@ bigfoot.pika.assert_publish(
 ### `assert_consume(*, queue, auto_ack)`
 
 ```python
-bigfoot.pika.assert_consume(queue="tasks", auto_ack=False)
+tripwire.pika.assert_consume(queue="tasks", auto_ack=False)
 ```
 
 ### `assert_ack(*, delivery_tag)`
 
 ```python
-bigfoot.pika.assert_ack(delivery_tag=1)
+tripwire.pika.assert_ack(delivery_tag=1)
 ```
 
 ### `assert_nack(*, delivery_tag, requeue)`
 
 ```python
-bigfoot.pika.assert_nack(delivery_tag=1, requeue=True)
+tripwire.pika.assert_nack(delivery_tag=1, requeue=True)
 ```
 
 ### `assert_close()`
@@ -153,7 +153,7 @@ bigfoot.pika.assert_nack(delivery_tag=1, requeue=True)
 No fields are required.
 
 ```python
-bigfoot.pika.assert_close()
+tripwire.pika.assert_close()
 ```
 
 ## Full example
@@ -176,10 +176,10 @@ A full consumer pattern with explicit acknowledgement:
 
 ```python
 import pika
-import bigfoot
+import tripwire
 
 def test_consume_and_ack():
-    (bigfoot.pika
+    (tripwire.pika
         .new_session()
         .expect("connect",  returns=None)
         .expect("channel",  returns=None)
@@ -187,7 +187,7 @@ def test_consume_and_ack():
         .expect("ack",      returns=None)
         .expect("close",    returns=None))
 
-    with bigfoot:
+    with tripwire:
         params = pika.ConnectionParameters(host="localhost")
         connection = pika.BlockingConnection(params)
         channel = connection.channel()
@@ -195,11 +195,11 @@ def test_consume_and_ack():
         channel.basic_ack(delivery_tag=1)
         connection.close()
 
-    bigfoot.pika.assert_connect(host="localhost", port=5672, virtual_host="/")
-    bigfoot.pika.assert_channel()
-    bigfoot.pika.assert_consume(queue="work", auto_ack=False)
-    bigfoot.pika.assert_ack(delivery_tag=1)
-    bigfoot.pika.assert_close()
+    tripwire.pika.assert_connect(host="localhost", port=5672, virtual_host="/")
+    tripwire.pika.assert_channel()
+    tripwire.pika.assert_consume(queue="work", auto_ack=False)
+    tripwire.pika.assert_ack(delivery_tag=1)
+    tripwire.pika.assert_close()
 ```
 
 ## Negative acknowledgement
@@ -208,7 +208,7 @@ Use `nack` to reject and optionally requeue a message:
 
 ```python
 def test_nack_and_requeue():
-    (bigfoot.pika
+    (tripwire.pika
         .new_session()
         .expect("connect",  returns=None)
         .expect("channel",  returns=None)
@@ -216,7 +216,7 @@ def test_nack_and_requeue():
         .expect("nack",     returns=None)
         .expect("close",    returns=None))
 
-    with bigfoot:
+    with tripwire:
         params = pika.ConnectionParameters(host="localhost")
         connection = pika.BlockingConnection(params)
         channel = connection.channel()
@@ -224,9 +224,9 @@ def test_nack_and_requeue():
         channel.basic_nack(delivery_tag=1, requeue=True)
         connection.close()
 
-    bigfoot.pika.assert_connect(host="localhost", port=5672, virtual_host="/")
-    bigfoot.pika.assert_channel()
-    bigfoot.pika.assert_consume(queue="work", auto_ack=False)
-    bigfoot.pika.assert_nack(delivery_tag=1, requeue=True)
-    bigfoot.pika.assert_close()
+    tripwire.pika.assert_connect(host="localhost", port=5672, virtual_host="/")
+    tripwire.pika.assert_channel()
+    tripwire.pika.assert_consume(queue="work", auto_ack=False)
+    tripwire.pika.assert_nack(delivery_tag=1, requeue=True)
+    tripwire.pika.assert_close()
 ```

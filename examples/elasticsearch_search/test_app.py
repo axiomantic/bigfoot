@@ -1,12 +1,12 @@
-"""Test Elasticsearch error log search using bigfoot elasticsearch."""
+"""Test Elasticsearch error log search using tripwire elasticsearch_mock."""
 
-import bigfoot
+import tripwire
 
 from .app import search_error_logs
 
 
 def test_search_error_logs():
-    bigfoot.elasticsearch.mock_operation(
+    tripwire.elasticsearch.mock_operation(
         "search",
         returns={
             "hits": {
@@ -19,7 +19,7 @@ def test_search_error_logs():
         },
     )
 
-    with bigfoot:
+    with tripwire:
         from elasticsearch import Elasticsearch
         es = Elasticsearch("http://localhost:9200")
         logs = search_error_logs(es, "app-logs", hours=12, max_results=50)
@@ -28,7 +28,7 @@ def test_search_error_logs():
     assert logs[0]["message"] == "timeout"
     assert logs[1]["message"] == "connection refused"
 
-    bigfoot.elasticsearch.assert_search(
+    tripwire.elasticsearch.assert_search(
         index="app-logs",
         query={
             "bool": {

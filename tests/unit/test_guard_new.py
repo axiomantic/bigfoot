@@ -1,9 +1,38 @@
-"""Tests for bigfoot._guard -- new allow/deny/restrict context managers."""
+"""Tests for tripwire._guard -- new allow/deny/restrict context managers.
 
-from bigfoot._firewall import Disposition, get_firewall_stack
-from bigfoot._firewall_request import HttpFirewallRequest, RedisFirewallRequest
-from bigfoot._guard import allow, deny, restrict
-from bigfoot._match import M
+C9 added a check that `tripwire.allow/deny/restrict` raise outside any
+active sandbox. The autouse `_set_active_verifier` fixture below sets
+`_active_verifier` to a sentinel for each test in this module so that
+the firewall stack mechanics can be exercised directly without standing
+up a full sandbox.
+"""
+
+from collections.abc import Generator
+
+import pytest
+
+from tripwire._context import _active_verifier
+from tripwire._firewall import Disposition, get_firewall_stack
+from tripwire._firewall_request import HttpFirewallRequest, RedisFirewallRequest
+from tripwire._guard import allow, deny, restrict
+from tripwire._match import M
+
+
+@pytest.fixture(autouse=True)
+def _set_active_verifier() -> Generator[None, None, None]:
+    """Satisfy C9 (`_active_verifier` must be set) without a real sandbox."""
+    from tripwire._verifier import StrictVerifier
+
+    StrictVerifier._suppress_direct_warning = True
+    try:
+        sentinel = StrictVerifier()
+    finally:
+        StrictVerifier._suppress_direct_warning = False
+    token = _active_verifier.set(sentinel)
+    try:
+        yield
+    finally:
+        _active_verifier.reset(token)
 
 
 class TestAllow:
@@ -29,7 +58,6 @@ class TestAllow:
         assert len(before.frames) == len(after.frames)
 
     def test_allow_empty_raises(self) -> None:
-        import pytest
         with pytest.raises(ValueError, match="at least one rule"):
             with allow():
                 pass

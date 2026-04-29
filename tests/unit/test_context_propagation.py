@@ -13,12 +13,12 @@ from unittest.mock import patch
 
 import pytest
 
-from bigfoot._context_propagation import (
+from tripwire._context_propagation import (
     install_context_propagation,
     uninstall_context_propagation,
 )
 
-# Use a fresh ContextVar for isolation from bigfoot's own vars
+# Use a fresh ContextVar for isolation from tripwire's own vars
 _test_var: contextvars.ContextVar[str] = contextvars.ContextVar("_test_var", default="unset")
 
 # Python 3.14t (free-threaded) natively inherits context to child threads,
@@ -31,7 +31,7 @@ _NATIVE_THREAD_CONTEXT = getattr(
 @pytest.fixture(autouse=True)
 def _ensure_uninstalled() -> Generator[None, None, None]:
     """Ensure context propagation is uninstalled for each test, then restore prior state."""
-    import bigfoot._context_propagation as cp
+    import tripwire._context_propagation as cp
     was_installed = cp._installed
     uninstall_context_propagation()
     yield
@@ -204,6 +204,82 @@ class TestThreadPoolExecutorPropagation:
         assert result1 == "first_submit"
         assert result2 == "second_submit"
 
+    def test_worker_base_context_does_not_inherit_parent_contextvars(self) -> None:
+        """Regression: worker thread's BASE context (the one that runs
+        ``set_result``, future done-callbacks, and the idle ``work_queue.get``
+        loop) MUST NOT inherit the spawning thread's ContextVars.
+
+        On PEP 703 free-threaded CPython 3.14+ with
+        ``sys.flags.thread_inherit_context``, a new thread inherits its
+        base context from the spawning thread. Without the empty-context
+        wrapper around ``_original_submit``, a long-lived ThreadPoolExecutor
+        worker spawned during a sandbox would carry ``_active_verifier`` (or
+        any other tripwire ContextVar) in its base context for the rest of
+        its life.
+
+        The work item itself still sees the captured caller context (because
+        ``ctx.run`` is what executes the user's function), but post-work
+        bookkeeping like ``Future.set_result`` and its done-callbacks runs
+        in the worker's BASE context. If that context held an active
+        verifier, our patched stdlib interceptors (socket, logging, etc.)
+        would fire on asyncio's internal self-pipe socket, raise
+        ``UnmockedInteractionError``, and the wakeup would be silently
+        dropped by ``Future._invoke_callbacks``, hanging the asyncio loop
+        in ``selector.select()`` forever.
+
+        This test asserts the invariant: a callback added to a future
+        completed by a TPE worker thread runs in a context where
+        ``_test_var.get()`` is the default, NOT the value the parent set
+        before submitting.
+        """
+        install_context_propagation()
+
+        # Pre-create the executor and warm a worker thread BEFORE setting
+        # the ContextVar, so that the callback test below can attach a
+        # done-callback to a future whose set_result will fire on a
+        # worker thread that is already waiting on the work queue.
+        captured: list[str] = []
+        callback_started = threading.Event()
+        gate = threading.Event()
+
+        def worker_blocks() -> str:
+            # Block until the test attaches the callback and signals.
+            assert gate.wait(timeout=5), "test never released the gate"
+            return _test_var.get()
+
+        def callback(_fut: concurrent.futures.Future[str]) -> None:
+            # This runs on the worker thread inside set_result(), AFTER
+            # ctx.run(work) returns. It executes in the worker's BASE
+            # context (not the captured caller context). With the fix,
+            # the base context is empty and _test_var.get() returns the
+            # default.
+            captured.append(_test_var.get())
+            callback_started.set()
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            # Set ContextVar AFTER pool exists; submit captures THIS context.
+            token = _test_var.set("parent_value")
+            future = pool.submit(worker_blocks)
+            future.add_done_callback(callback)
+            # Now release the worker so set_result + callback fire while
+            # the worker is still on its base context.
+            gate.set()
+            worker_saw = future.result(timeout=5)
+            assert callback_started.wait(timeout=5), "callback never ran"
+            _test_var.reset(token)
+
+        # The work item itself ran in the captured context.
+        assert worker_saw == "parent_value"
+        # The done-callback ran in the worker's BASE context, which must
+        # be empty (default value), not the parent's "parent_value".
+        assert captured == ["unset"], (
+            f"Worker thread base context leaked parent ContextVars: "
+            f"callback saw {captured[0]!r} instead of 'unset'. This is the "
+            f"asyncio-hang regression: future done-callbacks running in the "
+            f"worker's base context will see the parent's tripwire state and "
+            f"trigger interceptor failures on asyncio's self-pipe socket."
+        )
+
 
 # ---------------------------------------------------------------------------
 # Install / uninstall idempotency
@@ -252,23 +328,24 @@ class TestInstallUninstall:
 
 
 # ---------------------------------------------------------------------------
-# Bigfoot-specific ContextVar propagation
+# Tripwire-specific ContextVar propagation
 # ---------------------------------------------------------------------------
 
-from bigfoot._context import (
+from tripwire._config import GuardLevels
+from tripwire._context import (
     _active_verifier,
     _any_order_depth,
     _current_test_verifier,
     _guard_active,
-    _guard_level,
+    _guard_levels,
     _guard_patches_installed,
 )
-from bigfoot._recording import _recording_in_progress
-from bigfoot.plugins.file_io_plugin import _file_io_bypass
+from tripwire._recording import _recording_in_progress
+from tripwire.plugins.file_io_plugin import _file_io_bypass
 
 
-class TestBigfootContextVarsPropagation:
-    """Verify all bigfoot ContextVars propagate to child threads."""
+class TestTripwireContextVarsPropagation:
+    """Verify all tripwire ContextVars propagate to child threads."""
 
     @pytest.mark.parametrize(
         "var,value",
@@ -277,7 +354,7 @@ class TestBigfootContextVarsPropagation:
             (_any_order_depth, 3),
             (_current_test_verifier, object()),
             (_guard_active, True),
-            (_guard_level, "error"),
+            (_guard_levels, GuardLevels(default="error", overrides={})),
             (_guard_patches_installed, True),
             (_recording_in_progress, True),
             (_file_io_bypass, True),
@@ -287,18 +364,18 @@ class TestBigfootContextVarsPropagation:
             "any_order_depth",
             "current_test_verifier",
             "guard_active",
-            "guard_level",
+            "guard_levels",
             "guard_patches_installed",
             "recording_in_progress",
             "file_io_bypass",
         ],
     )
-    def test_bigfoot_contextvar_propagates_to_thread(
+    def test_tripwire_contextvar_propagates_to_thread(
         self,
         var: contextvars.ContextVar[object],
         value: object,
     ) -> None:
-        """Each bigfoot ContextVar value is visible in a child thread after install."""
+        """Each tripwire ContextVar value is visible in a child thread after install."""
         install_context_propagation()
         token = var.set(value)
         captured: list[object] = []
@@ -318,8 +395,8 @@ class TestBigfootContextVarsPropagation:
 # Guard mode propagation
 # ---------------------------------------------------------------------------
 
-from bigfoot._context import GuardPassThrough, get_verifier_or_raise
-from bigfoot._errors import GuardedCallError
+from tripwire._context import GuardPassThrough, get_verifier_or_raise
+from tripwire._errors import GuardedCallError
 
 
 class TestGuardModePropagation:
@@ -331,7 +408,10 @@ class TestGuardModePropagation:
 
         with contextlib.ExitStack() as stack:
             stack.callback(_guard_active.reset, _guard_active.set(True))
-            stack.callback(_guard_level.reset, _guard_level.set("error"))
+            stack.callback(
+                _guard_levels.reset,
+                _guard_levels.set(GuardLevels(default="error", overrides={})),
+            )
             stack.callback(_guard_patches_installed.reset, _guard_patches_installed.set(True))
             errors: list[BaseException] = []
 
@@ -350,14 +430,14 @@ class TestGuardModePropagation:
 
     def test_guard_firewall_allow_propagates_to_child_thread(self) -> None:
         """When a firewall allow rule matches, child thread passes through."""
-        from bigfoot._firewall import (
+        from tripwire._firewall import (
             Disposition,
             FirewallRule,
             FirewallStack,
             _firewall_stack,
         )
-        from bigfoot._firewall_request import HttpFirewallRequest
-        from bigfoot._match import M
+        from tripwire._firewall_request import HttpFirewallRequest
+        from tripwire._match import M
 
         install_context_propagation()
 
@@ -367,7 +447,10 @@ class TestGuardModePropagation:
 
         with contextlib.ExitStack() as stack:
             stack.callback(_guard_active.reset, _guard_active.set(True))
-            stack.callback(_guard_level.reset, _guard_level.set("error"))
+            stack.callback(
+                _guard_levels.reset,
+                _guard_levels.set(GuardLevels(default="error", overrides={})),
+            )
             stack.callback(_guard_patches_installed.reset, _guard_patches_installed.set(True))
             stack.callback(_firewall_stack.reset, _firewall_stack.set(allow_stack))
             errors: list[BaseException] = []
@@ -399,7 +482,7 @@ class TestPython314Detection:
     def test_thread_start_not_patched_when_runtime_handles_it(self) -> None:
         """When sys.flags.thread_inherit_context is True, Thread.start is not
         patched but _thread.start_new_thread IS (it doesn't natively inherit)."""
-        import bigfoot._context_propagation as cp
+        import tripwire._context_propagation as cp
 
         # Ensure clean state
         uninstall_context_propagation()
@@ -464,7 +547,7 @@ class TestThreadStartPatch:
     def test_thread_start_is_patched_and_restored(self) -> None:
         """After install, threading.Thread.start is patched;
         after uninstall it is restored to the original."""
-        import bigfoot._context_propagation as cp
+        import tripwire._context_propagation as cp
 
         original = threading.Thread.start
 

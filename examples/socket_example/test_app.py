@@ -1,24 +1,24 @@
-"""Test fetch_status using bigfoot socket."""
+"""Test fetch_status using tripwire socket_mock."""
 
-import bigfoot
+import tripwire
 
 from .app import fetch_status
 
 
 def test_fetch_status():
-    (bigfoot.socket
+    (tripwire.socket
         .new_session()
         .expect("connect",  returns=None)
         .expect("sendall",  returns=None)
         .expect("recv",     returns=b"OK 200\r\n")
         .expect("close",    returns=None))
 
-    with bigfoot:
+    with tripwire:
         result = fetch_status("monitoring.internal", 5000)
 
     assert result == "OK 200\r\n"
 
-    bigfoot.socket.assert_connect(host="monitoring.internal", port=5000)
-    bigfoot.socket.assert_sendall(data=b"STATUS\r\n")
-    bigfoot.socket.assert_recv(size=4096, data=b"OK 200\r\n")
-    bigfoot.socket.assert_close()
+    tripwire.socket.assert_connect(host="monitoring.internal", port=5000)
+    tripwire.socket.assert_sendall(data=b"STATUS\r\n")
+    tripwire.socket.assert_recv(size=4096, data=b"OK 200\r\n")
+    tripwire.socket.assert_close()

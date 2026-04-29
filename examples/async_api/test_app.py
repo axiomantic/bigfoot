@@ -1,8 +1,8 @@
-"""Test async API using bigfoot HTTP, asyncpg, and logging plugins."""
+"""Test async API using tripwire HTTP, asyncpg, and logging plugins."""
 
 import pytest
 
-import bigfoot
+import tripwire
 
 from .app import sync_user_data
 
@@ -10,20 +10,20 @@ from .app import sync_user_data
 @pytest.mark.asyncio
 async def test_sync_user_data_fetches_and_stores():
     # Mock the external API response
-    bigfoot.http.mock_response(
+    tripwire.http.mock_response(
         "GET",
         "https://api.example.com/users/1",
         json={"id": 1, "name": "Alice", "email": "alice@example.com"},
     )
 
     # Script the asyncpg session
-    bigfoot.asyncpg.new_session() \
+    tripwire.asyncpg.new_session() \
         .expect("connect", returns=None) \
         .expect("execute", returns="INSERT 0 1") \
         .expect("fetchrow", returns={"id": 1, "name": "Alice", "email": "alice@example.com"}) \
         .expect("close", returns=None)
 
-    async with bigfoot:
+    async with tripwire:
         result = await sync_user_data(
             user_id=1,
             db_url="postgresql://localhost/app",
@@ -33,7 +33,7 @@ async def test_sync_user_data_fetches_and_stores():
     assert result == {"id": 1, "name": "Alice", "email": "alice@example.com"}
 
     # Assert the HTTP request and response
-    bigfoot.http.assert_request(
+    tripwire.http.assert_request(
         method="GET",
         url="https://api.example.com/users/1",
     ).assert_response(
@@ -43,16 +43,16 @@ async def test_sync_user_data_fetches_and_stores():
     )
 
     # Assert the log message
-    bigfoot.log.assert_info("Fetched user 1 from API", "sync_api")
+    tripwire.log.assert_info("Fetched user 1 from API", "sync_api")
 
     # Assert the database interactions
-    bigfoot.asyncpg.assert_connect(dsn="postgresql://localhost/app")
-    bigfoot.asyncpg.assert_execute(
+    tripwire.asyncpg.assert_connect(dsn="postgresql://localhost/app")
+    tripwire.asyncpg.assert_execute(
         query="INSERT INTO users (id, name, email) VALUES ($1, $2, $3)",
         args=[1, "Alice", "alice@example.com"],
     )
-    bigfoot.asyncpg.assert_fetchrow(
+    tripwire.asyncpg.assert_fetchrow(
         query="SELECT * FROM users WHERE id = $1",
         args=[1],
     )
-    bigfoot.asyncpg.assert_close()
+    tripwire.asyncpg.assert_close()

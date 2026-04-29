@@ -1,22 +1,22 @@
-"""Test get_user_count using bigfoot asyncpg."""
+"""Test get_user_count using tripwire asyncpg_mock."""
 
-import bigfoot
+import tripwire
 
 from .app import get_user_count
 
 
 async def test_get_user_count():
-    (bigfoot.asyncpg
+    (tripwire.asyncpg
         .new_session()
         .expect("connect",  returns=None)
         .expect("fetchval", returns=42)
         .expect("close",    returns=None))
 
-    with bigfoot:
+    with tripwire:
         result = await get_user_count()
 
     assert result == 42
 
-    bigfoot.asyncpg.assert_connect(host="localhost", database="app", user="app")
-    bigfoot.asyncpg.assert_fetchval(query="SELECT count(*) FROM users", args=[])
-    bigfoot.asyncpg.assert_close()
+    tripwire.asyncpg.assert_connect(host="localhost", database="app", user="app")
+    tripwire.asyncpg.assert_fetchval(query="SELECT count(*) FROM users", args=[])
+    tripwire.asyncpg.assert_close()

@@ -3,29 +3,104 @@
 from __future__ import annotations
 
 import warnings
+from collections.abc import Generator
+from contextlib import contextmanager
 
 import pytest
 
-from bigfoot._context import (
+from tripwire._config import GuardLevels, _resolve_guard_levels
+from tripwire._context import (
     GuardPassThrough,
+    _active_verifier,
     _guard_active,
     get_verifier_or_raise,
 )
-from bigfoot._errors import GuardedCallError, GuardedCallWarning, SandboxNotActiveError
-from bigfoot._firewall import (
+from tripwire._errors import GuardedCallError, GuardedCallWarning, SandboxNotActiveError
+from tripwire._firewall import (
     Disposition,
     FirewallRule,
     FirewallStack,
     _firewall_stack,
 )
-from bigfoot._match import M
-from bigfoot.pytest_plugin import _resolve_guard_level
+from tripwire._match import M
+
+
+@contextmanager
+def _with_active_verifier() -> Generator[None, None, None]:
+    """Set `_active_verifier` to a sentinel for the duration of the block.
+
+    C9 added a check that `tripwire.allow/deny/restrict` raise outside any
+    active sandbox (i.e., when `_active_verifier` is None). Tests in this
+    file exercise the firewall stack mechanics or guard-mode pathways
+    without going through `with tripwire.sandbox():`; setting
+    `_active_verifier` directly satisfies the C9 gate without standing up
+    a full sandbox.
+    """
+    from tripwire._verifier import StrictVerifier
+
+    StrictVerifier._suppress_direct_warning = True
+    try:
+        sentinel = StrictVerifier()
+    finally:
+        StrictVerifier._suppress_direct_warning = False
+    token = _active_verifier.set(sentinel)
+    try:
+        yield
+    finally:
+        _active_verifier.reset(token)
+
+
+@contextmanager
+def _push_deny_direct(*protocols: str) -> Generator[None, None, None]:
+    """Push DENY frames onto the firewall stack directly, bypassing C9.
+
+    Tests of GUARD-mode behavior (no sandbox, no verifier) need to add a
+    DENY rule without going through `tripwire.deny(...)` (which now requires
+    an active verifier per C9). This helper duplicates the post-check body
+    of `tripwire.deny(...)` for tests that exercise guard-mode dispatch
+    while `_active_verifier` is intentionally None.
+    """
+    from tripwire._firewall import Disposition, FirewallRule
+
+    frames = tuple(
+        FirewallRule(pattern=M(protocol=p), disposition=Disposition.DENY)
+        for p in protocols
+    )
+    current = _firewall_stack.get()
+    new_stack = current.push(*frames)
+    token = _firewall_stack.set(new_stack)
+    try:
+        yield
+    finally:
+        _firewall_stack.reset(token)
+
+
+@contextmanager
+def _push_allow_direct(*protocols: str) -> Generator[None, None, None]:
+    """Push ALLOW frames onto the firewall stack directly, bypassing C9.
+
+    Companion to `_push_deny_direct`. Same rationale: guard-mode-only tests
+    need to add an ALLOW rule without an active verifier.
+    """
+    from tripwire._firewall import Disposition, FirewallRule
+
+    frames = tuple(
+        FirewallRule(pattern=M(protocol=p), disposition=Disposition.ALLOW)
+        for p in protocols
+    )
+    current = _firewall_stack.get()
+    new_stack = current.push(*frames)
+    token = _firewall_stack.set(new_stack)
+    try:
+        yield
+    finally:
+        _firewall_stack.reset(token)
 
 
 class TestGuardContextVars:
     """Test guard mode ContextVars exist and have correct defaults.
 
-    Note: the _bigfoot_guard autouse fixture sets _guard_active=True during
+    Note: the _tripwire_guard autouse fixture sets _guard_active=True during
     each test body, so runtime get() returns True. These tests verify the
     ContextVar's declared default and token-based set/reset behavior.
     """
@@ -89,10 +164,10 @@ class TestGuardPassThrough:
 class TestGuardedCallError:
     """Test GuardedCallError exception class."""
 
-    def test_inherits_from_bigfoot_error(self) -> None:
-        from bigfoot._errors import BigfootError
+    def test_inherits_from_tripwire_error(self) -> None:
+        from tripwire._errors import TripwireError
 
-        assert issubclass(GuardedCallError, BigfootError)
+        assert issubclass(GuardedCallError, TripwireError)
 
     def test_stores_source_id_and_plugin_name(self) -> None:
         err = GuardedCallError(source_id="dns:getaddrinfo:example.com", plugin_name="dns")
@@ -102,124 +177,132 @@ class TestGuardedCallError:
     def test_message_format(self) -> None:
         err = GuardedCallError(source_id="http:request", plugin_name="http")
         msg = str(err)
-        assert msg.startswith("GuardedCallError: 'http:request' blocked by bigfoot firewall.")
+        assert msg.startswith("GuardedCallError: 'http:request' blocked by tripwire firewall.")
         assert '@pytest.mark.allow("http")' in msg
-        assert 'with bigfoot.allow("http")' in msg
-        assert "with bigfoot:" in msg
-        assert "[tool.bigfoot.firewall]" in msg
-        assert "https://bigfoot.readthedocs.io/guides/guard-mode/" in msg
+        assert 'with tripwire.allow("http")' in msg
+        assert "with tripwire:" in msg
+        assert "[tool.tripwire.firewall]" in msg
+        assert "https://tripwire.readthedocs.io/guides/guard-mode/" in msg
         # Old sections removed
         assert "FOR PLUGIN AUTHORS" not in msg
         assert "FOR CONTRIBUTORS" not in msg
-        assert "bigfoot_verifier.sandbox()" not in msg
+        assert "tripwire_verifier.sandbox()" not in msg
         assert "Valid plugin names for allow():" not in msg
 
     def test_message_with_different_plugin(self) -> None:
         err = GuardedCallError(source_id="dns:getaddrinfo:example.com", plugin_name="dns")
         msg = str(err)
-        assert "'dns:getaddrinfo:example.com' blocked by bigfoot firewall." in msg
+        assert "'dns:getaddrinfo:example.com' blocked by tripwire firewall." in msg
         assert '@pytest.mark.allow("dns")' in msg
-        assert 'with bigfoot.allow("dns")' in msg
+        assert 'with tripwire.allow("dns")' in msg
 
 
-class TestSupportsGuard:
-    """Test supports_guard ClassVar on plugins."""
+class TestPassthroughSafe:
+    """Test passthrough_safe ClassVar on plugins (replaces the prior
+    supports_guard ClassVar; covered more exhaustively in
+    tests/unit/test_passthrough_safe.py)."""
 
-    def test_base_plugin_default_is_true(self) -> None:
-        from bigfoot._base_plugin import BasePlugin
+    def test_base_plugin_default_is_false(self) -> None:
+        from tripwire._base_plugin import BasePlugin
 
-        assert BasePlugin.supports_guard is True
+        assert BasePlugin.passthrough_safe is False
 
-    def test_mock_plugin_is_false(self) -> None:
-        from bigfoot._mock_plugin import MockPlugin
+    def test_mock_plugin_is_true(self) -> None:
+        from tripwire._mock_plugin import MockPlugin
 
-        assert MockPlugin.supports_guard is False
+        assert MockPlugin.passthrough_safe is True
 
-    def test_logging_plugin_is_false(self) -> None:
-        from bigfoot.plugins.logging_plugin import LoggingPlugin
+    def test_logging_plugin_is_true(self) -> None:
+        from tripwire.plugins.logging_plugin import LoggingPlugin
 
-        assert LoggingPlugin.supports_guard is False
+        assert LoggingPlugin.passthrough_safe is True
 
-    def test_jwt_plugin_is_false(self) -> None:
-        from bigfoot.plugins.jwt_plugin import JwtPlugin
+    def test_jwt_plugin_is_true(self) -> None:
+        from tripwire.plugins.jwt_plugin import JwtPlugin
 
-        assert JwtPlugin.supports_guard is False
+        assert JwtPlugin.passthrough_safe is True
 
-    def test_crypto_plugin_is_false(self) -> None:
-        from bigfoot.plugins.crypto_plugin import CryptoPlugin
+    def test_crypto_plugin_is_true(self) -> None:
+        from tripwire.plugins.crypto_plugin import CryptoPlugin
 
-        assert CryptoPlugin.supports_guard is False
+        assert CryptoPlugin.passthrough_safe is True
 
     def test_native_plugin_is_false(self) -> None:
-        from bigfoot.plugins.native_plugin import NativePlugin
+        # Passthrough loads real native libraries (ctypes.CDLL / cffi.FFI.dlopen).
+        from tripwire.plugins.native_plugin import NativePlugin
 
-        assert NativePlugin.supports_guard is False
+        assert NativePlugin.passthrough_safe is False
 
     def test_celery_plugin_is_false(self) -> None:
-        from bigfoot.plugins.celery_plugin import CeleryPlugin
+        # Passthrough enqueues real broker messages via Task.delay /
+        # Task.apply_async.
+        from tripwire.plugins.celery_plugin import CeleryPlugin
 
-        assert CeleryPlugin.supports_guard is False
+        assert CeleryPlugin.passthrough_safe is False
 
     def test_file_io_plugin_is_false(self) -> None:
-        from bigfoot.plugins.file_io_plugin import FileIoPlugin
+        # Passthrough performs real disk I/O via builtins.open / Path methods.
+        from tripwire.plugins.file_io_plugin import FileIoPlugin
 
-        assert FileIoPlugin.supports_guard is False
+        assert FileIoPlugin.passthrough_safe is False
 
-    def test_dns_plugin_inherits_true(self) -> None:
-        from bigfoot.plugins.dns_plugin import DnsPlugin
+    def test_dns_plugin_is_false(self) -> None:
+        from tripwire.plugins.dns_plugin import DnsPlugin
 
-        assert DnsPlugin.supports_guard is True
+        assert DnsPlugin.passthrough_safe is False
 
-    def test_http_plugin_inherits_true(self) -> None:
-        from bigfoot.plugins.http import HttpPlugin
+    def test_http_plugin_is_false(self) -> None:
+        from tripwire.plugins.http import HttpPlugin
 
-        assert HttpPlugin.supports_guard is True
+        assert HttpPlugin.passthrough_safe is False
 
-    def test_socket_plugin_inherits_true(self) -> None:
-        from bigfoot.plugins.socket_plugin import SocketPlugin
+    def test_socket_plugin_is_false(self) -> None:
+        from tripwire.plugins.socket_plugin import SocketPlugin
 
-        assert SocketPlugin.supports_guard is True
+        assert SocketPlugin.passthrough_safe is False
 
 
-from bigfoot._guard import allow
+from tripwire._guard import allow
 
 
 class TestAllow:
     """Test allow() context manager pushes ALLOW rules onto firewall stack."""
 
     def test_pushes_allow_rules_and_resets(self) -> None:
-        from bigfoot._firewall_request import NetworkFirewallRequest
+        from tripwire._firewall_request import NetworkFirewallRequest
 
-        stack_before = _firewall_stack.get()
-        with allow("dns", "socket"):
-            stack_inside = _firewall_stack.get()
-            # Two new ALLOW frames pushed
-            assert len(stack_inside.frames) == len(stack_before.frames) + 2
-            # DNS request should be ALLOW'd
-            dns_req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
-            assert stack_inside.evaluate(dns_req) == Disposition.ALLOW
-            # Socket request should be ALLOW'd
-            sock_req = NetworkFirewallRequest(protocol="socket", host="127.0.0.1", port=80)
-            assert stack_inside.evaluate(sock_req) == Disposition.ALLOW
-        # After exit, stack is restored
-        assert _firewall_stack.get() is stack_before
+        with _with_active_verifier():
+            stack_before = _firewall_stack.get()
+            with allow("dns", "socket"):
+                stack_inside = _firewall_stack.get()
+                # Two new ALLOW frames pushed
+                assert len(stack_inside.frames) == len(stack_before.frames) + 2
+                # DNS request should be ALLOW'd
+                dns_req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
+                assert stack_inside.evaluate(dns_req) == Disposition.ALLOW
+                # Socket request should be ALLOW'd
+                sock_req = NetworkFirewallRequest(protocol="socket", host="127.0.0.1", port=80)
+                assert stack_inside.evaluate(sock_req) == Disposition.ALLOW
+            # After exit, stack is restored
+            assert _firewall_stack.get() is stack_before
 
     def test_nestable_stacks_rules(self) -> None:
-        from bigfoot._firewall_request import NetworkFirewallRequest
+        from tripwire._firewall_request import NetworkFirewallRequest
 
-        stack_before = _firewall_stack.get()
-        with allow("dns"):
-            stack_dns = _firewall_stack.get()
-            dns_req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
-            assert stack_dns.evaluate(dns_req) == Disposition.ALLOW
-            with allow("socket"):
-                stack_both = _firewall_stack.get()
-                sock_req = NetworkFirewallRequest(protocol="socket", host="127.0.0.1", port=80)
-                assert stack_both.evaluate(dns_req) == Disposition.ALLOW
-                assert stack_both.evaluate(sock_req) == Disposition.ALLOW
-            # socket rule removed after inner exit
-            assert _firewall_stack.get() is stack_dns
-        assert _firewall_stack.get() is stack_before
+        with _with_active_verifier():
+            stack_before = _firewall_stack.get()
+            with allow("dns"):
+                stack_dns = _firewall_stack.get()
+                dns_req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
+                assert stack_dns.evaluate(dns_req) == Disposition.ALLOW
+                with allow("socket"):
+                    stack_both = _firewall_stack.get()
+                    sock_req = NetworkFirewallRequest(protocol="socket", host="127.0.0.1", port=80)
+                    assert stack_both.evaluate(dns_req) == Disposition.ALLOW
+                    assert stack_both.evaluate(sock_req) == Disposition.ALLOW
+                # socket rule removed after inner exit
+                assert _firewall_stack.get() is stack_dns
+            assert _firewall_stack.get() is stack_before
 
     def test_requires_at_least_one_rule(self) -> None:
         with pytest.raises(ValueError, match="allow\\(\\) requires at least one rule"):
@@ -227,246 +310,270 @@ class TestAllow:
                 pass
 
     def test_single_protocol_name(self) -> None:
-        from bigfoot._firewall_request import NetworkFirewallRequest
+        from tripwire._firewall_request import NetworkFirewallRequest
 
-        with allow("http"):
-            stack = _firewall_stack.get()
-            http_req = NetworkFirewallRequest(protocol="http", host="example.com", port=80)
-            assert stack.evaluate(http_req) == Disposition.ALLOW
+        with _with_active_verifier():
+            with allow("http"):
+                stack = _firewall_stack.get()
+                http_req = NetworkFirewallRequest(protocol="http", host="example.com", port=80)
+                assert stack.evaluate(http_req) == Disposition.ALLOW
 
     def test_resets_on_exception(self) -> None:
-        stack_before = _firewall_stack.get()
-        with pytest.raises(ValueError, match="boom"):
-            with allow("dns"):
-                raise ValueError("boom")
-        assert _firewall_stack.get() is stack_before
+        with _with_active_verifier():
+            stack_before = _firewall_stack.get()
+            with pytest.raises(ValueError, match="boom"):
+                with allow("dns"):
+                    raise ValueError("boom")
+            assert _firewall_stack.get() is stack_before
 
 
 class TestDeny:
     """Test deny() context manager pushes DENY rules onto firewall stack."""
 
     def test_deny_blocks_allowed_protocol(self) -> None:
-        from bigfoot._firewall_request import NetworkFirewallRequest
-        from bigfoot._guard import deny
+        from tripwire._firewall_request import NetworkFirewallRequest
+        from tripwire._guard import deny
 
         dns_req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
         sock_req = NetworkFirewallRequest(protocol="socket", host="127.0.0.1", port=80)
 
-        with allow("dns", "socket"):
-            assert _firewall_stack.get().evaluate(dns_req) == Disposition.ALLOW
-            assert _firewall_stack.get().evaluate(sock_req) == Disposition.ALLOW
-            with deny("socket"):
-                # socket should now be DENY'd, dns still ALLOW'd
+        with _with_active_verifier():
+            with allow("dns", "socket"):
                 assert _firewall_stack.get().evaluate(dns_req) == Disposition.ALLOW
-                assert _firewall_stack.get().evaluate(sock_req) == Disposition.DENY
-            # After exiting deny, socket allowed again
-            assert _firewall_stack.get().evaluate(sock_req) == Disposition.ALLOW
+                assert _firewall_stack.get().evaluate(sock_req) == Disposition.ALLOW
+                with deny("socket"):
+                    # socket should now be DENY'd, dns still ALLOW'd
+                    assert _firewall_stack.get().evaluate(dns_req) == Disposition.ALLOW
+                    assert _firewall_stack.get().evaluate(sock_req) == Disposition.DENY
+                # After exiting deny, socket allowed again
+                assert _firewall_stack.get().evaluate(sock_req) == Disposition.ALLOW
 
     def test_deny_without_allow_keeps_deny(self) -> None:
-        from bigfoot._firewall_request import NetworkFirewallRequest
-        from bigfoot._guard import deny
+        from tripwire._firewall_request import NetworkFirewallRequest
+        from tripwire._guard import deny
 
         dns_req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
         # Default disposition is DENY, so deny on top of empty stack still denies
-        with deny("dns"):
-            assert _firewall_stack.get().evaluate(dns_req) == Disposition.DENY
+        with _with_active_verifier():
+            with deny("dns"):
+                assert _firewall_stack.get().evaluate(dns_req) == Disposition.DENY
 
     def test_deny_resets_on_exception(self) -> None:
-        from bigfoot._guard import deny
+        from tripwire._guard import deny
 
-        stack_before = _firewall_stack.get()
-        with pytest.raises(ValueError, match="boom"):
-            with allow("dns", "socket"):
-                with deny("socket"):
-                    raise ValueError("boom")
-        assert _firewall_stack.get() is stack_before
+        with _with_active_verifier():
+            stack_before = _firewall_stack.get()
+            with pytest.raises(ValueError, match="boom"):
+                with allow("dns", "socket"):
+                    with deny("socket"):
+                        raise ValueError("boom")
+            assert _firewall_stack.get() is stack_before
 
     def test_deny_requires_at_least_one_rule(self) -> None:
-        from bigfoot._guard import deny
+        from tripwire._guard import deny
 
         with pytest.raises(ValueError, match="deny\\(\\) requires at least one rule"):
             with deny():
                 pass
 
     def test_nested_deny(self) -> None:
-        from bigfoot._firewall_request import NetworkFirewallRequest
-        from bigfoot._guard import deny
+        from tripwire._firewall_request import NetworkFirewallRequest
+        from tripwire._guard import deny
 
         dns_req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
         sock_req = NetworkFirewallRequest(protocol="socket", host="127.0.0.1", port=80)
         http_req = NetworkFirewallRequest(protocol="http", host="example.com", port=80)
 
-        with allow("dns", "socket", "http"):
-            with deny("socket"):
-                assert _firewall_stack.get().evaluate(dns_req) == Disposition.ALLOW
-                assert _firewall_stack.get().evaluate(http_req) == Disposition.ALLOW
-                assert _firewall_stack.get().evaluate(sock_req) == Disposition.DENY
-                with deny("dns"):
+        with _with_active_verifier():
+            with allow("dns", "socket", "http"):
+                with deny("socket"):
+                    assert _firewall_stack.get().evaluate(dns_req) == Disposition.ALLOW
                     assert _firewall_stack.get().evaluate(http_req) == Disposition.ALLOW
-                    assert _firewall_stack.get().evaluate(dns_req) == Disposition.DENY
                     assert _firewall_stack.get().evaluate(sock_req) == Disposition.DENY
-                assert _firewall_stack.get().evaluate(dns_req) == Disposition.ALLOW
-            assert _firewall_stack.get().evaluate(sock_req) == Disposition.ALLOW
+                    with deny("dns"):
+                        assert _firewall_stack.get().evaluate(http_req) == Disposition.ALLOW
+                        assert _firewall_stack.get().evaluate(dns_req) == Disposition.DENY
+                        assert _firewall_stack.get().evaluate(sock_req) == Disposition.DENY
+                    assert _firewall_stack.get().evaluate(dns_req) == Disposition.ALLOW
+                assert _firewall_stack.get().evaluate(sock_req) == Disposition.ALLOW
 
 
 class TestRestrict:
     """Test restrict() context manager pushes restriction ceiling onto firewall stack."""
 
     def test_restrict_blocks_non_matching_protocols(self) -> None:
-        from bigfoot._firewall_request import NetworkFirewallRequest
-        from bigfoot._guard import restrict
+        from tripwire._firewall_request import NetworkFirewallRequest
+        from tripwire._guard import restrict
 
         http_req = NetworkFirewallRequest(protocol="http", host="example.com", port=80)
         redis_req = NetworkFirewallRequest(protocol="redis", host="localhost", port=6379)
 
-        with allow("http", "redis"):
-            # Both allowed before restrict
-            assert _firewall_stack.get().evaluate(http_req) == Disposition.ALLOW
-            assert _firewall_stack.get().evaluate(redis_req) == Disposition.ALLOW
-            with restrict("http"):
-                # Only HTTP passes the restrict ceiling
-                with allow("http"):
-                    assert _firewall_stack.get().evaluate(http_req) == Disposition.ALLOW
-                assert _firewall_stack.get().evaluate(redis_req) == Disposition.DENY
+        with _with_active_verifier():
+            with allow("http", "redis"):
+                # Both allowed before restrict
+                assert _firewall_stack.get().evaluate(http_req) == Disposition.ALLOW
+                assert _firewall_stack.get().evaluate(redis_req) == Disposition.ALLOW
+                with restrict("http"):
+                    # Only HTTP passes the restrict ceiling
+                    with allow("http"):
+                        assert _firewall_stack.get().evaluate(http_req) == Disposition.ALLOW
+                    assert _firewall_stack.get().evaluate(redis_req) == Disposition.DENY
 
     def test_restrict_resets_on_exit(self) -> None:
-        from bigfoot._guard import restrict
+        from tripwire._guard import restrict
 
-        stack_before = _firewall_stack.get()
-        with restrict("http"):
-            pass
-        assert _firewall_stack.get() is stack_before
+        with _with_active_verifier():
+            stack_before = _firewall_stack.get()
+            with restrict("http"):
+                pass
+            assert _firewall_stack.get() is stack_before
 
     def test_restrict_requires_at_least_one_rule(self) -> None:
-        from bigfoot._guard import restrict
+        from tripwire._guard import restrict
 
         with pytest.raises(ValueError, match="restrict\\(\\) requires at least one rule"):
             with restrict():
                 pass
 
     def test_restrict_multiple_protocols_ored(self) -> None:
-        from bigfoot._firewall_request import NetworkFirewallRequest
-        from bigfoot._guard import restrict
+        from tripwire._firewall_request import NetworkFirewallRequest
+        from tripwire._guard import restrict
 
         http_req = NetworkFirewallRequest(protocol="http", host="example.com", port=80)
         dns_req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
         redis_req = NetworkFirewallRequest(protocol="redis", host="localhost", port=6379)
 
-        with restrict("http", "dns"):
-            with allow("http", "dns", "redis"):
-                assert _firewall_stack.get().evaluate(http_req) == Disposition.ALLOW
-                assert _firewall_stack.get().evaluate(dns_req) == Disposition.ALLOW
-                # Redis is not in the restrict set, so blocked by ceiling
-                assert _firewall_stack.get().evaluate(redis_req) == Disposition.DENY
+        with _with_active_verifier():
+            with restrict("http", "dns"):
+                with allow("http", "dns", "redis"):
+                    assert _firewall_stack.get().evaluate(http_req) == Disposition.ALLOW
+                    assert _firewall_stack.get().evaluate(dns_req) == Disposition.ALLOW
+                    # Redis is not in the restrict set, so blocked by ceiling
+                    assert _firewall_stack.get().evaluate(redis_req) == Disposition.DENY
 
     def test_restrict_inner_allow_cannot_widen_ceiling(self) -> None:
-        from bigfoot._firewall_request import NetworkFirewallRequest
-        from bigfoot._guard import restrict
+        from tripwire._firewall_request import NetworkFirewallRequest
+        from tripwire._guard import restrict
 
         redis_req = NetworkFirewallRequest(protocol="redis", host="localhost", port=6379)
 
-        with restrict("http"):
-            # Inner allow("redis") should NOT widen past the HTTP ceiling
-            with allow("redis"):
-                assert _firewall_stack.get().evaluate(redis_req) == Disposition.DENY
+        with _with_active_verifier():
+            with restrict("http"):
+                # Inner allow("redis") should NOT widen past the HTTP ceiling
+                with allow("redis"):
+                    assert _firewall_stack.get().evaluate(redis_req) == Disposition.DENY
 
 
 class TestPublicExports:
-    """Test that guard mode symbols are exported from bigfoot package."""
+    """Test that guard mode symbols are exported from tripwire package."""
 
-    def test_allow_importable_from_bigfoot(self) -> None:
-        from bigfoot import allow as bigfoot_allow
+    def test_allow_importable_from_tripwire(self) -> None:
+        from tripwire import allow as tripwire_allow
 
-        assert callable(bigfoot_allow)
+        assert callable(tripwire_allow)
 
-    def test_deny_importable_from_bigfoot(self) -> None:
-        from bigfoot import deny as bigfoot_deny
+    def test_deny_importable_from_tripwire(self) -> None:
+        from tripwire import deny as tripwire_deny
 
-        assert callable(bigfoot_deny)
+        assert callable(tripwire_deny)
 
-    def test_restrict_importable_from_bigfoot(self) -> None:
-        from bigfoot import restrict as bigfoot_restrict
+    def test_restrict_importable_from_tripwire(self) -> None:
+        from tripwire import restrict as tripwire_restrict
 
-        assert callable(bigfoot_restrict)
+        assert callable(tripwire_restrict)
 
-    def test_guarded_call_error_importable_from_bigfoot(self) -> None:
-        from bigfoot import GuardedCallError as BigfootGuardedCallError
+    def test_guarded_call_error_importable_from_tripwire(self) -> None:
+        from tripwire import GuardedCallError as TripwireGuardedCallError
 
-        assert issubclass(BigfootGuardedCallError, Exception)
+        assert issubclass(TripwireGuardedCallError, Exception)
 
     def test_allow_in_all(self) -> None:
-        import bigfoot
+        import tripwire
 
-        assert "allow" in bigfoot.__all__
+        assert "allow" in tripwire.__all__
 
     def test_restrict_in_all(self) -> None:
-        import bigfoot
+        import tripwire
 
-        assert "restrict" in bigfoot.__all__
+        assert "restrict" in tripwire.__all__
 
     def test_guarded_call_error_in_all(self) -> None:
-        import bigfoot
+        import tripwire
 
-        assert "GuardedCallError" in bigfoot.__all__
+        assert "GuardedCallError" in tripwire.__all__
 
-    def test_guarded_call_warning_importable_from_bigfoot(self) -> None:
-        from bigfoot import GuardedCallWarning as BigfootGuardedCallWarning
+    def test_guarded_call_warning_importable_from_tripwire(self) -> None:
+        from tripwire import GuardedCallWarning as TripwireGuardedCallWarning
 
-        assert issubclass(BigfootGuardedCallWarning, UserWarning)
+        assert issubclass(TripwireGuardedCallWarning, UserWarning)
 
     def test_guarded_call_warning_in_all(self) -> None:
-        import bigfoot
+        import tripwire
 
-        assert "GuardedCallWarning" in bigfoot.__all__
+        assert "GuardedCallWarning" in tripwire.__all__
 
 
 class TestResolveGuardLevel:
-    """Test _resolve_guard_level config parser."""
+    """Test _resolve_guard_levels config parser (scalar form)."""
 
-    def test_absent_key_returns_warn(self) -> None:
-        """Missing guard key defaults to 'warn'."""
-        assert _resolve_guard_level({}) == "warn"
+    def test_absent_key_returns_error(self) -> None:
+        """Missing guard key defaults to 'error' as of 0.20.0 (Proposal 1 default flip)."""
+        assert _resolve_guard_levels({}) == GuardLevels(default="error", overrides={})
 
     def test_warn_string_returns_warn(self) -> None:
-        assert _resolve_guard_level({"guard": "warn"}) == "warn"
+        assert _resolve_guard_levels({"guard": "warn"}) == GuardLevels(
+            default="warn", overrides={}
+        )
 
     def test_error_string_returns_error(self) -> None:
-        assert _resolve_guard_level({"guard": "error"}) == "error"
+        assert _resolve_guard_levels({"guard": "error"}) == GuardLevels(
+            default="error", overrides={}
+        )
 
     def test_strict_string_returns_error(self) -> None:
         """'strict' is an alias for 'error'."""
-        assert _resolve_guard_level({"guard": "strict"}) == "error"
+        assert _resolve_guard_levels({"guard": "strict"}) == GuardLevels(
+            default="error", overrides={}
+        )
 
     def test_false_returns_off(self) -> None:
-        assert _resolve_guard_level({"guard": False}) == "off"
+        assert _resolve_guard_levels({"guard": False}) == GuardLevels(
+            default="off", overrides={}
+        )
 
     def test_true_rejected_with_config_error(self) -> None:
         """guard = true is ambiguous and must be rejected."""
-        from bigfoot._errors import BigfootConfigError
+        from tripwire._errors import TripwireConfigError
 
-        with pytest.raises(BigfootConfigError, match="guard = true is ambiguous"):
-            _resolve_guard_level({"guard": True})
+        with pytest.raises(TripwireConfigError, match="guard = true is not a valid value"):
+            _resolve_guard_levels({"guard": True})
 
     def test_invalid_string_rejected(self) -> None:
-        from bigfoot._errors import BigfootConfigError
+        from tripwire._errors import TripwireConfigError
 
-        with pytest.raises(BigfootConfigError, match="Invalid guard value"):
-            _resolve_guard_level({"guard": "invalid"})
+        with pytest.raises(TripwireConfigError, match="Invalid value 'invalid' for"):
+            _resolve_guard_levels({"guard": "invalid"})
 
     def test_invalid_type_rejected(self) -> None:
-        from bigfoot._errors import BigfootConfigError
+        from tripwire._errors import TripwireConfigError
 
-        with pytest.raises(BigfootConfigError, match="guard must be a string or false"):
-            _resolve_guard_level({"guard": 42})
+        with pytest.raises(TripwireConfigError, match="guard must be a string, bool, or a table"):
+            _resolve_guard_levels({"guard": 42})
 
     def test_case_insensitive_warn(self) -> None:
-        assert _resolve_guard_level({"guard": "WARN"}) == "warn"
+        assert _resolve_guard_levels({"guard": "WARN"}) == GuardLevels(
+            default="warn", overrides={}
+        )
 
     def test_case_insensitive_error(self) -> None:
-        assert _resolve_guard_level({"guard": "ERROR"}) == "error"
+        assert _resolve_guard_levels({"guard": "ERROR"}) == GuardLevels(
+            default="error", overrides={}
+        )
 
     def test_case_insensitive_strict(self) -> None:
-        assert _resolve_guard_level({"guard": "STRICT"}) == "error"
+        assert _resolve_guard_levels({"guard": "STRICT"}) == GuardLevels(
+            default="error", overrides={}
+        )
 
 
 class TestGuardedCallWarningClass:
@@ -475,11 +582,11 @@ class TestGuardedCallWarningClass:
     def test_is_user_warning(self) -> None:
         assert issubclass(GuardedCallWarning, UserWarning)
 
-    def test_not_bigfoot_error(self) -> None:
-        """GuardedCallWarning is a warning, not a BigfootError."""
-        from bigfoot._errors import BigfootError
+    def test_not_tripwire_error(self) -> None:
+        """GuardedCallWarning is a warning, not a TripwireError."""
+        from tripwire._errors import TripwireError
 
-        assert not issubclass(GuardedCallWarning, BigfootError)
+        assert not issubclass(GuardedCallWarning, TripwireError)
 
 
 class TestWarnModeBehavior:
@@ -487,104 +594,114 @@ class TestWarnModeBehavior:
 
     def test_warn_mode_emits_warning(self) -> None:
         """Guard in warn mode emits GuardedCallWarning."""
-        from bigfoot._context import _guard_level
-        from bigfoot._firewall_request import NetworkFirewallRequest
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
+        from tripwire._firewall_request import NetworkFirewallRequest
 
-        level_token = _guard_level.set("warn")
+        level_token = _guard_levels.set(GuardLevels(default="warn", overrides={}))
         guard_token = _guard_active.set(True)
         try:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
-                # Use http (not dns/socket) so the project-level firewall
-                # allow = ["dns:*", "socket:*"] does not suppress the warning.
-                req = NetworkFirewallRequest(protocol="http", host="example.com", port=80)
+                # Use jwt (passthrough_safe=True) so the warn-unsafe
+                # gate does not fire; project-level firewall allow rules
+                # only cover dns/socket so this DENY hits the warn path.
+                # 'jwt' is preferred over 'crypto' so this test runs on
+                # the 3.14t free-threaded build, where the cryptography
+                # wheel is unavailable.
+                req = NetworkFirewallRequest(protocol="jwt", host="local", port=0)
                 with pytest.raises(GuardPassThrough):
-                    get_verifier_or_raise("http:request", firewall_request=req)
+                    get_verifier_or_raise("jwt:encode", firewall_request=req)
                 assert len(w) == 1
                 assert issubclass(w[0].category, GuardedCallWarning)
         finally:
             _guard_active.reset(guard_token)
-            _guard_level.reset(level_token)
+            _guard_levels.reset(level_token)
 
     def test_warn_mode_raises_guard_pass_through(self) -> None:
         """After warning, GuardPassThrough is raised (real call proceeds)."""
-        from bigfoot._context import _guard_level
-        from bigfoot._firewall_request import NetworkFirewallRequest
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
+        from tripwire._firewall_request import NetworkFirewallRequest
 
-        level_token = _guard_level.set("warn")
+        level_token = _guard_levels.set(GuardLevels(default="warn", overrides={}))
         guard_token = _guard_active.set(True)
         try:
             with warnings.catch_warnings(record=True):
                 warnings.simplefilter("always")
-                req = NetworkFirewallRequest(protocol="http", host="example.com", port=80)
+                req = NetworkFirewallRequest(protocol="jwt", host="local", port=0)
                 with pytest.raises(GuardPassThrough):
-                    get_verifier_or_raise("http:request", firewall_request=req)
+                    get_verifier_or_raise("jwt:encode", firewall_request=req)
         finally:
             _guard_active.reset(guard_token)
-            _guard_level.reset(level_token)
+            _guard_levels.reset(level_token)
 
     def test_warn_mode_warning_is_filterable(self) -> None:
         """warnings.filterwarnings('ignore') suppresses GuardedCallWarning."""
-        from bigfoot._context import _guard_level
-        from bigfoot._firewall_request import NetworkFirewallRequest
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
+        from tripwire._firewall_request import NetworkFirewallRequest
 
-        level_token = _guard_level.set("warn")
+        level_token = _guard_levels.set(GuardLevels(default="warn", overrides={}))
         guard_token = _guard_active.set(True)
         try:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
                 warnings.filterwarnings("ignore", category=GuardedCallWarning)
-                req = NetworkFirewallRequest(protocol="http", host="example.com", port=80)
+                req = NetworkFirewallRequest(protocol="jwt", host="local", port=0)
                 with pytest.raises(GuardPassThrough):
-                    get_verifier_or_raise("http:request", firewall_request=req)
+                    get_verifier_or_raise("jwt:encode", firewall_request=req)
                 assert len(w) == 0
         finally:
             _guard_active.reset(guard_token)
-            _guard_level.reset(level_token)
+            _guard_levels.reset(level_token)
 
     def test_warn_mode_warning_contains_source_id(self) -> None:
         """Warning message includes the source_id."""
-        from bigfoot._context import _guard_level
-        from bigfoot._firewall_request import NetworkFirewallRequest
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
+        from tripwire._firewall_request import NetworkFirewallRequest
 
-        level_token = _guard_level.set("warn")
+        level_token = _guard_levels.set(GuardLevels(default="warn", overrides={}))
         guard_token = _guard_active.set(True)
         try:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
-                req = NetworkFirewallRequest(protocol="http", host="example.com", port=80)
+                req = NetworkFirewallRequest(protocol="jwt", host="local", port=0)
                 with pytest.raises(GuardPassThrough):
-                    get_verifier_or_raise("http:request", firewall_request=req)
-                assert "'http:request'" in str(w[0].message)
+                    get_verifier_or_raise("jwt:encode", firewall_request=req)
+                assert "'jwt:encode'" in str(w[0].message)
         finally:
             _guard_active.reset(guard_token)
-            _guard_level.reset(level_token)
+            _guard_levels.reset(level_token)
 
     def test_warn_mode_warning_contains_blocked_by_firewall(self) -> None:
         """Warning message says 'blocked by firewall'."""
-        from bigfoot._context import _guard_level
-        from bigfoot._firewall_request import NetworkFirewallRequest
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
+        from tripwire._firewall_request import NetworkFirewallRequest
 
-        level_token = _guard_level.set("warn")
+        level_token = _guard_levels.set(GuardLevels(default="warn", overrides={}))
         guard_token = _guard_active.set(True)
         try:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
-                req = NetworkFirewallRequest(protocol="http", host="example.com", port=80)
+                req = NetworkFirewallRequest(protocol="jwt", host="local", port=0)
                 with pytest.raises(GuardPassThrough):
-                    get_verifier_or_raise("http:request", firewall_request=req)
+                    get_verifier_or_raise("jwt:encode", firewall_request=req)
                 msg = str(w[0].message)
                 assert "blocked by firewall" in msg
         finally:
             _guard_active.reset(guard_token)
-            _guard_level.reset(level_token)
+            _guard_levels.reset(level_token)
 
     def test_error_mode_raises_guarded_call_error(self) -> None:
         """Guard in error mode raises GuardedCallError (not a warning)."""
-        from bigfoot._context import _guard_level
-        from bigfoot._firewall_request import NetworkFirewallRequest
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
+        from tripwire._firewall_request import NetworkFirewallRequest
 
-        level_token = _guard_level.set("error")
+        level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
         guard_token = _guard_active.set(True)
         try:
             req = NetworkFirewallRequest(protocol="http", host="example.com", port=80)
@@ -592,17 +709,20 @@ class TestWarnModeBehavior:
                 get_verifier_or_raise("http:request", firewall_request=req)
         finally:
             _guard_active.reset(guard_token)
-            _guard_level.reset(level_token)
+            _guard_levels.reset(level_token)
 
     def test_firewall_allow_in_warn_mode_suppresses_warning(self) -> None:
         """Allowed protocols don't emit warnings even in warn mode."""
-        from bigfoot._context import _guard_level
-        from bigfoot._firewall_request import NetworkFirewallRequest
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
+        from tripwire._firewall_request import NetworkFirewallRequest
 
-        level_token = _guard_level.set("warn")
+        level_token = _guard_levels.set(GuardLevels(default="warn", overrides={}))
         guard_token = _guard_active.set(True)
-        # Push an ALLOW rule for dns onto the firewall stack
-        with allow("dns"):
+        # Push an ALLOW rule for dns onto the firewall stack (direct push:
+        # tripwire.allow(...) requires an active verifier per C9, but this
+        # test exercises guard-mode dispatch without a sandbox).
+        with _push_allow_direct("dns"):
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
                 req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
@@ -613,7 +733,7 @@ class TestWarnModeBehavior:
                 ]
                 assert len(guarded_warnings) == 0
         _guard_active.reset(guard_token)
-        _guard_level.reset(level_token)
+        _guard_levels.reset(level_token)
 
 
 class TestHookFirewallStackMerge:
@@ -624,7 +744,7 @@ class TestHookFirewallStackMerge:
 
     def test_no_markers_empty_stack_denies(self) -> None:
         """Without markers, the firewall stack default-denies all protocols."""
-        from bigfoot._firewall_request import NetworkFirewallRequest
+        from tripwire._firewall_request import NetworkFirewallRequest
 
         stack = _firewall_stack.get()
         http_req = NetworkFirewallRequest(protocol="http", host="example.com", port=80)
@@ -635,7 +755,7 @@ class TestHookFirewallStackMerge:
     @pytest.mark.allow("socket")
     def test_marker_allow_creates_allow_rule(self) -> None:
         """@pytest.mark.allow('socket') creates ALLOW rule in firewall stack."""
-        from bigfoot._firewall_request import NetworkFirewallRequest
+        from tripwire._firewall_request import NetworkFirewallRequest
 
         stack = _firewall_stack.get()
         sock_req = NetworkFirewallRequest(protocol="socket", host="127.0.0.1", port=80)
@@ -645,7 +765,7 @@ class TestHookFirewallStackMerge:
     @pytest.mark.deny("dns")
     def test_marker_deny_blocks_non_allowed(self) -> None:
         """deny('dns') blocks 'dns' when it is not in the allow set."""
-        from bigfoot._firewall_request import NetworkFirewallRequest
+        from tripwire._firewall_request import NetworkFirewallRequest
 
         stack = _firewall_stack.get()
         dns_req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
@@ -663,7 +783,7 @@ class TestGetVerifierOrRaiseGuardBranching:
         Must explicitly disable guard and guard_patches_installed since the
         session fixture and hook set them.
         """
-        from bigfoot._context import _guard_patches_installed
+        from tripwire._context import _guard_patches_installed
 
         guard_token = _guard_active.set(False)
         patches_token = _guard_patches_installed.set(False)
@@ -676,9 +796,10 @@ class TestGetVerifierOrRaiseGuardBranching:
 
     def test_guard_active_not_in_allowlist_raises_guarded_call_error(self) -> None:
         """Guard active + not allowed + error level = GuardedCallError."""
-        from bigfoot._context import _guard_level
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
 
-        level_token = _guard_level.set("error")
+        level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
         token = _guard_active.set(True)
         try:
             with pytest.raises(GuardedCallError) as exc_info:
@@ -687,15 +808,18 @@ class TestGetVerifierOrRaiseGuardBranching:
             assert exc_info.value.source_id == "dns:getaddrinfo:example.com"
         finally:
             _guard_active.reset(token)
-            _guard_level.reset(level_token)
+            _guard_levels.reset(level_token)
 
     def test_guard_active_in_allowlist_raises_guard_pass_through(self) -> None:
         """Guard active + allowed via firewall = GuardPassThrough (interceptor should call original)."""
-        from bigfoot._firewall_request import NetworkFirewallRequest
+        from tripwire._firewall_request import NetworkFirewallRequest
 
         guard_token = _guard_active.set(True)
         try:
-            with allow("dns"):
+            # Direct push: this test exercises guard-mode dispatch without
+            # a sandbox, and tripwire.allow(...) now requires an active
+            # verifier per C9.
+            with _push_allow_direct("dns"):
                 req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
                 with pytest.raises(GuardPassThrough):
                     get_verifier_or_raise("dns:getaddrinfo:example.com", firewall_request=req)
@@ -704,9 +828,10 @@ class TestGetVerifierOrRaiseGuardBranching:
 
     def test_plugin_name_extraction_from_source_id(self) -> None:
         """Plugin name is the prefix before the first colon."""
-        from bigfoot._context import _guard_level
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
 
-        level_token = _guard_level.set("error")
+        level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
         token = _guard_active.set(True)
         try:
             with pytest.raises(GuardedCallError) as exc_info:
@@ -714,13 +839,14 @@ class TestGetVerifierOrRaiseGuardBranching:
             assert exc_info.value.plugin_name == "http"
         finally:
             _guard_active.reset(token)
-            _guard_level.reset(level_token)
+            _guard_levels.reset(level_token)
 
     def test_plugin_name_extraction_multi_colon(self) -> None:
         """Multi-colon source_id: plugin name is still first segment."""
-        from bigfoot._context import _guard_level
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
 
-        level_token = _guard_level.set("error")
+        level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
         token = _guard_active.set(True)
         try:
             with pytest.raises(GuardedCallError) as exc_info:
@@ -728,7 +854,7 @@ class TestGetVerifierOrRaiseGuardBranching:
             assert exc_info.value.plugin_name == "dns"
         finally:
             _guard_active.reset(token)
-            _guard_level.reset(level_token)
+            _guard_levels.reset(level_token)
 
 
 class TestGuardPassThroughInDirectPlugins:
@@ -745,27 +871,27 @@ class TestGuardPassThroughInDirectPlugins:
         """Guard blocks dns:getaddrinfo when dns not in allowlist."""
         import socket
 
-        from bigfoot._context import _guard_level
-        from bigfoot._guard import deny
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.dns_plugin import DnsPlugin
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.dns_plugin import DnsPlugin
 
         v = StrictVerifier()
         dns = DnsPlugin(v)
         dns.activate()
         try:
-            level_token = _guard_level.set("error")
+            level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
             guard_token = _guard_active.set(True)
             try:
                 # Explicitly deny dns to override project-level allow = ["dns:*"]
-                with deny("dns"):
+                with _push_deny_direct("dns"):
                     with pytest.raises(GuardedCallError) as exc_info:
                         socket.getaddrinfo("example.com", 80)
                     assert exc_info.value.plugin_name == "dns"
                     assert exc_info.value.source_id == "dns:lookup"
             finally:
                 _guard_active.reset(guard_token)
-                _guard_level.reset(level_token)
+                _guard_levels.reset(level_token)
         finally:
             dns.deactivate()
 
@@ -778,8 +904,8 @@ class TestGuardPassThroughInDirectPlugins:
         """
         import socket
 
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.dns_plugin import DnsPlugin
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.dns_plugin import DnsPlugin
 
         v = StrictVerifier()
         dns = DnsPlugin(v)
@@ -800,26 +926,26 @@ class TestGuardPassThroughInDirectPlugins:
         """Guard blocks dns:gethostbyname when dns not in allowlist."""
         import socket
 
-        from bigfoot._context import _guard_level
-        from bigfoot._guard import deny
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.dns_plugin import DnsPlugin
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.dns_plugin import DnsPlugin
 
         v = StrictVerifier()
         dns = DnsPlugin(v)
         dns.activate()
         try:
-            level_token = _guard_level.set("error")
+            level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
             guard_token = _guard_active.set(True)
             try:
                 # Explicitly deny dns to override project-level allow = ["dns:*"]
-                with deny("dns"):
+                with _push_deny_direct("dns"):
                     with pytest.raises(GuardedCallError) as exc_info:
                         socket.gethostbyname("example.com")
                     assert exc_info.value.plugin_name == "dns"
             finally:
                 _guard_active.reset(guard_token)
-                _guard_level.reset(level_token)
+                _guard_levels.reset(level_token)
         finally:
             dns.deactivate()
 
@@ -827,8 +953,8 @@ class TestGuardPassThroughInDirectPlugins:
         """Guard pass-through: interceptor calls original gethostbyname when guard is not active."""
         import socket
 
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.dns_plugin import DnsPlugin
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.dns_plugin import DnsPlugin
 
         v = StrictVerifier()
         dns = DnsPlugin(v)
@@ -856,20 +982,20 @@ class TestGuardPassThroughInStateMachinePlugins:
         """Guard blocks socket:connect when socket not in allowlist."""
         import socket as socket_mod
 
-        from bigfoot._context import _guard_level
-        from bigfoot._guard import deny
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
 
         v = StrictVerifier()
         sp = SocketPlugin(v)
         sp.activate()
         try:
-            level_token = _guard_level.set("error")
+            level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
             guard_token = _guard_active.set(True)
             try:
                 # Explicitly deny socket to override project-level allow = ["socket:*"]
-                with deny("socket"):
+                with _push_deny_direct("socket"):
                     sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
                     try:
                         with pytest.raises(GuardedCallError) as exc_info:
@@ -880,7 +1006,7 @@ class TestGuardPassThroughInStateMachinePlugins:
                         _SOCKET_CLOSE_ORIGINAL(sock)
             finally:
                 _guard_active.reset(guard_token)
-                _guard_level.reset(level_token)
+                _guard_levels.reset(level_token)
         finally:
             sp.deactivate()
 
@@ -888,8 +1014,8 @@ class TestGuardPassThroughInStateMachinePlugins:
         """Guard pass-through: interceptor calls real connect when guard is not active."""
         import socket as socket_mod
 
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
 
         v = StrictVerifier()
         sp = SocketPlugin(v)
@@ -914,12 +1040,12 @@ class TestGuardPassThroughInStateMachinePlugins:
         """In guard mode (no sandbox), send passes through to the original.
 
         The firewall decision was already made at connect time; send/recv/
-        sendall/close skip bigfoot entirely when no sandbox is active.
+        sendall/close skip tripwire entirely when no sandbox is active.
         """
         import socket as socket_mod
 
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.socket_plugin import (
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.socket_plugin import (
             _SOCKET_CLOSE_ORIGINAL,
             SocketPlugin,
         )
@@ -947,8 +1073,8 @@ class TestGuardPassThroughInStateMachinePlugins:
         """Guard pass-through: interceptor calls real close when guard is not active."""
         import socket as socket_mod
 
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.socket_plugin import SocketPlugin
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.socket_plugin import SocketPlugin
 
         v = StrictVerifier()
         sp = SocketPlugin(v)
@@ -968,24 +1094,29 @@ class TestGuardPassThroughInStateMachinePlugins:
         """Guard blocks db:connect when db not in allowlist."""
         import sqlite3
 
-        from bigfoot._context import _guard_level
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.database_plugin import DatabasePlugin
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.database_plugin import DatabasePlugin
 
         v = StrictVerifier()
         dp = DatabasePlugin(v)
         dp.activate()
         try:
-            level_token = _guard_level.set("error")
+            level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
             guard_token = _guard_active.set(True)
             try:
                 with pytest.raises(GuardedCallError) as exc_info:
                     sqlite3.connect(":memory:")
-                assert exc_info.value.plugin_name == "db"
+                # plugin_name reports the canonical registry name
+                # ("database"), not the source_id prefix ("db"), so it
+                # matches the key users write under [tool.tripwire.guard]
+                # and the same name shown by enabled_plugins/disabled_plugins.
+                assert exc_info.value.plugin_name == "database"
                 assert exc_info.value.source_id == "db:connect"
             finally:
                 _guard_active.reset(guard_token)
-                _guard_level.reset(level_token)
+                _guard_levels.reset(level_token)
         finally:
             dp.deactivate()
 
@@ -993,8 +1124,8 @@ class TestGuardPassThroughInStateMachinePlugins:
         """Guard pass-through: interceptor calls real connect when guard is not active."""
         import sqlite3
 
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.database_plugin import DatabasePlugin
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.database_plugin import DatabasePlugin
 
         v = StrictVerifier()
         dp = DatabasePlugin(v)
@@ -1020,15 +1151,16 @@ class TestGuardPassThroughInStateMachinePlugins:
         """Guard blocks smtp:connect when smtp not in allowlist."""
         import smtplib
 
-        from bigfoot._context import _guard_level
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.smtp_plugin import SmtpPlugin
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.smtp_plugin import SmtpPlugin
 
         v = StrictVerifier()
         sp = SmtpPlugin(v)
         sp.activate()
         try:
-            level_token = _guard_level.set("error")
+            level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
             guard_token = _guard_active.set(True)
             try:
                 with pytest.raises(GuardedCallError) as exc_info:
@@ -1036,7 +1168,7 @@ class TestGuardPassThroughInStateMachinePlugins:
                 assert exc_info.value.plugin_name == "smtp"
             finally:
                 _guard_active.reset(guard_token)
-                _guard_level.reset(level_token)
+                _guard_levels.reset(level_token)
         finally:
             sp.deactivate()
 
@@ -1044,15 +1176,16 @@ class TestGuardPassThroughInStateMachinePlugins:
         """Guard blocks subprocess:popen:spawn when subprocess not in allowlist."""
         import subprocess
 
-        from bigfoot._context import _guard_level
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.popen_plugin import PopenPlugin
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.popen_plugin import PopenPlugin
 
         v = StrictVerifier()
         pp = PopenPlugin(v)
         pp.activate()
         try:
-            level_token = _guard_level.set("error")
+            level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
             guard_token = _guard_active.set(True)
             try:
                 with pytest.raises(GuardedCallError) as exc_info:
@@ -1060,7 +1193,7 @@ class TestGuardPassThroughInStateMachinePlugins:
                 assert exc_info.value.plugin_name == "subprocess"
             finally:
                 _guard_active.reset(guard_token)
-                _guard_level.reset(level_token)
+                _guard_levels.reset(level_token)
         finally:
             pp.deactivate()
 
@@ -1077,15 +1210,16 @@ class TestGuardPassThroughInRemainingPlugins:
         """Guard blocks subprocess.run when subprocess not in allowlist."""
         import subprocess as subprocess_mod
 
-        from bigfoot._context import _guard_level
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.subprocess import SubprocessPlugin
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.subprocess import SubprocessPlugin
 
         v = StrictVerifier()
         sp = SubprocessPlugin(v)
         sp.activate()
         try:
-            level_token = _guard_level.set("error")
+            level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
             guard_token = _guard_active.set(True)
             try:
                 with pytest.raises(GuardedCallError) as exc_info:
@@ -1094,7 +1228,7 @@ class TestGuardPassThroughInRemainingPlugins:
                 assert exc_info.value.source_id == "subprocess:run"
             finally:
                 _guard_active.reset(guard_token)
-                _guard_level.reset(level_token)
+                _guard_levels.reset(level_token)
         finally:
             sp.deactivate()
 
@@ -1102,8 +1236,8 @@ class TestGuardPassThroughInRemainingPlugins:
         """Guard pass-through: interceptor calls real subprocess.run when guard is not active."""
         import subprocess as subprocess_mod
 
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.subprocess import SubprocessPlugin
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.subprocess import SubprocessPlugin
 
         v = StrictVerifier()
         sp = SubprocessPlugin(v)
@@ -1125,15 +1259,16 @@ class TestGuardPassThroughInRemainingPlugins:
         """Guard blocks shutil.which when subprocess not in allowlist."""
         import shutil as shutil_mod
 
-        from bigfoot._context import _guard_level
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.subprocess import SubprocessPlugin
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.subprocess import SubprocessPlugin
 
         v = StrictVerifier()
         sp = SubprocessPlugin(v)
         sp.activate()
         try:
-            level_token = _guard_level.set("error")
+            level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
             guard_token = _guard_active.set(True)
             try:
                 with pytest.raises(GuardedCallError) as exc_info:
@@ -1142,7 +1277,7 @@ class TestGuardPassThroughInRemainingPlugins:
                 assert exc_info.value.source_id == "subprocess:which"
             finally:
                 _guard_active.reset(guard_token)
-                _guard_level.reset(level_token)
+                _guard_levels.reset(level_token)
         finally:
             sp.deactivate()
 
@@ -1150,8 +1285,8 @@ class TestGuardPassThroughInRemainingPlugins:
         """Guard pass-through: interceptor calls real shutil.which when guard is not active."""
         import shutil as shutil_mod
 
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.subprocess import SubprocessPlugin
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.subprocess import SubprocessPlugin
 
         v = StrictVerifier()
         sp = SubprocessPlugin(v)
@@ -1171,15 +1306,16 @@ class TestGuardPassThroughInRemainingPlugins:
         """Guard blocks httpx sync transport when http not in allowlist."""
         import httpx
 
-        from bigfoot._context import _guard_level
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.http import HttpPlugin
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.http import HttpPlugin
 
         v = StrictVerifier()
         hp = HttpPlugin(v)
         hp.activate()
         try:
-            level_token = _guard_level.set("error")
+            level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
             guard_token = _guard_active.set(True)
             try:
                 with pytest.raises(GuardedCallError) as exc_info:
@@ -1188,7 +1324,7 @@ class TestGuardPassThroughInRemainingPlugins:
                 assert exc_info.value.source_id == "http:request"
             finally:
                 _guard_active.reset(guard_token)
-                _guard_level.reset(level_token)
+                _guard_levels.reset(level_token)
         finally:
             hp.deactivate()
 
@@ -1203,34 +1339,34 @@ class TestGuardPytestFixtures:
         assert any(m.startswith("allow") for m in markers)
 
     def test_guard_session_fixture_is_registered(self) -> None:
-        """The _bigfoot_guard_patches session fixture should exist in pytest_plugin."""
-        from bigfoot import pytest_plugin
+        """The _tripwire_guard_patches session fixture should exist in pytest_plugin."""
+        from tripwire import pytest_plugin
 
-        assert hasattr(pytest_plugin, "_bigfoot_guard_patches")
+        assert hasattr(pytest_plugin, "_tripwire_guard_patches")
 
     def test_guard_hook_is_registered(self) -> None:
         """The pytest_runtest_call hook should exist in pytest_plugin module."""
-        from bigfoot import pytest_plugin
+        from tripwire import pytest_plugin
 
         assert hasattr(pytest_plugin, "pytest_runtest_call")
 
     def test_guard_hook_skips_non_guard_plugins(self) -> None:
-        """Guard hook should not activate plugins with supports_guard=False."""
-        from bigfoot._registry import PLUGIN_REGISTRY, _is_available, get_plugin_class
+        """Guard hook should not activate plugins with passthrough_safe=True."""
+        from tripwire._registry import PLUGIN_REGISTRY, _is_available, get_plugin_class
 
         for entry in PLUGIN_REGISTRY:
             if not _is_available(entry):
                 continue
             plugin_cls = get_plugin_class(entry)
-            if not getattr(plugin_cls, "supports_guard", True):
+            if getattr(plugin_cls, "passthrough_safe", False):
                 # These plugins should NOT be activated by guard patches
                 assert entry.name in {
                     "logging", "jwt", "crypto", "celery", "native", "file_io",
-                }, f"Plugin {entry.name} has supports_guard=False but is not in expected set"
+                }, f"Plugin {entry.name} has passthrough_safe=True but is not in expected set"
 
     def test_guard_hook_skips_opt_in_plugins(self) -> None:
         """Guard hook should not activate opt-in plugins (default_enabled=False)."""
-        from bigfoot._registry import PLUGIN_REGISTRY
+        from tripwire._registry import PLUGIN_REGISTRY
 
         opt_in = [e for e in PLUGIN_REGISTRY if not e.default_enabled]
         assert len(opt_in) >= 2  # file_io and native at minimum
@@ -1249,7 +1385,7 @@ class TestGuardActiveDuringTestBody:
 
     def test_firewall_stack_denies_by_default(self) -> None:
         """Without @pytest.mark.allow, all protocols are denied by the firewall."""
-        from bigfoot._firewall_request import NetworkFirewallRequest
+        from tripwire._firewall_request import NetworkFirewallRequest
 
         stack = _firewall_stack.get()
         req = NetworkFirewallRequest(protocol="http", host="example.com", port=80)
@@ -1258,7 +1394,7 @@ class TestGuardActiveDuringTestBody:
     @pytest.mark.allow("dns", "socket")
     def test_mark_allow_populates_firewall_stack(self) -> None:
         """@pytest.mark.allow should push ALLOW rules onto firewall stack."""
-        from bigfoot._firewall_request import NetworkFirewallRequest
+        from tripwire._firewall_request import NetworkFirewallRequest
 
         stack = _firewall_stack.get()
         dns_req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
@@ -1269,7 +1405,7 @@ class TestGuardActiveDuringTestBody:
     @pytest.mark.allow("dns")
     def test_mark_allow_single_plugin(self) -> None:
         """Single plugin in @pytest.mark.allow pushes one ALLOW rule."""
-        from bigfoot._firewall_request import NetworkFirewallRequest
+        from tripwire._firewall_request import NetworkFirewallRequest
 
         stack = _firewall_stack.get()
         dns_req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
@@ -1279,7 +1415,7 @@ class TestGuardActiveDuringTestBody:
     @pytest.mark.allow("socket")
     def test_multiple_allow_marks_combine(self) -> None:
         """Multiple @pytest.mark.allow decorators combine into firewall rules."""
-        from bigfoot._firewall_request import NetworkFirewallRequest
+        from tripwire._firewall_request import NetworkFirewallRequest
 
         stack = _firewall_stack.get()
         dns_req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
@@ -1287,9 +1423,9 @@ class TestGuardActiveDuringTestBody:
         assert stack.evaluate(dns_req) == Disposition.ALLOW
         assert stack.evaluate(sock_req) == Disposition.ALLOW
 
-    def test_bigfoot_guard_hook_exists_in_pytest_plugin(self) -> None:
+    def test_tripwire_guard_hook_exists_in_pytest_plugin(self) -> None:
         """The pytest_runtest_call hook should exist in pytest_plugin module."""
-        from bigfoot import pytest_plugin
+        from tripwire import pytest_plugin
 
         assert hasattr(pytest_plugin, "pytest_runtest_call")
 
@@ -1309,18 +1445,18 @@ class TestGuardModeIntegration:
         """
         import socket as socket_mod
 
-        from bigfoot._context import _guard_level
-        from bigfoot._guard import deny
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
 
         v = StrictVerifier()
         sp = SocketPlugin(v)
         sp.activate()
-        level_token = _guard_level.set("error")
+        level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
         try:
             # Explicitly deny socket to override project-level allow = ["socket:*"]
-            with deny("socket"):
+            with _push_deny_direct("socket"):
                 sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
                 try:
                     with pytest.raises(GuardedCallError) as exc_info:
@@ -1330,7 +1466,7 @@ class TestGuardModeIntegration:
                 finally:
                     _SOCKET_CLOSE_ORIGINAL(sock)
         finally:
-            _guard_level.reset(level_token)
+            _guard_levels.reset(level_token)
             sp.deactivate()
 
     def test_guard_pass_through_permits_real_socket_operations(self) -> None:
@@ -1343,8 +1479,8 @@ class TestGuardModeIntegration:
         """
         import socket as socket_mod
 
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.socket_plugin import SocketPlugin
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.socket_plugin import SocketPlugin
 
         v = StrictVerifier()
         sp = SocketPlugin(v)
@@ -1369,8 +1505,8 @@ class TestGuardModeIntegration:
         """
         import socket
 
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.dns_plugin import DnsPlugin, _DnsSentinel
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.dns_plugin import DnsPlugin, _DnsSentinel
 
         v = StrictVerifier()
         dns_plugin = None
@@ -1399,7 +1535,7 @@ class TestGuardModeIntegration:
     @pytest.mark.allow("dns")
     def test_allow_context_manager_adds_to_marker_rules(self) -> None:
         """allow() inside @pytest.mark.allow adds rules to the firewall stack."""
-        from bigfoot._firewall_request import NetworkFirewallRequest
+        from tripwire._firewall_request import NetworkFirewallRequest
 
         stack_mark = _firewall_stack.get()
         dns_req = NetworkFirewallRequest(protocol="dns", host="example.com", port=53)
@@ -1411,7 +1547,7 @@ class TestGuardModeIntegration:
         assert stack_mark.evaluate(dns_req) == Disposition.ALLOW
         assert stack_mark.evaluate(redis_req) == Disposition.DENY
 
-        with allow("redis"):
+        with _with_active_verifier(), allow("redis"):
             stack_both = _firewall_stack.get()
             assert stack_both.evaluate(dns_req) == Disposition.ALLOW
             assert stack_both.evaluate(redis_req) == Disposition.ALLOW
@@ -1429,8 +1565,8 @@ class TestGuardModeIntegration:
         """
         import socket as socket_mod
 
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.dns_plugin import DnsPlugin
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.dns_plugin import DnsPlugin
 
         v = StrictVerifier()
         dns = DnsPlugin(v)
@@ -1450,7 +1586,7 @@ class TestGuardModeIntegration:
         """Indirectly verify guard is scoped to test body, not fixtures.
 
         The hook wraps pytest_runtest_call (test body only). If guard were
-        active during fixture setup, the _bigfoot_auto_verifier fixture
+        active during fixture setup, the _tripwire_auto_verifier fixture
         would fail when creating StrictVerifier (which internally may
         perform I/O-like operations). The fact that we get here proves it.
         """
@@ -1464,23 +1600,23 @@ class TestGuardModeIntegration:
         """
         import socket as socket_mod
 
-        from bigfoot._context import _guard_level
-        from bigfoot._guard import deny
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.dns_plugin import DnsPlugin
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.dns_plugin import DnsPlugin
 
         v = StrictVerifier()
         dns = DnsPlugin(v)
         dns.activate()
-        level_token = _guard_level.set("error")
+        level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
         try:
             # Explicitly deny dns to override project-level allow = ["dns:*"]
-            with deny("dns"):
+            with _push_deny_direct("dns"):
                 with pytest.raises(GuardedCallError) as exc_info:
                     socket_mod.getaddrinfo("example.com", 80)
                 assert exc_info.value.plugin_name == "dns"
         finally:
-            _guard_level.reset(level_token)
+            _guard_levels.reset(level_token)
             dns.deactivate()
 
     def test_guard_blocks_subprocess_outside_sandbox(self) -> None:
@@ -1491,21 +1627,22 @@ class TestGuardModeIntegration:
         """
         import subprocess as subprocess_mod
 
-        from bigfoot._context import _guard_level
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.subprocess import SubprocessPlugin
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.subprocess import SubprocessPlugin
 
         v = StrictVerifier()
         sp = SubprocessPlugin(v)
         sp.activate()
-        level_token = _guard_level.set("error")
+        level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
         try:
             with pytest.raises(GuardedCallError) as exc_info:
                 subprocess_mod.run(["echo", "hello"], capture_output=True)
             assert exc_info.value.plugin_name == "subprocess"
             assert exc_info.value.source_id == "subprocess:run"
         finally:
-            _guard_level.reset(level_token)
+            _guard_levels.reset(level_token)
             sp.deactivate()
 
     def test_guard_pass_through_permits_real_subprocess(self) -> None:
@@ -1515,8 +1652,8 @@ class TestGuardModeIntegration:
         """
         import subprocess as subprocess_mod
 
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.subprocess import SubprocessPlugin
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.subprocess import SubprocessPlugin
 
         v = StrictVerifier()
         sp = SubprocessPlugin(v)
@@ -1540,21 +1677,22 @@ class TestGuardModeIntegration:
         """
         import httpx
 
-        from bigfoot._context import _guard_level
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.http import HttpPlugin
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.http import HttpPlugin
 
         v = StrictVerifier()
         hp = HttpPlugin(v)
         hp.activate()
-        level_token = _guard_level.set("error")
+        level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
         try:
             with pytest.raises(GuardedCallError) as exc_info:
                 httpx.get("https://example.com")
             assert exc_info.value.plugin_name == "http"
             assert exc_info.value.source_id == "http:request"
         finally:
-            _guard_level.reset(level_token)
+            _guard_levels.reset(level_token)
             hp.deactivate()
 
     def test_sandbox_takes_precedence_over_firewall_allow(self) -> None:
@@ -1566,13 +1704,13 @@ class TestGuardModeIntegration:
         """
         import socket
 
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.dns_plugin import _DnsSentinel
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.dns_plugin import _DnsSentinel
 
         v = StrictVerifier()
         dns_plugin = None
         for p in v._plugins:
-            from bigfoot.plugins.dns_plugin import DnsPlugin
+            from tripwire.plugins.dns_plugin import DnsPlugin
             if isinstance(p, DnsPlugin):
                 dns_plugin = p
                 break
@@ -1582,11 +1720,12 @@ class TestGuardModeIntegration:
             "localhost", returns=[(2, 1, 6, "", ("127.0.0.1", 80))],
         )
 
-        with allow("dns"):
-            with v.sandbox():
-                # Even with allow("dns"), sandbox intercepts the call
-                result = socket.getaddrinfo("localhost", 80)
-                assert result == [(2, 1, 6, "", ("127.0.0.1", 80))]
+        with _with_active_verifier():
+            with allow("dns"):
+                with v.sandbox():
+                    # Even with allow("dns"), sandbox intercepts the call
+                    result = socket.getaddrinfo("localhost", 80)
+                    assert result == [(2, 1, 6, "", ("127.0.0.1", 80))]
 
         # The interaction IS recorded because sandbox takes precedence
         v.assert_interaction(
@@ -1606,39 +1745,39 @@ class TestGuardModeIntegration:
         """
         import socket as socket_mod
 
-        from bigfoot._context import _guard_level
-        from bigfoot._guard import deny
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.dns_plugin import DnsPlugin
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.dns_plugin import DnsPlugin
 
         v = StrictVerifier()
         dns = DnsPlugin(v)
         dns.activate()
-        level_token = _guard_level.set("error")
+        level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
         try:
             # Explicitly deny dns to override project-level allow = ["dns:*"]
-            with deny("dns"):
+            with _push_deny_direct("dns"):
                 with pytest.raises(GuardedCallError) as exc_info:
                     socket_mod.getaddrinfo("example.com", 80)
             msg = str(exc_info.value)
             # New firewall message format
-            assert "blocked by bigfoot firewall" in msg
+            assert "blocked by tripwire firewall" in msg
             assert "Attempted:" in msg
             assert "Fix with @pytest.mark.allow:" in msg
             assert '@pytest.mark.allow(M(protocol="dns"))' in msg
             assert "Fix with context manager (scoped to a block):" in msg
-            assert 'bigfoot.allow(M(protocol="dns"))' in msg
+            assert 'tripwire.allow(M(protocol="dns"))' in msg
             assert "Fix in pyproject.toml:" in msg
-            assert "[tool.bigfoot.firewall]" in msg
+            assert "[tool.tripwire.firewall]" in msg
             assert 'allow = ["dns:*"]' in msg
             assert "Or mock the call with a sandbox:" in msg
-            assert "with bigfoot:" in msg
-            assert "https://bigfoot.readthedocs.io/guides/guard-mode/" in msg
+            assert "with tripwire:" in msg
+            assert "https://tripwire.readthedocs.io/guides/guard-mode/" in msg
             # Old sections removed
-            assert "supports_guard" not in msg
+            assert "passthrough_safe" not in msg
             assert "Valid plugin names for allow():" not in msg
         finally:
-            _guard_level.reset(level_token)
+            _guard_levels.reset(level_token)
             dns.deactivate()
 
 
@@ -1649,8 +1788,8 @@ class TestGuardAllowConfigMigration:
         """guard_allow config key is rejected with migration instructions."""
         from unittest.mock import patch
 
-        from bigfoot._errors import BigfootConfigError
-        from bigfoot.pytest_plugin import pytest_runtest_call
+        from tripwire._errors import TripwireConfigError
+        from tripwire.pytest_plugin import pytest_runtest_call
 
         config = {"guard": "error", "guard_allow": ["socket"]}
 
@@ -1660,17 +1799,17 @@ class TestGuardAllowConfigMigration:
 
         item = FakeItem()
 
-        with patch("bigfoot.pytest_plugin.load_bigfoot_config", return_value=config):
+        with patch("tripwire.pytest_plugin.load_tripwire_config", return_value=config):
             hook_gen = pytest_runtest_call(item)
-            with pytest.raises(BigfootConfigError, match="guard_allow config key has been replaced"):
+            with pytest.raises(TripwireConfigError, match="guard_allow config key has been replaced"):
                 next(hook_gen)
 
     def test_guard_allow_string_raises_migration_error(self) -> None:
         """guard_allow = "socket" (string) also raises migration error."""
         from unittest.mock import patch
 
-        from bigfoot._errors import BigfootConfigError
-        from bigfoot.pytest_plugin import pytest_runtest_call
+        from tripwire._errors import TripwireConfigError
+        from tripwire.pytest_plugin import pytest_runtest_call
 
         config = {"guard": "error", "guard_allow": "socket"}
 
@@ -1680,21 +1819,21 @@ class TestGuardAllowConfigMigration:
 
         item = FakeItem()
 
-        with patch("bigfoot.pytest_plugin.load_bigfoot_config", return_value=config):
+        with patch("tripwire.pytest_plugin.load_tripwire_config", return_value=config):
             hook_gen = pytest_runtest_call(item)
-            with pytest.raises(BigfootConfigError, match="guard_allow config key has been replaced"):
+            with pytest.raises(TripwireConfigError, match="guard_allow config key has been replaced"):
                 next(hook_gen)
 
 
 class TestFirewallTomlConfig:
-    """Test [tool.bigfoot.firewall] TOML config integration with pytest hook."""
+    """Test [tool.tripwire.firewall] TOML config integration with pytest hook."""
 
     def test_firewall_allow_rule_in_config(self) -> None:
-        """[tool.bigfoot.firewall] allow = ["socket:*"] creates ALLOW rule."""
+        """[tool.tripwire.firewall] allow = ["socket:*"] creates ALLOW rule."""
         from unittest.mock import patch
 
-        from bigfoot._firewall_request import NetworkFirewallRequest
-        from bigfoot.pytest_plugin import pytest_runtest_call
+        from tripwire._firewall_request import NetworkFirewallRequest
+        from tripwire.pytest_plugin import pytest_runtest_call
 
         config = {"guard": "error", "firewall": {"allow": ["socket:*"]}}
 
@@ -1706,7 +1845,7 @@ class TestFirewallTomlConfig:
 
         item = FakeItem()
 
-        with patch("bigfoot.pytest_plugin.load_bigfoot_config", return_value=config):
+        with patch("tripwire.pytest_plugin.load_tripwire_config", return_value=config):
             hook_gen = pytest_runtest_call(item)
             next(hook_gen)
             stack = _firewall_stack.get()
@@ -1718,11 +1857,11 @@ class TestFirewallTomlConfig:
                 pass
 
     def test_no_firewall_config_denies_all(self) -> None:
-        """Without [tool.bigfoot.firewall], all protocols are denied."""
+        """Without [tool.tripwire.firewall], all protocols are denied."""
         from unittest.mock import patch
 
-        from bigfoot._firewall_request import NetworkFirewallRequest
-        from bigfoot.pytest_plugin import pytest_runtest_call
+        from tripwire._firewall_request import NetworkFirewallRequest
+        from tripwire.pytest_plugin import pytest_runtest_call
 
         config = {"guard": "error"}
 
@@ -1734,7 +1873,7 @@ class TestFirewallTomlConfig:
 
         item = FakeItem()
 
-        with patch("bigfoot.pytest_plugin.load_bigfoot_config", return_value=config):
+        with patch("tripwire.pytest_plugin.load_tripwire_config", return_value=config):
             hook_gen = pytest_runtest_call(item)
             next(hook_gen)
             stack = _firewall_stack.get()
@@ -1746,11 +1885,11 @@ class TestFirewallTomlConfig:
                 pass
 
     def test_marker_allow_merged_with_toml_config(self) -> None:
-        """@pytest.mark.allow merges with [tool.bigfoot.firewall] allow rules."""
+        """@pytest.mark.allow merges with [tool.tripwire.firewall] allow rules."""
         from unittest.mock import patch
 
-        from bigfoot._firewall_request import NetworkFirewallRequest
-        from bigfoot.pytest_plugin import pytest_runtest_call
+        from tripwire._firewall_request import NetworkFirewallRequest
+        from tripwire.pytest_plugin import pytest_runtest_call
 
         config = {"guard": "error", "firewall": {"allow": ["socket:*"]}}
 
@@ -1768,7 +1907,7 @@ class TestFirewallTomlConfig:
 
         item = FakeItem()
 
-        with patch("bigfoot.pytest_plugin.load_bigfoot_config", return_value=config):
+        with patch("tripwire.pytest_plugin.load_tripwire_config", return_value=config):
             hook_gen = pytest_runtest_call(item)
             next(hook_gen)
             stack = _firewall_stack.get()
@@ -1785,8 +1924,8 @@ class TestFirewallTomlConfig:
         """@pytest.mark.deny blocks protocols even when TOML allows them."""
         from unittest.mock import patch
 
-        from bigfoot._firewall_request import NetworkFirewallRequest
-        from bigfoot.pytest_plugin import pytest_runtest_call
+        from tripwire._firewall_request import NetworkFirewallRequest
+        from tripwire.pytest_plugin import pytest_runtest_call
 
         config = {"guard": "error", "firewall": {"allow": ["socket:*", "dns:*"]}}
 
@@ -1804,7 +1943,7 @@ class TestFirewallTomlConfig:
 
         item = FakeItem()
 
-        with patch("bigfoot.pytest_plugin.load_bigfoot_config", return_value=config):
+        with patch("tripwire.pytest_plugin.load_tripwire_config", return_value=config):
             hook_gen = pytest_runtest_call(item)
             next(hook_gen)
             stack = _firewall_stack.get()
@@ -1830,8 +1969,8 @@ class TestSocketNonConnectGuardPassThrough:
         """socket.send passes through to original in guard mode."""
         import socket as socket_mod
 
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
 
         v = StrictVerifier()
         sp = SocketPlugin(v)
@@ -1855,8 +1994,8 @@ class TestSocketNonConnectGuardPassThrough:
         """socket.sendall passes through to original in guard mode."""
         import socket as socket_mod
 
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
 
         v = StrictVerifier()
         sp = SocketPlugin(v)
@@ -1880,8 +2019,8 @@ class TestSocketNonConnectGuardPassThrough:
         """socket.recv passes through to original in guard mode."""
         import socket as socket_mod
 
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
 
         v = StrictVerifier()
         sp = SocketPlugin(v)
@@ -1905,8 +2044,8 @@ class TestSocketNonConnectGuardPassThrough:
         """socket.close passes through to original in guard mode."""
         import socket as socket_mod
 
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.socket_plugin import SocketPlugin
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.socket_plugin import SocketPlugin
 
         v = StrictVerifier()
         sp = SocketPlugin(v)
@@ -1925,55 +2064,55 @@ class TestSocketNonConnectGuardPassThrough:
     def test_close_no_guarded_call_error_even_with_deny(self) -> None:
         """socket.close does not raise GuardedCallError even when socket is denied.
 
-        Non-connect operations bypass bigfoot entirely in guard mode,
+        Non-connect operations bypass tripwire entirely in guard mode,
         regardless of firewall rules.
         """
         import socket as socket_mod
 
-        from bigfoot._context import _guard_level
-        from bigfoot._guard import deny
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.socket_plugin import SocketPlugin
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.socket_plugin import SocketPlugin
 
         v = StrictVerifier()
         sp = SocketPlugin(v)
         sp.activate()
         try:
-            level_token = _guard_level.set("error")
+            level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
             guard_token = _guard_active.set(True)
             try:
-                with deny("socket"):
+                with _push_deny_direct("socket"):
                     sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
                     # close passes through even with deny("socket") active
                     sock.close()
             finally:
                 _guard_active.reset(guard_token)
-                _guard_level.reset(level_token)
+                _guard_levels.reset(level_token)
         finally:
             sp.deactivate()
 
     def test_send_no_guarded_call_error_even_with_deny(self) -> None:
         """socket.send does not raise GuardedCallError even when socket is denied.
 
-        Non-connect operations bypass bigfoot entirely in guard mode,
+        Non-connect operations bypass tripwire entirely in guard mode,
         regardless of firewall rules. The real send raises OSError because
         the socket is not connected.
         """
         import socket as socket_mod
 
-        from bigfoot._context import _guard_level
-        from bigfoot._guard import deny
-        from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
+        from tripwire._config import GuardLevels
+        from tripwire._context import _guard_levels
+        from tripwire._verifier import StrictVerifier
+        from tripwire.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
 
         v = StrictVerifier()
         sp = SocketPlugin(v)
         sp.activate()
         try:
-            level_token = _guard_level.set("error")
+            level_token = _guard_levels.set(GuardLevels(default="error", overrides={}))
             guard_token = _guard_active.set(True)
             try:
-                with deny("socket"):
+                with _push_deny_direct("socket"):
                     sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
                     try:
                         # Real send raises OSError, not GuardedCallError
@@ -1983,6 +2122,6 @@ class TestSocketNonConnectGuardPassThrough:
                         _SOCKET_CLOSE_ORIGINAL(sock)
             finally:
                 _guard_active.reset(guard_token)
-                _guard_level.reset(level_token)
+                _guard_levels.reset(level_token)
         finally:
             sp.deactivate()
