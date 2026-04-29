@@ -15,10 +15,14 @@ from __future__ import annotations
 import importlib.metadata
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
 
 import pytest
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
 
 # Rebuild "bigfoot" without writing the literal substring, so any future
 # global rename sed pass cannot silently rewrite this assertion target.
