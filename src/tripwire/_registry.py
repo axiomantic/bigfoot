@@ -19,6 +19,12 @@ class PluginEntry:
     class_name: str  # e.g., "HttpPlugin"
     availability_check: str  # module path or flag path to check availability
     default_enabled: bool = True  # False for opt-in plugins (e.g., file I/O, ctypes/cffi)
+    extra_name: str | None = None  # PyPI extra; only set when it differs from `name`
+
+    @property
+    def install_hint_extra(self) -> str:
+        """The extra name to embed in `pip install pytest-tripwire[...]` hints."""
+        return self.extra_name or self.name
 
 
 def _check_dep_available(module_name: str) -> bool:
@@ -76,12 +82,14 @@ PLUGIN_REGISTRY: tuple[PluginEntry, ...] = (
         "tripwire.plugins.websocket_plugin",
         "AsyncWebSocketPlugin",
         "websockets",
+        extra_name="websockets",
     ),
     PluginEntry(
         "sync_websocket",
         "tripwire.plugins.websocket_plugin",
         "SyncWebSocketPlugin",
         "flag:tripwire.plugins.websocket_plugin:_WEBSOCKET_CLIENT_AVAILABLE",
+        extra_name="websocket-client",
     ),
     PluginEntry("redis", "tripwire.plugins.redis_plugin", "RedisPlugin", "redis"),
     PluginEntry("psycopg2", "tripwire.plugins.psycopg2_plugin", "Psycopg2Plugin", "psycopg2"),
@@ -94,7 +102,13 @@ PLUGIN_REGISTRY: tuple[PluginEntry, ...] = (
         "always",
     ),
     PluginEntry("dns", "tripwire.plugins.dns_plugin", "DnsPlugin", "always"),
-    PluginEntry("memcache", "tripwire.plugins.memcache_plugin", "MemcachePlugin", "pymemcache"),
+    PluginEntry(
+        "memcache",
+        "tripwire.plugins.memcache_plugin",
+        "MemcachePlugin",
+        "pymemcache",
+        extra_name="pymemcache",
+    ),
     PluginEntry("celery", "tripwire.plugins.celery_plugin", "CeleryPlugin", "celery"),
     PluginEntry("boto3", "tripwire.plugins.boto3_plugin", "Boto3Plugin", "boto3"),
     PluginEntry(
@@ -105,13 +119,25 @@ PLUGIN_REGISTRY: tuple[PluginEntry, ...] = (
     ),
     PluginEntry("jwt", "tripwire.plugins.jwt_plugin", "JwtPlugin", "jwt"),
     PluginEntry("crypto", "tripwire.plugins.crypto_plugin", "CryptoPlugin", "cryptography"),
-    PluginEntry("mongo", "tripwire.plugins.mongo_plugin", "MongoPlugin", "pymongo"),
+    PluginEntry(
+        "mongo",
+        "tripwire.plugins.mongo_plugin",
+        "MongoPlugin",
+        "pymongo",
+        extra_name="pymongo",
+    ),
     PluginEntry(
         "file_io", "tripwire.plugins.file_io_plugin", "FileIoPlugin",
         "always", default_enabled=False,
     ),
     PluginEntry("pika", "tripwire.plugins.pika_plugin", "PikaPlugin", "pika"),
-    PluginEntry("ssh", "tripwire.plugins.ssh_plugin", "SshPlugin", "paramiko"),
+    PluginEntry(
+        "ssh",
+        "tripwire.plugins.ssh_plugin",
+        "SshPlugin",
+        "paramiko",
+        extra_name="paramiko",
+    ),
     PluginEntry("grpc", "tripwire.plugins.grpc_plugin", "GrpcPlugin", "grpc"),
     PluginEntry("mcp", "tripwire.plugins.mcp_plugin", "McpPlugin", "mcp"),
     PluginEntry(
@@ -395,7 +421,7 @@ def resolve_enabled_plugins(
                     raise TripwireConfigError(
                         f"Plugin '{e.name}' is in enabled_plugins but its "
                         f"dependency '{e.availability_check}' is not installed. "
-                        f"Install with: pip install pytest-tripwire[{e.name}]"
+                        f"Install with: pip install pytest-tripwire[{e.install_hint_extra}]"
                     )
                 result.append(e)
         return result

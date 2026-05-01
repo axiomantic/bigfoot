@@ -581,3 +581,70 @@ class TestLookupPluginClassByNameCache:
             assert cached is not None
             _cls, canonical = cached
             assert canonical == entry.name
+
+
+# ---------------------------------------------------------------------------
+# Install-hint extra mapping
+# ---------------------------------------------------------------------------
+
+
+def test_install_hint_extra_defaults_to_name() -> None:
+    """When extra_name is unset, install_hint_extra falls back to name."""
+    entry = PluginEntry("redis", "tripwire.plugins.redis_plugin", "RedisPlugin", "redis")
+    assert entry.install_hint_extra == "redis"
+
+
+def test_install_hint_extra_uses_override_when_set() -> None:
+    """When extra_name differs from name, install_hint_extra returns the override."""
+    entry = PluginEntry(
+        "mongo", "tripwire.plugins.mongo_plugin", "MongoPlugin", "pymongo",
+        extra_name="pymongo",
+    )
+    assert entry.install_hint_extra == "pymongo"
+
+
+def test_known_install_hint_overrides() -> None:
+    """The five plugins whose registry name differs from their PyPI extra
+    must declare extra_name so install hints stay copy-paste correct."""
+    by_name = {e.name: e for e in PLUGIN_REGISTRY}
+    expected = {
+        "mongo": "pymongo",
+        "ssh": "paramiko",
+        "memcache": "pymemcache",
+        "async_websocket": "websockets",
+        "sync_websocket": "websocket-client",
+    }
+    for plugin_name, extra in expected.items():
+        assert by_name[plugin_name].install_hint_extra == extra, (
+            f"plugin {plugin_name!r} should map to extra {extra!r}"
+        )
+
+
+def test_every_plugin_install_hint_resolves_to_real_extra() -> None:
+    """Every plugin's install_hint_extra must exist as a key in
+    pyproject.toml's [project.optional-dependencies], so the suggested
+    `pip install pytest-tripwire[<extra>]` command actually works.
+
+    Plugins with availability_check == "always" have no optional deps and
+    are skipped (the install hint code path never fires for them).
+    """
+    import sys
+    from pathlib import Path
+
+    if sys.version_info >= (3, 11):
+        import tomllib
+    else:
+        import tomli as tomllib
+
+    pyproject = Path(__file__).parents[2] / "pyproject.toml"
+    data = tomllib.loads(pyproject.read_text())
+    declared_extras = set(data["project"]["optional-dependencies"].keys())
+
+    for entry in PLUGIN_REGISTRY:
+        if entry.availability_check == "always":
+            continue
+        assert entry.install_hint_extra in declared_extras, (
+            f"plugin {entry.name!r} suggests `pip install "
+            f"pytest-tripwire[{entry.install_hint_extra}]` but no such extra "
+            f"exists in pyproject.toml. Available extras: {sorted(declared_extras)}"
+        )
