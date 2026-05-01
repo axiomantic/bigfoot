@@ -103,7 +103,7 @@ def test_activate_raises_when_pymongo_unavailable(monkeypatch: pytest.MonkeyPatc
     with pytest.raises(ImportError) as exc_info:
         p.activate()
     assert str(exc_info.value) == (
-        "Install pytest-tripwire[mongo] to use MongoPlugin: pip install pytest-tripwire[mongo]"
+        "Install pytest-tripwire[pymongo] to use MongoPlugin: pip install pytest-tripwire[pymongo]"
     )
 
 

@@ -732,8 +732,8 @@ class _SshProxy:
 
         if not _PARAMIKO_AVAILABLE:
             raise ImportError(
-                "pytest-tripwire[ssh] is required to use tripwire.ssh. "
-                "Install it with: pip install pytest-tripwire[ssh]"
+                "pytest-tripwire[paramiko] is required to use tripwire.ssh. "
+                "Install it with: pip install pytest-tripwire[paramiko]"
             )
         verifier = _get_test_verifier_or_raise()
         plugin = _get_or_create_plugin(verifier, _SshPlugin)
@@ -816,8 +816,8 @@ class _MongoProxy:
 
         if not _PYMONGO_AVAILABLE:
             raise ImportError(
-                "pytest-tripwire[mongo] is required to use tripwire.mongo. "
-                "Install it with: pip install pytest-tripwire[mongo]"
+                "pytest-tripwire[pymongo] is required to use tripwire.mongo. "
+                "Install it with: pip install pytest-tripwire[pymongo]"
             )
         verifier = _get_test_verifier_or_raise()
         plugin = _get_or_create_plugin(verifier, _MongoPlugin)
